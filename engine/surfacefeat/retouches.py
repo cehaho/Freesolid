@@ -112,24 +112,8 @@ class SurfaceRetouchMixin:
     def surface_fillet(self, surface, edges, radius):
         """Congé entre faces d'une surface : sur les arêtes partagées par
         deux faces (cousez d'abord deux surfaces séparées)."""
-        from engine.kernel import KernelError
-        import Part
         src = self._get_surface(surface)
-        shape = src.Shape
-        radius = float(radius)
-        if radius <= 0:
-            raise KernelError("le rayon doit être positif")
-        picked = []
-        for edge in edges or ():
-            edge = int(edge)
-            if edge < 0 or edge >= len(shape.Edges):
-                raise KernelError("arête inconnue : {}".format(edge))
-            if len(shape.ancestorsOfType(shape.Edges[edge], Part.Face)) != 2:
-                raise KernelError("le congé se pose sur une arête entre deux "
-                                  "faces — cousez d'abord les surfaces")
-            picked.append(edge)
-        if not picked:
-            raise KernelError("cliquez les arêtes à arrondir")
+        radius, picked = self._surface_fillet_plan(src, edges, radius)
 
         def configure(obj):
             obj.Base = src
@@ -137,6 +121,32 @@ class SurfaceRetouchMixin:
 
         return self._add_part_surface(
             "Part::Fillet", "Congé de surface", configure)
+
+    def _surface_fillet_plan(self, src, edges, radius):
+        """(rayon, arêtes) d'un congé sur ``src`` : des arêtes (base 0)
+        entre deux de ses faces."""
+        from engine.kernel import KernelError
+        import Part
+        shape = src.Shape
+        radius = float(radius)
+        if radius <= 0:
+            raise KernelError("le rayon doit être positif")
+        picked = []
+        for edge in edges or ():
+            try:
+                edge = int(edge)
+            except (TypeError, ValueError):
+                raise KernelError("arête inconnue : {}".format(edge))
+            if edge < 0 or edge >= len(shape.Edges):
+                raise KernelError("arête inconnue : {}".format(edge))
+            if len(shape.ancestorsOfType(shape.Edges[edge], Part.Face)) != 2:
+                raise KernelError("le congé se pose sur une arête entre deux "
+                                  "faces — cousez d'abord les surfaces")
+            if edge not in picked:
+                picked.append(edge)
+        if not picked:
+            raise KernelError("cliquez les arêtes à arrondir")
+        return radius, picked
 
     def edit_surface_fillet(self, surface, radius):
         """Rééditer le rayon d'un congé de surface."""

@@ -5217,3 +5217,109 @@ def p120_repetition_de_corps_rechoisit(self, mark, report, etat):
         and call("set_params", feature=polar.Name,
                  values={"mode": "extent"}).get("ok") is False
         and clean())
+
+
+def p121_surface_rechoisit_sa_source(self, mark, report, etat):
+    mark("p121: une surface re-choisit son contour, sa surface, ses bords")
+    import Part
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def edit(obj, **values):
+        return call("set_params", feature=obj.Name, values=values)
+
+    def rect(x, y, w, h):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x, y, w, h)
+        self.sketch_finish(name)
+        return name
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def spec(obj):
+        return next((s.get("surface") for s in self.get_tree()["surfaces"]
+                     if s["name"] == obj.Name), None) or {}
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    # Deux carrés (40 et 20) et un petit (10 × 10, ailleurs) ; une surface
+    # plane du grand, une du petit, puis un décalage, un épaississement et
+    # un prolongement d'un bord.
+    self.new_part("Sources de surfaces")
+    big, small, far = rect(0, 0, 40, 40), rect(0, 0, 20, 20), rect(60, 0, 10, 10)
+    plane = last(self.surface_planar(sketch=big))
+    other = last(self.surface_planar(sketch=far))
+    offset = last(self.surface_offset(plane.Name, 10))
+    thick = last(self.surface_thicken(other.Name, 2))
+    extended = last(self.surface_extend(plane.Name, 10, edge=0))
+    listed = (spec(plane) == {"kind": "planar", "sketch": big}
+              and spec(offset).get("source") == plane.Name
+              and spec(thick) == {"kind": "thicken", "distance": 2.0,
+                                  "source": other.Name})
+    contour = edit(plane, sketch=small)
+    later = edit(plane, sketch=rect(0, 0, 5, 5))
+    moved = edit(offset, source=other.Name)
+    report["p121_plane_decalee_epaissie"] = (
+        listed and contour.get("ok") is True
+        and abs(plane.Shape.Area - 400) < 1e-6
+        and later.get("ok") is False and "vient après" in later["error"]
+        and moved.get("ok") is True
+        and spec(offset).get("source") == other.Name
+        and abs(offset.Shape.Area - other.Shape.Area) < 1e-6
+        and edit(offset, source=offset.Name).get("ok") is False
+        and edit(offset, source=extended.Name).get("ok") is False
+        and edit(thick, source=plane.Name, distance=3).get("ok") is True
+        and abs(thick.Shape.Volume - 20 * 20 * 3) < 1e-6 and clean())
+
+    # Prolonger : tous les bords, puis un autre bord, puis l'autre carré.
+    everywhere = edit(extended, edge=None)
+    all_area = extended.Shape.Area
+    one = edit(extended, edge=1, distance=5)
+    one_area = extended.Shape.Area
+    one_edge = spec(extended).get("edge")
+    elsewhere = edit(extended, source=other.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": offset.Name, "values": {"distance": 20}})
+    report["p121_prolonger_rechoisit_son_bord"] = (
+        everywhere.get("ok") is True and abs(all_area - 40 * 40) < 1
+        and one.get("ok") is True and abs(one_area - 20 * 25) < 1
+        and one_edge == 1
+        and elsewhere.get("ok") is True
+        and spec(extended).get("source") == other.Name
+        and spec(extended).get("edge") is None
+        and edit(extended, edge=99).get("ok") is False
+        and shown.get("ok") is True and clean())
+
+    # Congé de surface : son rayon, puis les arêtes d'une autre équerre.
+    def corner(x):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_line(name, x, 0, x + 20, 0)
+        self.sketch_add_line(name, x + 20, 0, x + 20, 20)
+        self.sketch_finish(name)
+        return last(self.surface_extrude(10, sketch=name))
+
+    def shared(obj):
+        return [i for i, e in enumerate(obj.Shape.Edges)
+                if len(obj.Shape.ancestorsOfType(e, Part.Face)) == 2]
+
+    first, second = corner(0), corner(50)
+    fillet = last(self.surface_fillet(first.Name, shared(first), 3))
+    area3 = fillet.Shape.Area
+    wider = edit(fillet, radius=5)
+    bare = edit(fillet, source=second.Name)
+    moved = edit(fillet, source=second.Name, edges=shared(second))
+    lone = next(i for i in range(len(second.Shape.Edges))
+                if i not in shared(second))
+    report["p121_conge_rechoisit_ses_aretes"] = (
+        spec(fillet).get("edges") == shared(first)
+        and wider.get("ok") is True and fillet.Shape.Area < area3
+        and bare.get("ok") is False
+        and moved.get("ok") is True
+        and spec(fillet).get("source") == second.Name
+        and fillet.Shape.BoundBox.XMin > 49
+        and edit(fillet, edges=[lone]).get("ok") is False
+        and clean())

@@ -1068,6 +1068,9 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
                 # qu'elles deviennent.
                 return self._bodies_mesh(
                     list(self._body_pattern_copies(edited).values()))
+            if edited is not None and self._is_surface_obj(edited):
+                # Réédition d'une surface : elle-même, rééditée.
+                return self._bodies_mesh([edited])
             return self.tessellate()
         finally:
             self._previewing = False

@@ -57,6 +57,9 @@ export function surfaceEditor(item) {
   if (kind === "extend") return "extend";
   if (kind === "trim") return "trim";
   if (kind === "offset") return "offset";
+  // Surface plane, épaississement : ce qu'ils prennent se re-choisit.
+  if (kind === "planar") return "planar";
+  if (kind === "thicken") return "thicken";
   if (kind === "fillet") return "surface_fillet";
   if (kind === "freeform") return item.surface.moves ? "poles" : "freeform";
   if (kind === "flatten") return "flatten";

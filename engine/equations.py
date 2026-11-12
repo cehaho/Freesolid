@@ -72,6 +72,10 @@ class EquationsMixin:
         if getattr(obj, "FreeSolidVchamferspec", ""):
             # Un chanfrein de sommet : ses distances, et son coin.
             return self._set_vertex_chamfer_params(obj, dict(values))
+        if self._surface_pick_kind(obj) is not None:
+            # Surface plane, prolongement, congé de surface : ce qu'ils
+            # prennent (esquisse, surface, bord, arêtes) et leurs cotes.
+            return self._set_surface_params(obj, dict(values))
         # Les corps qu'un volume fond, ou qu'un enlèvement — ou une
         # répétition — creuse : pas une cote, ses objets cachés.
         # « Fusionner » d'un volume : après les cotes, qui décident s'il
@@ -102,6 +106,10 @@ class EquationsMixin:
         hosted = ({key: values.pop(key) for key in self._BODY_PATTERN_PICKS
                    if key in values}
                   if "FreeSolidBodyPattern" in obj.PropertiesList else {})
+        # La surface d'un décalage ou d'un épaississement.
+        source = (values.pop("source", None)
+                  if obj.TypeId == "Part::Offset"
+                  and self._is_surface_obj(obj) else None)
         if neutral is not None:
             neutral = parse_neutral_plane(neutral)
         values, asked = self._props_from_keys(obj, values)
@@ -145,6 +153,12 @@ class EquationsMixin:
             except Exception as exc:  # noqa: BLE001
                 self._restore_props(obj, previous)
                 raise KernelError(_explain(exc))
+        if source is not None:
+            try:
+                self._set_offset_source(obj, source, previous)
+            except KernelError:
+                self._restore_props(obj, previous)
+                raise
         if hosted:
             try:
                 self._set_body_pattern_picks(obj, hosted, values, previous)

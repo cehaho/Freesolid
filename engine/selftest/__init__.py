@@ -237,6 +237,7 @@ def _etapes():
         fonctions.p118_plan_d_esquisse_au_rang,
         fonctions.p119_repetition_rechoisit_au_rang,
         fonctions.p120_repetition_de_corps_rechoisit,
+        fonctions.p121_surface_rechoisit_sa_source,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

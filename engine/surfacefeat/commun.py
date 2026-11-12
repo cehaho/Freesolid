@@ -212,8 +212,13 @@ class SurfaceCommonMixin:
             return {"kind": "untrim"}
         if obj.TypeId == "Part::Fillet":
             edges = list(getattr(obj, "Edges", ()) or ())
+            base = getattr(obj, "Base", None)
             return {"kind": "fillet",
-                    "radius": float(edges[0][1]) if edges else 0.0}
+                    "radius": float(edges[0][1]) if edges else 0.0,
+                    # Ce que la réédition re-choisit : la surface, ses
+                    # arêtes (base 0, comme les arêtes de la vue).
+                    "source": base.Name if base is not None else None,
+                    "edges": [int(edge[0]) - 1 for edge in edges]}
         if obj.TypeId == "Surface::Extend":
             face = getattr(obj, "Face", None)
             return {"kind": "extend",
@@ -248,10 +253,20 @@ class SurfaceCommonMixin:
                     "face": int(getattr(obj, "FreeSolidFlatface", 0))}
             spec.update(self._flat_distortion(obj))
             return spec
-        if obj.TypeId == "Part::Offset" and not getattr(obj, "Fill", True):
+        if (obj.TypeId == "Part::Offset"
+                and not getattr(obj, "FreeSolidSurfaceTool", False)):
             value = getattr(obj, "Value", 0.0)
-            return {"kind": "offset",
-                    "distance": float(getattr(value, "Value", value))}
+            source = getattr(obj, "Source", None)
+            # Décalage (une peau) ou épaississement (un solide) : sa
+            # distance signée et sa surface.
+            return {"kind": "thicken" if getattr(obj, "Fill", False)
+                    else "offset",
+                    "distance": float(getattr(value, "Value", value)),
+                    "source": source.Name if source is not None else None}
+        if obj.TypeId == "Part::Face":
+            sources = list(getattr(obj, "Sources", None) or ())
+            return {"kind": "planar",
+                    "sketch": sources[0].Name if sources else None}
         if obj.TypeId == "Surface::Filling":
             return {"kind": "fill",
                     "edges": len(getattr(obj, "BoundaryEdges", ()) or ())}

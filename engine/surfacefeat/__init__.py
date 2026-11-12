@@ -15,7 +15,8 @@ Paquet de sous-mixins, un par famille ; ``SurfaceMixin`` les assemble :
 - ``solide.py`` : couper par une surface, ôter ou remplacer une face, médiane ;
 - ``formelibre.py`` : mise à plat, forme libre ;
 - ``couture.py`` : coudre, épaissir ;
-- ``courbe3d.py`` : courbe 3D par points, règles, ancrages.
+- ``courbe3d.py`` : courbe 3D par points, règles, ancrages ;
+- ``reedition.py`` : sources re-choisies (contour, surface, bord, arêtes).
 """
 
 from engine.surfacefeat.commun import SurfaceCommonMixin
@@ -28,6 +29,7 @@ from engine.surfacefeat.solide import SurfaceSolidMixin
 from engine.surfacefeat.formelibre import SurfaceFreeformMixin
 from engine.surfacefeat.couture import SurfaceSewMixin
 from engine.surfacefeat.courbe3d import Curve3dMixin
+from engine.surfacefeat.reedition import SurfaceReeditMixin
 
 
 class SurfaceMixin(
@@ -41,5 +43,6 @@ class SurfaceMixin(
         SurfaceFreeformMixin,
         SurfaceSewMixin,
         Curve3dMixin,
+        SurfaceReeditMixin,
 ):
     """Surfaces et courbes : l'assemblage des sous-mixins du paquet."""
