@@ -10,6 +10,7 @@ import {
   splitHistoryAroundBar,
 } from "./history.js";
 import { filterTreeLines } from "./treefilter.js";
+import { featureDrop } from "./treedrop.js";
 import { renameClickAction } from "./rename.js";
 import {
   chamferRows, chamferFieldValue, chamferEditValues, chamferProblem,
@@ -1034,46 +1035,117 @@ export function installTree(ctx) {
     event.preventDefault();
   }, true);
 
+  /** Glisser une fonction pour la réordonner : son fantôme suit le
+   *  pointeur, la ligne survolée de son corps passe en surbrillance et la
+   *  fonction se pose dessous au lâcher. Hors de l'arbre, ou après
+   *  Échap, le lâcher ne fait rien. */
   function bindFeatureDrag(row, feature) {
     row.addEventListener("pointerdown", (event) => {
       if (event.button !== 0 || panel.active || ctx.sketchMode.active) return;
       if (event.target.closest("input")) return;
       const start = { x: event.clientX, y: event.clientY };
       let dragging = false;
+      let cancelled = false;
+      let ghost = null;
+      let drop = null;
+      const stopShowing = () => {
+        ghost?.remove();
+        ghost = null;
+        markDropTarget(null);
+        row.classList.remove("dragging");
+        document.body.classList.remove("tree-dragging", "tree-no-drop");
+      };
       const onMove = (moveEvent) => {
+        if (cancelled) return;
         if (!dragging && Math.hypot(moveEvent.clientX - start.x,
                                     moveEvent.clientY - start.y) < 6) return;
-        dragging = true;
-        row.classList.add("dragging");
-        const slots = reorderSlotPositions(feature.body);
-        if (slots.length) showInsertMark(nearestRollbackSlot(moveEvent.clientY, slots));
+        if (!dragging) {
+          dragging = true;
+          row.classList.add("dragging");
+          document.body.classList.add("tree-dragging");
+          ghost = dragGhostOf(row);
+        }
+        ghost.style.left = `${moveEvent.clientX + 14}px`;
+        ghost.style.top = `${moveEvent.clientY + 6}px`;
+        drop = featureDropAt(row, feature, moveEvent.clientX, moveEvent.clientY);
+        markDropTarget(drop?.mark ?? null);
+        document.body.classList.toggle("tree-no-drop", !drop);
       };
-      const onUp = (upEvent) => {
+      const onKey = (keyEvent) => {
+        if (keyEvent.key !== "Escape" || !dragging || cancelled) return;
+        keyEvent.preventDefault();
+        keyEvent.stopPropagation();
+        cancelled = true;
+        drop = null;
+        stopShowing();
+      };
+      const onUp = () => {
         document.removeEventListener("pointermove", onMove);
         document.removeEventListener("pointerup", onUp);
-        hideInsertMark();
-        row.classList.remove("dragging");
+        document.removeEventListener("keydown", onKey, true);
+        stopShowing();
         if (!dragging) return;
         // Le clic qui suit le lâcher ne doit pas sélectionner ; s'il ne vient
         // pas (lâcher hors de la ligne), le drapeau retombe aussitôt.
         suppressTreeClick = true;
         setTimeout(() => { suppressTreeClick = false; }, 0);
-        const rows = historyRowsOf(feature.body);
-        const slots = reorderSlotPositions(feature.body);
-        if (!slots.length) return;
-        const slot = nearestRollbackSlot(upEvent.clientY, slots);
-        const own = rows.indexOf(row);
-        if (slot.index === own || slot.index === own + 1) return;
-        const params = slot.index < rows.length
-          ? { feature: feature.name, target: rows[slot.index].dataset.hist,
-              after: false }
-          : { feature: feature.name, target: rows[rows.length - 1].dataset.hist,
-              after: true };
-        refresh(call("reorder_feature", params));
+        if (drop?.params) refresh(call("reorder_feature", drop.params));
       };
       document.addEventListener("pointermove", onMove);
       document.addEventListener("pointerup", onUp);
+      document.addEventListener("keydown", onKey, true);
     });
+  }
+
+  /** Le fantôme de la ligne glissée : son icône et son nom, sans ce qui
+   *  la désigne (les recherches de lignes l'ignorent). Il reste dans
+   *  l'arbre pour en garder le style, en position fixe. */
+  function dragGhostOf(row) {
+    const ghost = row.cloneNode(true);
+    for (const key of Object.keys(ghost.dataset)) delete ghost.dataset[key];
+    ghost.className = "drag-ghost";
+    ghost.removeAttribute("title");
+    ghost.querySelector(".arrow")?.remove();
+    treeEl.appendChild(ghost);
+    return ghost;
+  }
+
+  /** Où se pose la fonction glissée (voir treedrop.js) : la ligne à mettre
+   *  en surbrillance et les paramètres de reorder_feature, null s'il n'y a
+   *  rien à faire. Hors de l'arbre : null. */
+  function featureDropAt(row, feature, x, y) {
+    const box = treeEl.getBoundingClientRect();
+    if (x < box.left || x > box.right || y < box.top || y > box.bottom) {
+      return null;
+    }
+    const rows = historyRowsOf(feature.body)
+      .filter((li) => li.getClientRects().length); // masquées par le filtre
+    if (!rows.length) return null;
+    const own = rows.indexOf(row);
+    const { hover, move } = featureDrop(
+      rows.map((li) => li.getBoundingClientRect().top), own, y);
+    const mark = hover === own ? null
+      : hover >= 0 ? rows[hover] : visibleRowAbove(rows[0]);
+    const params = move && { feature: feature.name,
+      target: rows[move.index].dataset.hist, after: move.after };
+    return { mark, params };
+  }
+
+  /** La ligne affichée juste au-dessus d'une ligne de l'arbre. */
+  function visibleRowAbove(li) {
+    let prev = li.previousElementSibling;
+    while (prev && (!prev.getClientRects().length
+                    || prev.classList.contains("insert-mark"))) {
+      prev = prev.previousElementSibling;
+    }
+    return prev;
+  }
+
+  function markDropTarget(li) {
+    for (const old of treeEl.querySelectorAll("li.drop-target")) {
+      if (old !== li) old.classList.remove("drop-target");
+    }
+    li?.classList.add("drop-target");
   }
 
   /** Positions de dépôt de la barre : chacune porte sa cible (data-slot),
@@ -1098,20 +1170,6 @@ export function installTree(ctx) {
   function historyRowsOf(body) {
     return [...treeEl.querySelectorAll("li[data-hist]")]
       .filter((li) => (li.dataset.body ?? "") === (body ?? ""));
-  }
-
-  /** Positions d'insertion du glisser-réordonner, par indice de ligne. */
-  function reorderSlotPositions(body) {
-    const rows = historyRowsOf(body);
-    if (!rows.length) return [];
-    const slots = [{ y: rows[0].getBoundingClientRect().top, index: 0 }];
-    for (let i = 0; i < rows.length; i++) {
-      slots.push({
-        y: rows[i].getBoundingClientRect().bottom,
-        index: i + 1,
-      });
-    }
-    return slots;
   }
 
   function nearestRollbackSlot(clientY, slots) {

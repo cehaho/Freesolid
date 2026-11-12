@@ -56,7 +56,7 @@ connaissance du logiciel et de l'aide officielle, reformulées.
 | 12 | Barre S (la spline quitte la touche S) | P2 | fait : boîte sous le curseur, recherche, spline au bouton |
 | 13 | Menu et barre contextuels dans la vue | P1 | fait pour le menu : clic droit sur face, arête, esquisse, surface ou vide, et en esquisse (app/viewmenu.js, testé) ; barre d'icônes contextuelle au clic gauche sur face, arête ou esquisse |
 | 14 | Barre tête haute : styles d'affichage, masquer/afficher, orientation | P2 | fait : ombré, filaire, lignes cachées, visibilité mémorisée |
-| 15 | Réordonner l'arbre par glisser-déposer | P2 | fait : glisser une fonction (avec ses esquisses) ; refus clair si elle passerait avant ce dont elle dépend ; l'arbre suit l'ordre du corps |
+| 15 | Réordonner l'arbre par glisser-déposer | P2 | fait : glisser une fonction (avec ses esquisses) ; son fantôme suit le pointeur, la ligne survolée passe en surbrillance et la fonction se pose dessous ; Échap ou un lâcher hors de l'arbre annule ; refus clair si elle passerait avant ce dont elle dépend ; l'arbre suit l'ordre du corps |
 | 16 | Arbre accessible pendant une commande | P2 | fait : volet repliable en haut à gauche de la vue, mêmes clics que l'arbre |
 | 17 | Barre de menus | P2 | fait : six menus, raccourcis, survol, Échap |
 | 18 | Chanfrein distance-angle | P2 | fait : distance égale, deux distances, distance et angle, inversion des côtés, réédition |
