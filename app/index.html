@@ -1217,8 +1217,22 @@
   #tree li.plane { color: var(--ink-2); }
   #tree li.plane.sel,
   #tree li.sel { color: var(--accent); background: var(--panel-2); }
-  /* Fonction en cours de déplacement dans l'arbre. */
+  /* Fonction en cours de déplacement dans l'arbre : sa ligne s'efface,
+     son fantôme suit le pointeur, la ligne survolée (elle se posera
+     dessous) passe en surbrillance. */
   #tree li.dragging { opacity: 0.5; }
+  #tree li.drag-ghost {
+    position: fixed; z-index: 50; pointer-events: none;
+    padding: 2px var(--space-2) 2px var(--space-1);
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: var(--radius-s);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    opacity: 0.85;
+  }
+  #tree li.drop-target,
+  #tree li.drop-target:hover { color: var(--accent); background: var(--accent-wash); }
+  body.tree-dragging, body.tree-dragging * { cursor: grabbing !important; }
+  body.tree-no-drop, body.tree-no-drop * { cursor: no-drop !important; }
   /* Esquisse en cours d'édition : repérée dans l'arbre. */
   #tree li.editing { color: var(--accent); font-style: italic; }
   #tree li.child { padding-left: 40px; }
