@@ -65,6 +65,10 @@ class EquationsMixin:
         if "FreeSolidTextString" in obj.PropertiesList:
             # Un texte : ses mots de création, et sa face d'appui.
             return self._set_text_params(obj, dict(values))
+        if (obj.TypeId == "Sketcher::SketchObject" and values
+                and set(values) <= {"plane", "datum", "face"}):
+            # Une esquisse : son plan, re-choisi à son rang.
+            return self._set_sketch_plane_params(obj, dict(values))
         if getattr(obj, "FreeSolidVchamferspec", ""):
             # Un chanfrein de sommet : ses distances, et son coin.
             return self._set_vertex_chamfer_params(obj, dict(values))

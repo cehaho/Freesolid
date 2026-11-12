@@ -1279,7 +1279,7 @@ const {
   cancelPendingSurfaceClick, onSurfaceClick, onSurfaceDblClick,
   clearSurfaceSelection, selectSketch, onPlaneRow,
   beginInlineRename, treeRowFor, beginRenameSelected,
-  renderTree, editSurface, editFeature,
+  renderTree, editSurface, editFeature, editSketchPlane,
   moveBar, stepBar, barToPrevious, barCommands, isAfterBar, handleBarKey,
   setFlatTree, isFlatTree,
 } = installTree(ctx);
@@ -1312,7 +1312,7 @@ expose("sketchMode", () => sketchMode);
 Object.assign(ctx, {
   call, refresh, refreshAny, refreshAssembly,
   hexColor, sceneTheme, confirm,
-  onSketchRowDblClick, editSurface, editFeature,
+  onSketchRowDblClick, editSurface, editFeature, editSketchPlane,
   treeRowFor, beginInlineRename,
   findFeatureInTree,
   frameView, openOrientBox, toggleOrigin, viewNormalTo,

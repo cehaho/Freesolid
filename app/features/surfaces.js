@@ -125,29 +125,44 @@ export const SURFACES = [
     button: "btn-surf-extrude",
     op: "surface_extrude",
     icon: "surface_extrude", title: "Surface extrudée",
-    groups: [{ label: "Paramètres", rows: [
-      { type: "number", key: "length", label: "Longueur", value: 20,
-        unit: "mm" },
-    ] }],
-    note: "Utilise la dernière esquisse — le profil peut être OUVERT.",
+    // L'esquisse choisie dans l'arbre, sinon la dernière libre.
+    groups: (ctx) => [
+      { label: "Profil", rows: [sketchRow(ctx, "profile",
+        "Cliquez l'esquisse du profil — ouvert ou fermé")] },
+      { label: "Paramètres", rows: [
+        { type: "number", key: "length", label: "Longueur", value: 20,
+          unit: "mm" },
+      ] },
+    ],
+    note: "Le profil peut être ouvert.",
     build: (v) => {
       const length = num(v.length);
-      return length ? { op: "surface_extrude", params: { length } } : null;
+      return length && v.profile
+        ? { op: "surface_extrude",
+            params: { length, sketch: v.profile.name } } : null;
     },
+    invalid: "Surface extrudée : une esquisse et une longueur",
   }),
   surface({
     button: "btn-surf-revolve",
     op: "surface_revolve",
     icon: "surface_revolve", title: "Surface de révolution",
-    groups: [{ label: "Paramètres", rows: [
-      { type: "number", key: "angle", label: "Angle", value: 360,
-        unit: "°", min: 0.01 },
-    ] }],
-    note: "Autour de l'axe vertical de la dernière esquisse.",
+    groups: (ctx) => [
+      { label: "Profil", rows: [sketchRow(ctx, "profile",
+        "Cliquez l'esquisse du profil — ouvert ou fermé")] },
+      { label: "Paramètres", rows: [
+        { type: "number", key: "angle", label: "Angle", value: 360,
+          unit: "°", min: 0.01 },
+      ] },
+    ],
+    note: "Autour de l'axe vertical de son esquisse.",
     build: (v) => {
       const angle = num(v.angle);
-      return angle ? { op: "surface_revolve", params: { angle } } : null;
+      return angle && v.profile
+        ? { op: "surface_revolve",
+            params: { angle, sketch: v.profile.name } } : null;
     },
+    invalid: "Surface de révolution : une esquisse et un angle",
   }),
   surface({
     button: "btn-surf-loft",

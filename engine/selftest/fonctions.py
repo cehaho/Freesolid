@@ -4891,3 +4891,83 @@ def p117_chanfrein_de_sommet_rechoisit_son_coin(self, mark, report, etat):
         all(r.get("ok") is False for r in refused)
         and (entry(self.get_tree(), cham.Name).get("vertex_chamfer") or {})
         .get("point") == [10, 10, 10] and clean())
+
+
+def p118_plan_d_esquisse_au_rang(self, mark, report, etat):
+    mark("p118: le plan d'une esquisse se re-choisit au rang")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def support(tree, name):
+        def walk(items):
+            for item in items:
+                if item.get("name") == name:
+                    return item
+                found = walk(item.get("children") or ())
+                if found:
+                    return found
+            return None
+        return (walk(tree.get("features", ())) or {}).get("support")
+
+    def face_at(shape, axis, value):
+        return next(i for i, f in enumerate(shape.Faces)
+                    if abs((f.CenterOfMass.x, f.CenterOfMass.y,
+                            f.CenterOfMass.z)[axis] - value) < 1e-6)
+
+    # Un bossage posé sur le dessus d'un pavé, puis une extrusion
+    # par-dessus : son esquisse passe sur un flanc du pavé (une face de la
+    # pièce à son rang), puis sur le plan XZ ; annuler la ramène.
+    self.new_part("Plan d'esquisse au rang")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    top = face_at(pad.Shape, 2, 10)
+    side = face_at(pad.Shape, 0, 20)
+    first = next(o for o in body.Group
+                 if o.TypeId == "Sketcher::SketchObject")
+    self.add_rect_sketch(10, 10, face=top)
+    sketch = [o for o in body.Group
+              if o.TypeId == "Sketcher::SketchObject"][-1]
+    self.add_pad(5)
+    boss = body.Tip
+    self.add_rect_sketch(4, 4)
+    self.add_pad(30)
+    listed = support(self.get_tree(), sketch.Name)
+    ranked = call("rank_view", feature=sketch.Name)
+    at_rank = ranked.get("ok") is True and body.Tip is pad
+    shown = call("preview", op="set_params", params={
+        "feature": sketch.Name, "values": {"face": side}})
+    previewed = shown.get("ok") is True and self._rank_view is not None
+    flank = call("set_params", feature=sketch.Name, values={"face": side})
+    on_flank = (flank.get("ok") is True and self._rank_view is None
+                and support(flank["result"], sketch.Name) == {"face": side}
+                and abs(boss.Shape.BoundBox.XMax - 25) < 1e-6 and clean())
+    upright = call("set_params", feature=sketch.Name, values={"plane": "XZ"})
+    on_plane = (upright.get("ok") is True
+                and support(upright["result"], sketch.Name)
+                == {"plane": "XZ"} and clean())
+    call("undo")
+    call("undo")
+    report["p118_plan_d_esquisse_au_rang"] = (
+        listed == {"face": top} and at_rank and previewed and on_flank
+        and on_plane and support(self.get_tree(), sketch.Name)
+        == {"face": top} and support(self.get_tree(), first.Name)
+        == {"plane": "XY"} and clean())
+
+    # Refus : une face inconnue, deux plans à la fois, un plan inconnu, la
+    # face d'une pièce vide au rang de la première esquisse.
+    refused = [call("set_params", feature=sketch.Name, values=values)
+               for values in ({"face": 999}, {"plane": "XY", "face": 1},
+                              {"plane": "AB"}, {"datum": "Inconnu"})]
+    empty = call("set_params", feature=first.Name, values={"face": 0})
+    report["p118_plan_d_esquisse_refus"] = (
+        all(r.get("ok") is False for r in refused)
+        and empty.get("ok") is False
+        and support(self.get_tree(), sketch.Name) == {"face": top}
+        and clean())
