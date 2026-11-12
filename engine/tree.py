@@ -1332,8 +1332,10 @@ class TreeMixin:
             if vchamfer:
                 from engine.vertexchamfer import parse_spec
                 vertex, distances = parse_spec(vchamfer)
-                item["vertex_chamfer"] = {"vertex": vertex,
-                                          "distances": distances}
+                item["vertex_chamfer"] = {
+                    "vertex": vertex, "distances": distances,
+                    # Son coin, sur la pièce à son rang.
+                    "point": self._vertex_chamfer_point(obj)}
             deleted = getattr(obj, "FreeSolidDeletefaces", "")
             if deleted:
                 item["delete_face"] = {"faces": [

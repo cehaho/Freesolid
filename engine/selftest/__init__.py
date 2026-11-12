@@ -233,6 +233,7 @@ def _etapes():
         fonctions.p114_coque_depouille_rechoisissent,
         fonctions.p115_percage_rechoisit_ses_positions,
         fonctions.p116_texte_rechoisit_sa_face,
+        fonctions.p117_chanfrein_de_sommet_rechoisit_son_coin,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

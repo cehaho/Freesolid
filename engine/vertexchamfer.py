@@ -137,27 +137,72 @@ class VertexChamferMixin:
         return self._commit_frozen(tip, result, stamps, "Chanfrein de sommet",
                                    {"vchamferspec": spec})
 
-    def edit_vertex_chamfer(self, feature, distances):
-        """Nouvelles distances d'un chanfrein de sommet."""
+    def _vertex_chamfer_frozen(self, owner):
+        """La forme figée d'un chanfrein de sommet (elle porte le sommet,
+        les distances et le nom de la fonction d'avant)."""
         from engine.kernel import KernelError
-        problem = check_distances(distances)
-        if problem:
-            raise KernelError(problem)
+        for obj in getattr(owner, "Group", None) or ():
+            base = getattr(obj, "BaseFeature", None)
+            if getattr(base, "FreeSolidVchamferbase", ""):
+                return base
+        raise KernelError("chanfrein incomplet — la forme est absente")
+
+    def _vertex_chamfer_point(self, owner):
+        """Le coin d'un chanfrein de sommet, sur la pièce à son rang :
+        [x, y, z], ou None s'il n'y est plus."""
+        try:
+            frozen = self._vertex_chamfer_frozen(owner)
+        except Exception:  # noqa: BLE001
+            return None
+        vertex, _ = parse_spec(frozen.FreeSolidVchamfer)
+        source = self._require_doc().getObject(frozen.FreeSolidVchamferbase)
+        shape = getattr(source, "Shape", None)
+        if shape is None or not 0 <= vertex < len(shape.Vertexes):
+            return None
+        point = shape.Vertexes[vertex].Point
+        return [round(point.x, 9), round(point.y, 9), round(point.z, 9)]
+
+    def _set_vertex_chamfer_params(self, owner, values):
+        """``set_params`` d'un chanfrein de sommet : ``distances``, et le
+        coin re-choisi sur la pièce à son rang (``point``, aimanté au
+        sommet le plus proche)."""
+        from engine.kernel import KernelError
+        for key in values:
+            if key not in ("distances", "point"):
+                raise KernelError(
+                    "propriété non éditable : {}".format(key))
+        point = values.get("point")
+        if "point" in values and (
+                not isinstance(point, (list, tuple)) or len(point) != 3):
+            raise KernelError("cliquez un coin de la pièce")
+        return self.edit_vertex_chamfer(
+            owner.Name, values.get("distances"), point=point)
+
+    def edit_vertex_chamfer(self, feature, distances=None, point=None):
+        """Nouvelles distances d'un chanfrein de sommet, et son coin
+        (``point`` : le clic sur la pièce à son rang, aimanté au sommet le
+        plus proche)."""
+        from engine.kernel import KernelError
         doc = self._require_doc()
         owner = doc.getObject(str(feature))
         if owner is None or not getattr(owner, "FreeSolidVchamferspec", ""):
             raise KernelError("chanfrein de sommet inconnu : {}".format(
                 feature))
-        frozen = None
-        for obj in getattr(owner, "Group", None) or ():
-            base = getattr(obj, "BaseFeature", None)
-            if getattr(base, "FreeSolidVchamferbase", ""):
-                frozen = base
-        if frozen is None:
-            raise KernelError("chanfrein incomplet — la forme est absente")
-        vertex, _ = parse_spec(frozen.FreeSolidVchamfer)
-        spec = format_spec(vertex, distances)
+        frozen = self._vertex_chamfer_frozen(owner)
+        vertex, current = parse_spec(frozen.FreeSolidVchamfer)
+        if distances is None:
+            distances = current
+        problem = check_distances(distances)
+        if problem:
+            raise KernelError(problem)
         source = doc.getObject(frozen.FreeSolidVchamferbase)
+        if point is not None:
+            try:
+                coords = [float(c) for c in point]
+            except (TypeError, ValueError):
+                raise KernelError("cliquez un coin de la pièce")
+            vertex = self._nearest_vertex(source.Shape, coords)
+        spec = format_spec(vertex, distances)
         frozen.Shape = self._vertex_chamfered(source.Shape, spec)
         frozen.FreeSolidVchamfer = spec
         owner.FreeSolidVchamferspec = spec

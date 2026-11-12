@@ -4830,3 +4830,64 @@ def p116_texte_rechoisit_sa_face(self, mark, report, etat):
         all(r.get("ok") is False for r in refused)
         and (entry(self.get_tree(), text.Name).get("text") or {})
         .get("face") == top and clean())
+
+
+def p117_chanfrein_de_sommet_rechoisit_son_coin(self, mark, report, etat):
+    mark("p117: un chanfrein de sommet re-choisit son coin au rang")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def entry(tree, name):
+        return next((f for f in tree.get("features", ())
+                     if f.get("name") == name), {})
+
+    # Coin (10, 10, 10) d'un pavé, puis une extrusion par-dessus : le
+    # chanfrein passe au coin opposé du dessus, trois distances ; annuler
+    # le ramène.
+    self.new_part("Chanfrein de sommet réédité")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    self.add_vertex_chamfer([2], point=[10, 10, 10])
+    cham = body.Tip
+    self.add_rect_sketch(4, 4)
+    self.add_pad(15)
+    volume = body.Shape.Volume
+    listed = entry(self.get_tree(), cham.Name).get("vertex_chamfer") or {}
+    call("rank_view", feature=cham.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": cham.Name, "values": {"point": [-10, -10, 10.3]}})
+    at_rank = (shown.get("ok") is True and self._rank_view is not None
+               and body.Tip is pad)
+    done = call("set_params", feature=cham.Name, values={
+        "point": [-10, -10, 10.3], "distances": [1, 2, 3]})
+    after = (entry(done.get("result") or {}, cham.Name)
+             .get("vertex_chamfer") or {})
+    # 2·2·2/6 retiré avant, 1·2·3/6 après.
+    moved = (done.get("ok") is True and self._rank_view is None
+             and after.get("point") == [-10, -10, 10]
+             and after.get("distances") == [1, 2, 3]
+             and abs(body.Shape.Volume - volume - (8 - 6) / 6) < 1e-6
+             and clean())
+    call("undo")
+    back = entry(self.get_tree(), cham.Name).get("vertex_chamfer") or {}
+    report["p117_chanfrein_de_sommet_rechoisit_son_coin"] = (
+        listed.get("point") == [10, 10, 10] and at_rank and moved
+        and back.get("point") == [10, 10, 10]
+        and back.get("distances") == [2, 2, 2] and clean())
+
+    # Refus : un clic loin d'un coin, une clé qui n'est pas la sienne, des
+    # distances fausses ; la fonction reste telle quelle.
+    refused = [call("set_params", feature=cham.Name, values=values)
+               for values in ({"point": [0, 0, 5]}, {"vertex": 3},
+                              {"distances": [50]}, {"distances": [1, 2]})]
+    report["p117_chanfrein_de_sommet_refus"] = (
+        all(r.get("ok") is False for r in refused)
+        and (entry(self.get_tree(), cham.Name).get("vertex_chamfer") or {})
+        .get("point") == [10, 10, 10] and clean())

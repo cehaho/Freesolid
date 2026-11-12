@@ -193,6 +193,43 @@ export function vertexChamferDistances(v) {
   return values.every((d) => d > 0) ? values : null;
 }
 
+/** Zone du coin d'un chanfrein de sommet, à la création comme à la
+ *  réédition (`value` : son coin). */
+export function vertexChamferRow(value = null) {
+  return { type: "selection", key: "pos", accepts: ["vertex"],
+           hint: "Cliquez près d'un coin de la pièce",
+           ...(value ? { value } : {}) };
+}
+
+/** Zone du coin d'un chanfrein de sommet réédité (`point` de l'arbre :
+ *  le sommet sur la pièce à son rang). */
+export function vertexChamferPick(point) {
+  if (!Array.isArray(point) || point.length !== 3) return null;
+  const [x, y, z] = point;
+  return { kind: "vertex", x, y, z };
+}
+
+/** Le coin re-choisi : `{}` si c'est le même, `{ point }` sinon, null si
+ *  la zone est vide. */
+export function vertexChamferPointValues(sel, point) {
+  if (sel?.kind !== "vertex") return null;
+  const at = [sel.x, sel.y, sel.z];
+  const same = Array.isArray(point)
+    && at.every((c, i) => Math.abs(c - point[i]) < 1e-6);
+  return same ? {} : { point: at };
+}
+
+/** Distances d'un chanfrein de sommet réédité : `{}` si elles n'ont pas
+ *  changé, `{ distances }` sinon, null si l'une est fausse. */
+export function vertexChamferEditValues(v, chamfer) {
+  const distances = vertexChamferDistances(v);
+  if (!distances) return null;
+  const before = chamfer?.distances ?? [];
+  const same = [0, 1, 2].every((i) => Math.abs(
+    distances[distances.length === 1 ? 0 : i] - before[i]) < 1e-9);
+  return same ? {} : { distances };
+}
+
 /** Params `add_chamfer`, ou null si les champs visibles sont invalides. */
 export function chamferCreationParams(v) {
   const kind = v.kind || "egale";
@@ -321,9 +358,7 @@ export const HABILLAGE = [
     op: "add_vertex_chamfer",
     icon: "vertex_chamfer", title: "Chanfrein de sommet",
     groups: () => [
-      { label: "Sommet",
-        rows: [{ type: "selection", key: "pos", accepts: ["vertex"],
-                 hint: "Cliquez près d'un coin de la pièce" }] },
+      { label: "Sommet", rows: [vertexChamferRow()] },
       { label: "Distances", rows: vertexChamferRows() },
     ],
     build: (v) => {
