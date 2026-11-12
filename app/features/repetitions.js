@@ -287,16 +287,41 @@ export function patternFeaturesPick(pattern, tree) {
     (name) => ({ kind: "feature", name, label: featureLabel(tree, name) })) };
 }
 
+/** Mêmes noms, dans n'importe quel ordre ? */
+function sameNames(names, before) {
+  const known = new Set(before ?? []);
+  return names.length === known.size && names.every((n) => known.has(n));
+}
+
 /** Les fonctions re-choisies : `{}` si ce sont les mêmes (dans n'importe
  *  quel ordre), `{ features }` sinon, null si la zone est vide. */
 export function patternFeaturesValues(sel, pattern) {
   const names = [...new Set((sel?.items ?? []).map((item) => item.name))];
   if (!names.length) return null;
-  const before = new Set(pattern?.features ?? []);
-  const same = names.length === before.size
-    && names.every((name) => before.has(name));
-  return same ? {} : { features: names };
+  return sameNames(names, pattern?.features) ? {} : { features: names };
 }
+
+/** Les corps d'une répétition de corps rééditée : sa zone « Corps à
+ *  répéter », sous leur nom du dossier. */
+export function patternSourcesPick(pattern, tree) {
+  const bodies = tree?.bodies ?? [];
+  return bodyZoneValue((pattern?.sources ?? []).map((name) => ({
+    name, label: bodies.find((body) => body.name === name)?.label ?? name,
+  })));
+}
+
+/** Les corps re-choisis : `{}` si ce sont les mêmes, `{ sources }` sinon,
+ *  null si la zone est vide. */
+export function patternSourcesValues(sel, pattern) {
+  const names = zoneNames(sel);
+  if (!names.length) return null;
+  return sameNames(names, pattern?.sources) ? {} : { sources: names };
+}
+
+/** Le panneau d'une répétition de corps est celui de son genre. */
+export const BODY_PATTERN_TYPES = {
+  linear: "linear_pattern", polar: "polar_pattern", mirror: "mirror",
+};
 
 /** Sa direction n'est ni un axe d'origine ni une arête de la pièce à son
  *  rang : la zone vide la garde telle quelle. */

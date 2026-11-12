@@ -97,6 +97,11 @@ class EquationsMixin:
         pattern = ({key: values.pop(key) for key in self._PATTERN_PICKS
                     if key in values}
                    if self._is_feature_pattern(obj) else {})
+        # Ce qu'une répétition de corps re-choisit : ses corps (clé
+        # ``sources``), sa direction, son plan, sa deuxième direction.
+        hosted = ({key: values.pop(key) for key in self._BODY_PATTERN_PICKS
+                   if key in values}
+                  if "FreeSolidBodyPattern" in obj.PropertiesList else {})
         if neutral is not None:
             neutral = parse_neutral_plane(neutral)
         values, asked = self._props_from_keys(obj, values)
@@ -134,6 +139,15 @@ class EquationsMixin:
         if pattern:
             try:
                 self._set_pattern_picks(obj, pattern, values, previous)
+            except KernelError:
+                self._restore_props(obj, previous)
+                raise
+            except Exception as exc:  # noqa: BLE001
+                self._restore_props(obj, previous)
+                raise KernelError(_explain(exc))
+        if hosted:
+            try:
+                self._set_body_pattern_picks(obj, hosted, values, previous)
             except KernelError:
                 self._restore_props(obj, previous)
                 raise

@@ -656,6 +656,7 @@
  "choisissez la face ou le plan où coller": "choose the face or plane to paste on",
  "indiquez la distance de la direction 2": "give the distance of direction 2",
  "{} vient après la répétition": "{} comes after the pattern",
+ "{} est une copie de {}": "{} is a copy of {}",
  "{} : booléen attendu": "{}: boolean expected",
  "réseau non réduit : cela toucherait {}": "pattern not reduced: it would affect {}",
  "Réduire « {} » supprime {} copie(s) ; cela touche aussi {}. Continuer ?": "Reducing « {} » removes {} copy(ies); this also affects {}. Continue?",
