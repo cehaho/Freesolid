@@ -29,6 +29,43 @@ export function holePositions(sel) {
   return { face, points: items.map((i) => [i.x, i.y, i.z]) };
 }
 
+/** Deux positions d'un perçage se confondent quand le clic tombe dans
+ *  le trou : même face, à moins d'un rayon du centre. */
+export function holeSamePosition(a, b, values) {
+  if (a.face !== b.face) return false;
+  const radius = Math.max((num(values?.diameter) || 0) / 2, 0.5);
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) <= radius;
+}
+
+/** Zone des positions d'un perçage, à la création comme à la réédition :
+ *  un clic pose un centre, un clic dans un trou le retire, un clic sur
+ *  une autre face repart de cette face. */
+export function holePositionsRow(value) {
+  return { type: "selection", key: "pos", accepts: ["point"],
+           multiple: true, oneFace: true, same: holeSamePosition,
+           hint: "Cliquez les centres des trous sur une face",
+           ...(value ? { value } : {}) };
+}
+
+/** Zone des positions d'un perçage qu'on réédite (`positions` de
+ *  l'arbre : sa face et ses centres), comme les clics de la création. */
+export function holePositionsPick(positions) {
+  return { kind: "point", items: (positions?.points ?? []).map(
+    ([x, y, z]) => ({ kind: "point", face: positions.face, x, y, z })) };
+}
+
+/** Valeurs `set_params` des positions : `{}` si elles n'ont pas changé,
+ *  `{ positions }` sinon, null si la zone est vide ou mêle des faces. */
+export function holePositionValues(sel, before) {
+  const chosen = holePositions(sel);
+  if (!chosen || chosen.error) return null;
+  const close = (a, b) => a.every((c, i) => Math.abs(c - b[i]) < 1e-6);
+  const same = chosen.face === before?.face
+    && chosen.points.length === (before?.points ?? []).length
+    && chosen.points.every((p) => before.points.some((q) => close(p, q)));
+  return same ? {} : { positions: chosen };
+}
+
 /** Libellé d'un contour : son numéro et sa taille. */
 export function contourLabel(index, size) {
   const [w, h] = size ?? [0, 0];
@@ -894,10 +931,7 @@ export const VOLUMES = [
     icon: "hole",
     title: "Perçage",
     groups: (ctx) => [
-      { label: "Positions",
-        rows: [{ type: "selection", key: "pos", accepts: ["point"],
-                 multiple: true,
-                 hint: "Cliquez les centres des trous sur une face" }] },
+      { label: "Positions", rows: [holePositionsRow()] },
       ...holeGroups(),
       ...cutGroups(ctx?.lastTree?.bodies),
     ],

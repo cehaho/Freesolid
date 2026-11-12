@@ -4683,3 +4683,83 @@ def p114_coque_depouille_rechoisissent(self, mark, report, etat):
         and self._draft_neutral_token(draft) == "XY"
         and unknown.get("ok") is False and foreign.get("ok") is False
         and clean())
+
+
+def p115_percage_rechoisit_ses_positions(self, mark, report, etat):
+    mark("p115: un perçage re-choisit sa face et ses positions au rang")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def entry(tree, name):
+        return next((f for f in tree.get("features", ())
+                     if f.get("name") == name), {})
+
+    def face_at(shape, axis, value):
+        return next(i for i, f in enumerate(shape.Faces)
+                    if abs((f.CenterOfMass.x, f.CenterOfMass.y,
+                            f.CenterOfMass.z)[axis] - value) < 1e-6)
+
+    # Deux trous sur le dessus, puis une extrusion par-dessus : on passe à
+    # trois trous, puis à un trou sur un flanc ; annuler revient en arrière.
+    self.new_part("Perçage réédité")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    top = face_at(pad.Shape, 2, 10)
+    side = face_at(pad.Shape, 0, 20)
+    self.add_hole(4, through=True, face=top,
+                  points=[[5, 5, 10], [-5, -5, 10]])
+    hole = body.Tip
+    self.add_rect_sketch(6, 6)
+    self.add_pad(20)
+    listed = entry(self.get_tree(), hole.Name).get("positions") or {}
+    volume = body.Shape.Volume
+    call("rank_view", feature=hole.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": hole.Name,
+        "values": {"positions": {"face": top, "points": [[10, 10, 10]]}}})
+    at_rank = (shown.get("ok") is True and self._rank_view is not None
+               and body.Tip is pad)
+    three = [[10, 10, 10], [-10, 10, 10], [0, -10, 10]]
+    done = call("set_params", feature=hole.Name, values={
+        "positions": {"face": top, "points": three}})
+    after = entry(done.get("result") or {}, hole.Name).get("positions") or {}
+    more = (done.get("ok") is True and self._rank_view is None
+            and after.get("face") == top
+            and sorted(after.get("points") or ()) == sorted(three)
+            and body.Shape.Volume < volume - 1e-6 and clean())
+    flank = call("set_params", feature=hole.Name, values={
+        "positions": {"face": side, "points": [[20, 0, 5]]}})
+    moved = (flank.get("ok") is True
+             and (entry(flank["result"], hole.Name).get("positions") or {})
+             == {"face": side, "points": [[20, 0, 5]]} and clean())
+    call("undo")
+    back = entry(self.get_tree(), hole.Name).get("positions") or {}
+    report["p115_percage_rechoisit_ses_positions"] = (
+        listed.get("face") == top
+        and sorted(listed.get("points") or ())
+        == [[-5, -5, 10], [5, 5, 10]]
+        and at_rank and more and moved
+        and back.get("face") == top and len(back.get("points") or ()) == 3
+        and clean())
+
+    # Refus : aucune position, une face inconnue, des positions sur une
+    # fonction qui n'est pas un perçage posé par clics.
+    empty = call("set_params", feature=hole.Name, values={
+        "positions": {"face": top, "points": []}})
+    unknown = call("set_params", feature=hole.Name, values={
+        "positions": {"face": 999, "points": [[0, 0, 10]]}})
+    foreign = call("set_params", feature=pad.Name, values={
+        "positions": {"face": top, "points": [[0, 0, 10]]}})
+    report["p115_percage_positions_refusees"] = (
+        empty.get("ok") is False and unknown.get("ok") is False
+        and foreign.get("ok") is False
+        and len((entry(self.get_tree(), hole.Name).get("positions") or {})
+                .get("points") or ()) == 3
+        and clean())

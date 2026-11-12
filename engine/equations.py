@@ -78,6 +78,10 @@ class EquationsMixin:
         targets = self._picked_subs(obj, picks) if picks else None
         draft = obj.TypeId == "PartDesign::Draft"
         neutral = values.pop("neutral", None) if draft else None
+        # Positions d'un perçage (face et centres), re-choisies au rang :
+        # son esquisse se réécrit, avant les cotes.
+        positions = (values.pop("positions", None)
+                     if obj.TypeId == "PartDesign::Hole" else None)
         if neutral is not None:
             neutral = parse_neutral_plane(neutral)
         values, asked = self._props_from_keys(obj, values)
@@ -102,6 +106,8 @@ class EquationsMixin:
             except Exception as exc:  # noqa: BLE001
                 self._restore_props(obj, previous)
                 raise KernelError(_explain(exc))
+        if positions is not None:
+            self._set_hole_positions(obj, positions)
         if draft and (targets is not None or neutral is not None):
             # Le plan neutre se repose sur la face (peut-être nouvelle) :
             # une face parallèle de la base, autre que celle qu'on dépouille.

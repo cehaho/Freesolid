@@ -156,6 +156,20 @@ export function zonePick(row, kind, value) {
            label: value.bodyLabel ?? value.label };
 }
 
+/** Les choix d'une zone multiple après un clic : un choix qu'elle tient
+ *  déjà en sort, sinon il entre. Des positions se confondent selon
+ *  `row.same(a, b, values)` (le clic dans un trou) ; une zone `oneFace`
+ *  repart de la face cliquée quand celle-ci change. */
+export function zoneToggle(row, items, pick, values) {
+  const same = row.same ?? samePick;
+  const at = items.findIndex((item) => same(item, pick, values));
+  if (at >= 0) return items.filter((_, i) => i !== at);
+  if (row.oneFace && items.some((item) => item.face !== pick.face)) {
+    return [pick];
+  }
+  return [...items, pick];
+}
+
 /** Les choix d'une zone multiple après l'ajout de `values` (le cadre de
  *  la vue) : ceux qu'elle refuse (`allows`) ou tient déjà n'y entrent pas,
  *  rien n'en sort. */
@@ -337,10 +351,8 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
     if (multiRow) {
       const pick = zonePick(multiRow, kind, value);
       const current = active.values[multiRow.key] ?? { kind, items: [] };
-      const at = current.items.findIndex((i) => samePick(i, pick));
-      if (at >= 0) current.items.splice(at, 1);
-      else current.items.push(pick);
-      active.values[multiRow.key] = { ...current };
+      active.values[multiRow.key] = { ...current, items: zoneToggle(
+        multiRow, current.items, pick, active.values) };
       active.focus = multiRow.key;
     } else {
       // Première zone vide, sinon la dernière est remplacée — le

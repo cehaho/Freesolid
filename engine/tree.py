@@ -1307,6 +1307,11 @@ class TreeMixin:
                 hole = self._hole_state(obj)
                 if hole is not None:
                     item["hole"] = hole
+                positions = self._hole_positions(obj)
+                if positions is not None:
+                    # Posé par « face, clics » : la réédition re-choisit
+                    # la face et les centres sur la pièce à son rang.
+                    item["positions"] = positions
             if obj.TypeId in ("PartDesign::Pad", "PartDesign::Pocket",
                               "PartDesign::Revolution", "PartDesign::Groove"):
                 profile = self._profile_entry(obj)

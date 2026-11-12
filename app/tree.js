@@ -16,6 +16,8 @@ import {
   chamferRows, chamferFieldValue, chamferEditValues, chamferProblem,
   draftEditGroups, draftEditValues, dressupPick, dressupPickValues,
   filletEditRows, filletEditValues, shellFacesPick, shellFacesValues,
+  holePositionValues, holePositions, holePositionsPick,
+  holePositionsRow,
   revolutionGroups, revolutionEditValues, revolutionProblem,
   extrudeEditInitial, extrudeEditProblem, extrudeEditValues, extrudeGroups,
   bodyChoiceGroups, bodyChoiceValues, extrudeMergeProblem,
@@ -2024,31 +2026,6 @@ export function installTree(ctx) {
     });
   }
 
-  /** Panneau de réédition qui renvoie ses changements par set_params :
-   *  `build(v)` les donne (null si invalide), `problem` dit pourquoi. */
-  function editWithValues(feature, groups, build, problem) {
-    panel.open({
-      icon: TREE_ICONS[feature.type_key] ?? "body",
-      title: feature.label,
-      groups,
-      onChange: (v, how) => {
-        const values = build(v);
-        schedulePreview(values
-          ? { op: "set_params",
-              params: { feature: feature.name, values } }
-          : null, how);
-      },
-      onApply: (v) => {
-        const values = build(v);
-        if (values === null) {
-          say(problem, true);
-          return;
-        }
-        applyEdit(feature, v, values);
-      },
-    });
-  }
-
   function editChamfer(feature) {
     const spec = feature.chamfer;
     return editAtRank(feature, {
@@ -2116,6 +2093,28 @@ export function installTree(ctx) {
     });
   }
 
+  /** Perçage : ses positions (posé par « face, clics »), son type, ses
+   *  cotes, sa condition de fin et les corps qu'il creuse. */
+  function editHole(feature) {
+    const tree = ctx.lastTree;
+    const positions = feature.positions;
+    return editAtRank(feature, {
+      icon: "hole",
+      zone: positions ? {
+        label: "Positions",
+        row: holePositionsRow(holePositionsPick(positions)),
+        changed: (v) => holePositionValues(v.pos, positions),
+        missing: (v) => holePositions(v.pos)?.error
+          ?? "Cliquez les centres des trous sur une face",
+      } : null,
+      groups: [...holeGroups(holeEditInitial(feature)),
+               ...bodyChoiceGroups(feature, tree)],
+      values: (v) => withBodyChoices(holeEditValues(v, feature), v, feature,
+                                     tree),
+      problem: () => "Valeurs du perçage invalides",
+    });
+  }
+
   /** Zone d'un congé ou d'un chanfrein : ses arêtes, ou sa face. */
   function dressupZone(feature, label) {
     const value = dressupPick(feature.dressup);
@@ -2155,7 +2154,8 @@ export function installTree(ctx) {
       return chosen === null ? null : { ...own, ...chosen };
     };
     const missing = (v) => (pick && pick.changed(v) === null
-      ? pick.missing : problem(v));
+      ? (typeof pick.missing === "function" ? pick.missing(v) : pick.missing)
+      : problem(v));
     let applied = false;
     panel.open({
       icon,
@@ -2165,12 +2165,12 @@ export function installTree(ctx) {
         ...groups,
       ],
       hint: (v) => (build(v) ? null : missing(v)),
-      onChange: (v) => {
+      onChange: (v, how) => {
         const changed = build(v);
         schedulePreview(changed
           ? { op: "set_params",
               params: { feature: feature.name, values: changed } }
-          : null);
+          : null, how);
       },
       // Fermé sans réédition : la barre revient (voir editRemoveBodies).
       onClose: () => setTimeout(() => {
@@ -2422,11 +2422,7 @@ export function installTree(ctx) {
     // Coque : épaisseur et sens ; perçage : type, cotes, condition de fin.
     shell: (feature) => editShell(feature),
     draft: (feature) => editDraft(feature),
-    hole: (feature) => editWithValues(feature,
-      [...holeGroups(holeEditInitial(feature)),
-       ...bodyChoiceGroups(feature, ctx.lastTree)],
-      (v) => withBodyChoices(holeEditValues(v, feature), v, feature, ctx.lastTree),
-      "Valeurs du perçage invalides"),
+    hole: (feature) => editHole(feature),
     remove_bodies: (feature) => editRemoveBodies(feature),
     params: editParams,
   };
