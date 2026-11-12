@@ -5457,3 +5457,60 @@ def p122_outil_rechoisi(self, mark, report, etat):
         and "vient après" in (edit(projected, sketch=later).get("error")
                               or "")
         and clean())
+
+
+def p123_ajuster_rechoisit(self, mark, report, etat):
+    mark("p123: un ajustement re-choisit son outil et sa partie gardée")
+    import FreeCAD as App
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def square(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return last(self.surface_planar(sketch=name))
+
+    def wall(x):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_line(name, x, -10, x, 100)
+        self.sketch_finish(name)
+        self._doc.getObject(name).AttachmentOffset = App.Placement(
+            App.Vector(0, 0, -10), App.Rotation())
+        self._recompute()
+        return last(self.surface_extrude(20, sketch=name))
+
+    def span(obj):
+        box = obj.Shape.BoundBox
+        return (round(box.XMin, 3), round(box.XMax, 3), round(box.YMin, 3))
+
+    # Deux carrés de 40 (y de 0 à 40, et de 50 à 90), coupés par des murs
+    # à x = 10 et x = 30.
+    self.new_part("Ajuster re-choisi")
+    floor, other = square(0, 0, 40, 40), square(0, 50, 40, 90)
+    near, far = wall(10), wall(30)
+    trim = last(self.surface_trim(floor.Name, near.Name, point=[5, 20, 0]))
+    listed = next(s for s in self.get_tree()["surfaces"]
+                  if s["name"] == trim.Name)["surface"]
+    tool = edit(trim, tool=far.Name)
+    same_side = span(trim)
+    side = edit(trim, point=[35, 20, 0])
+    other_side = span(trim)
+    moved = edit(trim, source=other.Name, point=[5, 70, 0])
+    report["p123_ajuster_rechoisit_outil_et_partie"] = (
+        listed.get("tool") == near.Name and listed.get("point") is not None
+        and tool.get("ok") is True and same_side == (0, 30, 0)
+        and side.get("ok") is True and other_side == (30, 40, 0)
+        and moved.get("ok") is True and span(trim) == (0, 30, 50)
+        and edit(trim, tool=other.Name).get("ok") is False
+        and span(trim) == (0, 30, 50)
+        and clean())

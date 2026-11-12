@@ -239,6 +239,7 @@ def _etapes():
         fonctions.p120_repetition_de_corps_rechoisit,
         fonctions.p121_surface_rechoisit_sa_source,
         fonctions.p122_outil_rechoisi,
+        fonctions.p123_ajuster_rechoisit,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

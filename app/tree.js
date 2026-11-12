@@ -33,7 +33,7 @@ import {
   filletEdgesValues,
   intersectionEditValues, ownSketchPick, planarEditValues,
   projectEditValues, projectTargetPick, signedEditValues, sourceEditValues,
-  surfacePick,
+  surfacePick, trimEditValues, trimKeepPick,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -2068,21 +2068,28 @@ export function installTree(ctx) {
       { icon: "surface_radiate", side: t("Vers l'intérieur") });
   }
 
-  // Ajustement : garder l'autre partie (la partie écartée n'est plus
-  // visible, on ne peut pas la cliquer).
+  // Ajustement : son outil, la surface ajustée et la partie gardée (un
+  // clic dessus), comme à la création, sur la pièce à son rang.
   function editTrim(surface) {
-    panel.open({
+    const spec = surface.surface;
+    return editAtRank(surface, {
       icon: "surface_trim",
-      title: surface.label,
-      groups: [{
-        label: t("Partie à garder"),
-        rows: [{ type: "check", key: "other",
-                 label: t("Garder l'autre partie"), value: true }],
-      }],
-      onApply: (v) => {
-        if (!v.other) return;
-        refresh(call("edit_surface_trim", { surface: surface.name }));
+      zone: {
+        label: "Outil de coupe",
+        row: { type: "selection", key: "tool", accepts: ["surface"],
+               hint: "Cliquez la surface qui coupe",
+               value: surfacePick(ctx.lastTree, spec.tool) },
+        changed: (v) => trimEditValues(v, spec),
+        missing: "Ajuster : l'outil, puis la partie à garder d'une autre "
+          + "surface",
       },
+      groups: [{ label: "Partie à garder", rows: [
+        { type: "selection", key: "keep", accepts: ["surfpoint"],
+          hint: "Puis cliquez, sur la surface à ajuster, la partie à garder",
+          value: trimKeepPick(ctx.lastTree, spec) }] }],
+      values: () => ({}),
+      problem: () => "Ajuster : l'outil, puis la partie à garder d'une "
+        + "autre surface",
     });
   }
 

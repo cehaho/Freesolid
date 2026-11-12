@@ -230,10 +230,14 @@ class SurfaceCommonMixin:
             return {"kind": obj.FreeSolidKind}
         if getattr(obj, "FreeSolidKind", "") == "trim":
             base = getattr(obj, "Base", None)
+            point = self._trim_point(obj)
             return {"kind": "trim",
                     "source": base.Base.Name if base is not None else None,
                     "tool": (base.Tools[0].Name
-                             if base is not None and base.Tools else None)}
+                             if base is not None and base.Tools else None),
+                    # Un point de la partie gardée : la zone le montre.
+                    "point": ([round(v, 6) for v in point]
+                              if point is not None else None)}
         if getattr(obj, "FreeSolidCapedges", ""):
             return {"kind": "fill", "cap": True}
         if getattr(obj, "FreeSolidFreemoves", ""):

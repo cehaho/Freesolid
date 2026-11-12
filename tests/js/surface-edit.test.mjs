@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  cutOptionValues, intersectionEditValues, projectEditValues,
+  trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
@@ -194,4 +194,36 @@ describe("courbe projetée rééditée", () => {
   function pick(name) {
     return { kind: "surface", name };
   }
+});
+
+describe("ajustement réédité", () => {
+  const spec = { kind: "trim", source: "Surface", tool: "Surface001",
+                 point: [5, 20, 0] };
+  const keep = (name, x) => ({ kind: "surfpoint", name, x, y: 20, z: 0 });
+  const tool = (name) => ({ kind: "surface", name });
+
+  it("revient sur la partie gardée", () => {
+    assert.deepEqual(trimKeepPick(tree, spec), {
+      kind: "surfpoint", name: "Surface", label: "Plane", x: 5, y: 20, z: 0 });
+  });
+
+  it("n'envoie que l'outil, la surface ou le point qui changent", () => {
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface", 5) }, spec), {});
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface002"), keep: keep("Surface", 5) }, spec),
+    { tool: "Surface002" });
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface", 35) }, spec),
+    { point: [35, 20, 0] });
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface003", 5) }, spec),
+    { source: "Surface003" });
+  });
+
+  it("refuse une partie gardée sur l'outil, ou sans outil", () => {
+    assert.equal(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface001", 5) }, spec), null);
+    assert.equal(trimEditValues({ keep: keep("Surface", 5) }, spec), null);
+  });
 });

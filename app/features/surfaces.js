@@ -156,6 +156,30 @@ export function projectEditValues(v, spec) {
   return out;
 }
 
+/** La partie qu'un ajustement garde, comme la zone la montre. */
+export function trimKeepPick(tree, spec) {
+  if (!spec?.source || !spec.point) return null;
+  const [x, y, z] = spec.point;
+  return { ...surfacePick(tree, spec.source), kind: "surfpoint", x, y, z };
+}
+
+/** Ajustement réédité : l'outil, la surface ajustée et le point de la
+ *  partie gardée, s'ils changent ; null si l'outil ou la partie manque. */
+export function trimEditValues(v, spec) {
+  if (!v.tool?.name || !v.keep?.name || v.keep.name === v.tool.name) {
+    return null;
+  }
+  const out = {};
+  if (v.tool.name !== spec.tool) out.tool = v.tool.name;
+  if (v.keep.name !== spec.source) out.source = v.keep.name;
+  const point = [v.keep.x, v.keep.y, v.keep.z];
+  const before = spec.point ?? [];
+  if (point.some((c, i) => !(Math.abs(c - before[i]) <= 1e-6))) {
+    out.point = point;
+  }
+  return out;
+}
+
 /** Coupe par surface rééditée : le côté et la bande, seulement ce qui
  *  change ; `thickness: null` la repasse à tout un côté. */
 export function cutOptionValues(v, spec) {

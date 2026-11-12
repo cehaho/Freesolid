@@ -121,6 +121,8 @@ export {
   surfaceCutParams,
   surfaceFilletParams,
   surfacePick,
+  trimEditValues,
+  trimKeepPick,
   trimParams,
 } from "./features/surfaces.js";
 

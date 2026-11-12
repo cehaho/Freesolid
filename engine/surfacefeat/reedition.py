@@ -1,7 +1,8 @@
 """Réédition de ce qu'une surface prend : l'esquisse du contour d'une
 surface plane, la surface d'un décalage ou d'un épaississement, le bord
 d'un prolongement, les arêtes d'un congé, les deux formes d'une courbe
-d'intersection, l'esquisse et la face d'une courbe projetée.
+d'intersection, l'esquisse et la face d'une courbe projetée, l'outil et
+la partie gardée d'un ajustement.
 
 Mixin de ``Kernel``. Pas d'import FreeCAD au niveau du module.
 """
@@ -17,6 +18,7 @@ class SurfaceReeditMixin:
         "fillet": ("source", "edges", "radius"),
         "intersection": ("first", "second", "body"),
         "project": ("sketch", "surface", "face"),
+        "trim": ("source", "tool", "point"),
     }
 
     def _surface_pick_kind(self, obj):
@@ -36,6 +38,8 @@ class SurfaceReeditMixin:
             return "intersection"
         if obj.TypeId == "Part::ProjectOnSurface":
             return "project"
+        if getattr(obj, "FreeSolidKind", "") == "trim":
+            return "trim"
         return None
 
     def _refuse_later_source(self, obj, source):
@@ -79,6 +83,8 @@ class SurfaceReeditMixin:
                 self._set_surface_fillet_params(obj, values)
             elif kind == "intersection":
                 self._set_intersection_params(obj, values)
+            elif kind == "trim":
+                self._set_trim_params(obj, values)
             else:
                 self._set_projection_params(obj, values)
             self._recompute()
@@ -87,8 +93,8 @@ class SurfaceReeditMixin:
                                   if kind == "intersection" else
                                   "la projection ne touche pas la face")
         except Exception as exc:  # noqa: BLE001
-            for prop, value in saved:
-                setattr(obj, prop, value)
+            for owner, prop, value in saved:
+                setattr(owner, prop, value)
             try:
                 self._recompute()
             except KernelError:
@@ -101,7 +107,12 @@ class SurfaceReeditMixin:
 
     @staticmethod
     def _surface_saved(obj, kind):
-        """Ce qu'il faut remettre sur refus."""
+        """Ce qu'il faut remettre sur refus : (objet, propriété, valeur)."""
+        if kind == "trim":
+            slicer = obj.Base
+            return [(slicer, "Base", slicer.Base),
+                    (slicer, "Tools", list(slicer.Tools)),
+                    (obj, "items", obj.items)]
         props = {
             "planar": ("Sources",),
             "extend": ("Face", "ExtendUNeg", "ExtendUPos", "ExtendVNeg",
@@ -110,7 +121,7 @@ class SurfaceReeditMixin:
             "intersection": ("Base", "Tool"),
             "project": ("SupportFace", "Projection", "Direction"),
         }[kind]
-        return [(prop, getattr(obj, prop)) for prop in props
+        return [(obj, prop, getattr(obj, prop)) for prop in props
                 if prop in obj.PropertiesList]
 
     def _set_extend_params(self, obj, values):
@@ -203,3 +214,39 @@ class SurfaceReeditMixin:
         obj.SupportFace = (src, ["Face%d" % (face + 1)])
         obj.Projection = [sketch]
         obj.Direction = normal * -1
+
+    def _set_trim_params(self, obj, values):
+        """Ajustement : la surface ajustée (``source``), l'outil
+        (``tool``), la partie gardée, la plus proche de ``point``. Sans
+        point, la partie gardée reste du même côté : la plus proche de
+        celle d'avant."""
+        from engine.kernel import KernelError
+        slicer = obj.Base
+        src, knife = slicer.Base, slicer.Tools[0]
+        if "source" in values:
+            src = self._picked_surface(obj, values["source"])
+        if "tool" in values:
+            knife = self._picked_surface(obj, values["tool"])
+        if src is knife:
+            raise KernelError("la surface et l'outil doivent être "
+                              "différents")
+        point = values.get("point") or self._trim_point(obj)
+        pieces = self._trim_pieces(src.Shape, knife.Shape)
+        if len(pieces) < 2:
+            raise KernelError("l'outil ne coupe pas la surface")
+        slicer.Base = src
+        slicer.Tools = [knife]
+        obj.items = str(self._nearest_piece(pieces, point))
+
+    @staticmethod
+    def _trim_point(obj):
+        """Un point de la partie qu'un ajustement garde : celui de sa
+        première face le plus proche de son centre (sur la face, même
+        creuse ou en L)."""
+        import Part
+        faces = obj.Shape.Faces
+        if not faces:
+            return None
+        center = Part.Vertex(faces[0].CenterOfMass)
+        point = faces[0].distToShape(center)[1][0][0]
+        return [point.x, point.y, point.z]
