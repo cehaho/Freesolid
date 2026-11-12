@@ -84,8 +84,12 @@ export {
   linearSecondDirection,
   patternDirectionParams,
   patternDirectionRows,
+  patternEditGroups,
+  patternEditValues,
   patternFeaturesGroup,
   patternFeaturesParams,
+  patternFeaturesPick,
+  patternFeaturesValues,
 } from "./features/repetitions.js";
 export {
   REMOVE_BODIES_NOTE, removalCandidates, removalItem, removalMatch,

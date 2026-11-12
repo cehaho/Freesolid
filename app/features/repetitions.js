@@ -149,6 +149,14 @@ export function linearSecondDirection(v) {
   return { axis2: v.axis2 || "Y", length2, count2, reversed2: !!v.reversed2 };
 }
 
+/** Ce que compte la distance d'un réseau linéaire : le pas entre deux
+ *  occurrences, ou la longueur totale. */
+function patternModeRow(value) {
+  return { type: "select", key: "mode", value,
+           options: [["spacing", "Pas entre occurrences"],
+                     ["extent", "Longueur totale"]] };
+}
+
 export function patternDirectionParams(v) {
   const params = { reversed: !!v.reversed };
   const edge = v.edge?.edges?.[0];
@@ -168,9 +176,7 @@ export const REPETITIONS = [
         label: "Direction 1",
         rows: [
           ...patternDirectionRows("X"),
-          { type: "select", key: "mode", value: "spacing",
-            options: [["spacing", "Pas entre occurrences"],
-                      ["extent", "Longueur totale"]] },
+          patternModeRow("spacing"),
           { type: "number", key: "length", label: "Distance",
             value: 20, unit: "mm", min: 0.01 },
           { type: "number", key: "count", label: "Nombre d'occurrences",
@@ -256,3 +262,148 @@ export const REPETITIONS = [
     refresh: "part",
   },
 ];
+
+// ---------- réédition d'une répétition de fonctions ----------
+// Le panneau de la création, rempli de ce qu'elle est (`pattern` de
+// l'arbre) ; la pièce se montre à son rang. Seul ce qui change part au
+// moteur (set_params).
+
+/** Libellé d'une fonction de l'arbre, sinon son nom. */
+function featureLabel(tree, name) {
+  const find = (items) => {
+    for (const item of items ?? []) {
+      if (item.name === name) return item.label;
+      const inner = find(item.children);
+      if (inner) return inner;
+    }
+    return null;
+  };
+  return find(tree?.features) ?? name;
+}
+
+/** La zone des fonctions répétées, remplie de celles de la répétition. */
+export function patternFeaturesPick(pattern, tree) {
+  return { kind: "feature", items: (pattern?.features ?? []).map(
+    (name) => ({ kind: "feature", name, label: featureLabel(tree, name) })) };
+}
+
+/** Les fonctions re-choisies : `{}` si ce sont les mêmes (dans n'importe
+ *  quel ordre), `{ features }` sinon, null si la zone est vide. */
+export function patternFeaturesValues(sel, pattern) {
+  const names = [...new Set((sel?.items ?? []).map((item) => item.name))];
+  if (!names.length) return null;
+  const before = new Set(pattern?.features ?? []);
+  const same = names.length === before.size
+    && names.every((name) => before.has(name));
+  return same ? {} : { features: names };
+}
+
+/** Sa direction n'est ni un axe d'origine ni une arête de la pièce à son
+ *  rang : la zone vide la garde telle quelle. */
+const lostDirection = (pattern) => !pattern?.axis
+  && !Number.isInteger(pattern?.edge);
+
+/** Rangées de la direction d'une répétition rééditée : axe d'origine ou
+ *  arête (remplie de la sienne), et son sens. */
+function directionEditRows(pattern) {
+  const rows = patternDirectionRows(pattern?.axis ?? "X");
+  const edge = pattern?.edge;
+  return rows.map((row) => {
+    if (row.key === "dirKind") {
+      // Une arête qui n'est plus sur la pièce : « Arête », zone vide.
+      return { ...row,
+               value: Number.isInteger(edge) || lostDirection(pattern)
+                 ? "edge" : "axis" };
+    }
+    if (row.key === "edge" && Number.isInteger(edge)) {
+      return { ...row, value: { kind: "edges", edges: [edge] } };
+    }
+    if (row.key === "reversed") return { ...row, value: !!pattern?.reversed };
+    return row;
+  });
+}
+
+/** Groupes d'une répétition rééditée, autour de ses cotes (`dims`, les
+ *  rangées de get_params) : direction et sens, plan d'une symétrie ;
+ *  pas ou longueur totale et deuxième direction d'un réseau linéaire. */
+export function patternEditGroups(pattern, typeKey, dims = []) {
+  if (typeKey === "mirror") {
+    return [{ label: "Plan de symétrie", rows: [
+      { type: "select", key: "plane", value: pattern?.plane ?? "YZ",
+        options: [["YZ", "Plan de droite"], ["XZ", "Plan de face"],
+                  ["XY", "Plan de dessus"]] },
+    ] }, ...(dims.length ? [{ label: "Paramètres", rows: dims }] : [])];
+  }
+  const polar = typeKey === "polar_pattern";
+  const linear = typeKey === "linear_pattern";
+  const groups = [{ label: polar ? "Axe" : "Direction 1", rows: [
+    ...directionEditRows(pattern),
+    ...(linear ? [patternModeRow(pattern?.mode ?? "extent")] : []),
+    ...dims] }];
+  if (linear) {
+    const two = !!pattern?.dir2;
+    groups.push({ label: "Direction 2", rows: [
+      { type: "check", key: "dir2", label: "Deuxième direction",
+        value: two },
+      { type: "select", key: "axis2", value: pattern?.axis2 ?? "Y",
+        options: [["X", "Axe X"], ["Y", "Axe Y"], ["Z", "Axe Z"]],
+        showIf: (v) => v.dir2 },
+      { type: "check", key: "reversed2", label: "Inverser la direction",
+        value: !!pattern?.reversed2, showIf: (v) => v.dir2 },
+      { type: "number", key: "length2", label: "Distance",
+        value: pattern?.length2 ?? 20, unit: "mm", min: 0.01,
+        showIf: (v) => v.dir2 },
+      { type: "number", key: "count2", label: "Nombre d'occurrences",
+        value: pattern?.count2 ?? 2, min: 2, step: 1,
+        showIf: (v) => v.dir2 },
+    ] });
+  }
+  return groups;
+}
+
+/** Ce qui change dans la direction, le plan et la deuxième direction :
+ *  un objet de `set_params` ; null si une arête manque ou si la deuxième
+ *  direction est incomplète. */
+export function patternEditValues(v, pattern, typeKey) {
+  if (typeKey === "mirror") {
+    return v.plane && v.plane !== (pattern?.plane ?? "YZ")
+      ? { plane: v.plane } : {};
+  }
+  const values = {};
+  if (v.dirKind === "edge") {
+    const edge = v.edge?.edges?.[0];
+    if (!Number.isInteger(edge)) {
+      if (!lostDirection(pattern)) return null;
+    } else if (edge !== pattern?.edge) values.edge = edge;
+  } else if (v.axis !== pattern?.axis || Number.isInteger(pattern?.edge)) {
+    values.axis = v.axis;
+  }
+  if (!!v.reversed !== !!pattern?.reversed) values.reversed = !!v.reversed;
+  if (typeKey !== "linear_pattern") return values;
+  if (v.mode && v.mode !== (pattern?.mode ?? "extent")) {
+    // La distance change de sens avec le mode : elle part avec lui,
+    // telle qu'elle est écrite.
+    values.mode = v.mode;
+    const length = String(v.length ?? "").trim();
+    if (length) values.length = length;
+  }
+  const two = !!pattern?.dir2;
+  if (!v.dir2) {
+    if (two) values.dir2 = false;
+    return values;
+  }
+  const length2 = num(v.length2);
+  const count2 = parseInt(v.count2, 10);
+  if (!(length2 > 0) || !(count2 >= 2)) return null;
+  if (!two) {
+    return { ...values, dir2: true, axis2: v.axis2 || "Y",
+             reversed2: !!v.reversed2, length2, count2 };
+  }
+  // Une deuxième direction posée sur une arête la garde tant que l'axe
+  // de la liste ne change pas.
+  if ((v.axis2 || "Y") !== (pattern.axis2 ?? "Y")) values.axis2 = v.axis2 || "Y";
+  if (!!v.reversed2 !== !!pattern.reversed2) values.reversed2 = !!v.reversed2;
+  if (Math.abs(length2 - pattern.length2) > 1e-9) values.length2 = length2;
+  if (count2 !== pattern.count2) values.count2 = count2;
+  return values;
+}

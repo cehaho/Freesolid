@@ -1394,9 +1394,10 @@ class SolidsMixin:
                               "un bossage ou un enlèvement de matière")
         return features[-1]
 
-    def _pattern_catalog(self):
-        """Catalogue {nom: {in_body, is_addsub, label}} du document."""
-        body = self._require_body()
+    def _pattern_catalog(self, body=None):
+        """Catalogue {nom: {in_body, is_addsub, label}} du document ;
+        ``in_body`` : dans ``body`` (le corps actif par défaut)."""
+        body = body or self._require_body()
         doc = self._require_doc()
         in_body = {o.Name for o in body.Group}
         catalog = {}
@@ -1576,6 +1577,233 @@ class SolidsMixin:
             feature.Occurrences = occurrences
         return self._transform("PartDesign::PolarPattern", configure,
                                features=features, scope=scope)
+
+    #: Répétitions de fonctions qui se rééditent au rang.
+    _PATTERN_KINDS = ("PartDesign::LinearPattern", "PartDesign::PolarPattern",
+                      "PartDesign::Mirrored")
+    #: Clés de ``set_params`` qu'une répétition re-choisit (``count2``,
+    #: soit ``Occurrences2``, en plus, à l'activation de la direction 2).
+    _PATTERN_PICKS = ("features", "axis", "edge", "reversed", "plane",
+                      "mode", "dir2", "axis2", "edge2", "reversed2",
+                      "length2")
+
+    #: Ce que compte la « Distance » d'un réseau linéaire, dans les mots
+    #: de la création : le pas entre deux occurrences, ou la longueur
+    #: totale.
+    _PATTERN_MODES = {"spacing": "Spacing", "extent": "Extent"}
+
+    @staticmethod
+    def _counts_in_pitch(obj):
+        """Réseau linéaire en mode « pas » : FreeCAD y ignore ``Length``
+        (qu'il recalcule), la distance est ``Offset``."""
+        return (getattr(obj, "TypeId", "") == "PartDesign::LinearPattern"
+                and str(getattr(obj, "Mode", "")) == "Spacing")
+
+    def _is_feature_pattern(self, obj):
+        return (getattr(obj, "TypeId", "") in self._PATTERN_KINDS
+                and "FreeSolidBodyPattern" not in obj.PropertiesList)
+
+    def _element_at_rank(self, base, target, sub):
+        """Numéro sur ``base`` (la pièce au rang) d'une face ou d'une
+        arête ``sub`` (« Face3 », « Edge2 ») de ``target`` : le même, si
+        ``target`` est la base ; sinon celui de l'élément identique. None
+        s'il n'y est plus."""
+        name = str(sub)
+        kind = "Face" if name.startswith("Face") else (
+            "Edge" if name.startswith("Edge") else "")
+        if not kind or not name[len(kind):].isdigit() or base is None:
+            return None
+        index = int(name[len(kind):]) - 1
+        if target is base:
+            return index
+        try:
+            element = getattr(target.Shape, kind + "s")[index]
+            return next((i for i, other in enumerate(
+                getattr(base.Shape, kind + "s")) if other.isSame(element)),
+                None)
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _pattern_link_state(self, link, base):
+        """Direction ou axe d'une répétition : ``{"axis": "X", "edge":
+        None}`` pour un axe d'origine, ``{"axis": None, "edge": n}`` pour
+        une arête de la pièce à son rang (None si elle n'y est plus)."""
+        axes = {role: axis for axis, role in self._AXIS_ROLES.items()}
+        try:
+            target, subs = link
+        except (TypeError, ValueError):
+            return {"axis": None, "edge": None}
+        role = axes.get(getattr(target, "Role", ""))
+        if role:
+            return {"axis": role, "edge": None}
+        subs = list(subs) if isinstance(subs, (list, tuple)) else [subs]
+        return {"axis": None, "edge": self._element_at_rank(
+            base, target, subs[0] if subs else "")}
+
+    def _pattern_state(self, obj):
+        """Ce qu'une répétition de fonctions re-choisit, dans les mots de
+        sa création : ses fonctions, sa direction (axe ou arête de la
+        pièce à son rang) et son sens ; le plan d'une symétrie ; la
+        deuxième direction d'un réseau linéaire."""
+        if not self._is_feature_pattern(obj):
+            return None
+        base = getattr(obj, "BaseFeature", None)
+        state = {"features": [o.Name for o in obj.Originals or ()]}
+        if obj.TypeId == "PartDesign::Mirrored":
+            planes = {role: plane for plane, role in self._PLANE_ROLES.items()}
+            target = (obj.MirrorPlane or (None,))[0]
+            state["plane"] = planes.get(getattr(target, "Role", ""))
+            return state
+        linear = obj.TypeId == "PartDesign::LinearPattern"
+        state.update(self._pattern_link_state(
+            obj.Direction if linear else obj.Axis, base))
+        state["reversed"] = bool(obj.Reversed)
+        if linear:
+            state["mode"] = ("spacing" if self._counts_in_pitch(obj)
+                             else "extent")
+            count2 = int(getattr(obj, "Occurrences2", 1) or 1)
+            state["dir2"] = count2 > 1
+            if count2 > 1:
+                second = self._pattern_link_state(obj.Direction2, base)
+                pitch2 = float(getattr(obj, "FreeSolidPitch2", 0) or 0)
+                state.update({
+                    "axis2": second["axis"], "edge2": second["edge"],
+                    "reversed2": bool(obj.Reversed2), "count2": count2,
+                    "length2": pitch2 or float(obj.Length2)})
+        return state
+
+    def _pattern_link_at(self, obj, axis, edge):
+        """Direction re-choisie au rang : une arête droite de la pièce à
+        son rang (sa base), sinon un axe d'origine."""
+        from engine.kernel import KernelError
+        if edge is not None:
+            base = getattr(obj, "BaseFeature", None)
+            edges = base.Shape.Edges if base is not None else []
+            if type(edge) is not int or not 0 <= edge < len(edges):
+                raise KernelError("arête inconnue : {}".format(edge))
+            return (base, ["Edge{}".format(edge + 1)])
+        return (self._origin_axis(axis, obj.getParentGeoFeatureGroup()),
+                [""])
+
+    def _set_pattern_picks(self, obj, picks, values, previous):
+        """Ce qu'une répétition re-choisit (``_PATTERN_PICKS``) ; chaque
+        propriété changée entre dans ``previous``, pour le refus."""
+        from engine.kernel import KernelError, resolve_pattern_originals
+
+        def put(prop, value):
+            previous.append((prop, None, getattr(obj, prop, None)))
+            setattr(obj, prop, value)
+
+        def flag(key):
+            value = picks[key]
+            if not isinstance(value, bool):
+                raise KernelError("{} : booléen attendu".format(key))
+            return value
+
+        if "features" in picks:
+            body = obj.getParentGeoFeatureGroup()
+            doc = self._require_doc()
+            names = resolve_pattern_originals(
+                picks["features"], self._pattern_catalog(body))
+            group = list(body.Group)
+            for name in names:
+                original = doc.getObject(name)
+                if group.index(original) > group.index(obj):
+                    raise KernelError(
+                        "{} vient après la répétition".format(original.Label))
+            put("Originals", [doc.getObject(name) for name in names])
+        mirror = obj.TypeId == "PartDesign::Mirrored"
+        if "plane" in picks:
+            if not mirror:
+                raise KernelError(
+                    "propriété non éditable : {}".format("plane"))
+            role = self._PLANE_ROLES.get(str(picks["plane"]).upper())
+            if role is None:
+                raise KernelError("plan inconnu « {} » — attendu XY, XZ ou "
+                                  "YZ".format(picks["plane"]))
+            put("MirrorPlane", (self._origin_feature(
+                role, obj.getParentGeoFeatureGroup()), [""]))
+        rest = [key for key in picks if key not in ("features", "plane")]
+        if mirror and rest:
+            raise KernelError("propriété non éditable : {}".format(rest[0]))
+        linear = obj.TypeId == "PartDesign::LinearPattern"
+        if "mode" in picks:
+            if not linear:
+                raise KernelError("propriété non éditable : {}".format("mode"))
+            mode = self._PATTERN_MODES.get(str(picks["mode"]))
+            if mode is None:
+                raise KernelError(
+                    "mode inconnu « {} » — attendu : {}".format(
+                        picks["mode"], ", ".join(self._PATTERN_MODES)))
+            if mode != str(obj.Mode):
+                put("Mode", mode)
+        if "axis" in picks or "edge" in picks:
+            link = self._pattern_link_at(obj, picks.get("axis") or "X",
+                                         picks.get("edge"))
+            put("Direction" if linear else "Axis", link)
+        if "reversed" in picks:
+            put("Reversed", flag("reversed"))
+        second = [key for key in picks
+                  if key in ("dir2", "axis2", "edge2", "reversed2", "length2")]
+        if second and not linear:
+            raise KernelError("propriété non éditable : {}".format(second[0]))
+        if second:
+            self._set_pattern_second(obj, picks, values, put, flag)
+
+    def _set_pattern_second(self, obj, picks, values, put, flag):
+        """Deuxième direction d'un réseau linéaire : l'activer (``dir2``,
+        avec ``count2`` et ``length2``), la retirer, changer son axe, son
+        sens, sa distance. ``length2`` est le pas si le réseau compte en
+        pas, comme à la création, sinon la longueur totale."""
+        from engine.kernel import KernelError
+        two = int(getattr(obj, "Occurrences2", 1) or 1) > 1
+        want = flag("dir2") if "dir2" in picks else two
+        if not want:
+            if two:
+                put("Occurrences2", 1)
+                return
+            # Sans deuxième direction, ni activée : rien de la sienne.
+            for key in ("axis2", "edge2", "reversed2", "length2"):
+                if key in picks:
+                    raise KernelError(
+                        "propriété non éditable : {}".format(key))
+            return
+        opening = not two
+        if opening or "axis2" in picks or "edge2" in picks:
+            put("Direction2", self._pattern_link_at(
+                obj, picks.get("axis2") or "Y", picks.get("edge2")))
+        if "reversed2" in picks:
+            put("Reversed2", flag("reversed2"))
+        count = int(getattr(obj, "Occurrences2", 1) or 1)
+        if opening:
+            try:
+                count = int(float(values.pop("Occurrences2")))
+            except (KeyError, TypeError, ValueError):
+                count = 0
+            if count < 2:
+                raise KernelError("au moins 2 occurrences")
+            put("Occurrences2", count)
+        elif "Occurrences2" in values:
+            try:
+                count = int(float(values["Occurrences2"]))
+            except (TypeError, ValueError):
+                pass
+        if "length2" in picks:
+            try:
+                extent = float(picks["length2"])
+            except (TypeError, ValueError):
+                extent = 0
+            if extent <= 0:
+                raise KernelError("indiquez la distance de la direction 2")
+            spacing = (str(getattr(obj, "Mode", "")) == "Spacing" if opening
+                       else bool(getattr(obj, "FreeSolidPitch2", 0)))
+            if spacing:
+                self._stamp(obj, pitch2=extent)
+                put("Length2", extent * (count - 1))
+            else:
+                put("Length2", extent)
+        elif opening:
+            raise KernelError("indiquez la distance de la direction 2")
 
     def add_thickness(self, face=None, thickness=None, faces=None,
                       outward=False):

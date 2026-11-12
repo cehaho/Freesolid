@@ -38,6 +38,8 @@ export function featureEditor(item) {
   if (item.type_key === "draft" && item.draft) return "draft";
   if (item.type_key === "hole" && item.hole) return "hole";
   if (item.type_key === "remove_bodies") return "remove_bodies";
+  // Répétition de fonctions : ses fonctions, sa direction, son plan.
+  if (item.pattern) return "pattern";
   return params(item);
 }
 

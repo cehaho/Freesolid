@@ -235,6 +235,7 @@ def _etapes():
         fonctions.p116_texte_rechoisit_sa_face,
         fonctions.p117_chanfrein_de_sommet_rechoisit_son_coin,
         fonctions.p118_plan_d_esquisse_au_rang,
+        fonctions.p119_repetition_rechoisit_au_rang,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

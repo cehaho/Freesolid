@@ -4971,3 +4971,123 @@ def p118_plan_d_esquisse_au_rang(self, mark, report, etat):
         and empty.get("ok") is False
         and support(self.get_tree(), sketch.Name) == {"face": top}
         and clean())
+
+
+def p119_repetition_rechoisit_au_rang(self, mark, report, etat):
+    mark("p119: une répétition re-choisit ses fonctions et sa direction")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def state(tree, name):
+        return next((f.get("pattern") for f in tree.get("features", ())
+                     if f.get("name") == name), None) or {}
+
+    def top():
+        return max((i for i, f in enumerate(body.Tip.Shape.Faces)
+                    if abs(f.CenterOfMass.z - 5) < 1e-6),
+                   key=lambda i: body.Tip.Shape.Faces[i].Area)
+
+    # Deux enlèvements dans le dessus d'une plaque, un réseau linéaire du
+    # premier selon X, puis un bossage par-dessus.
+    self.new_part("Répétition rééditée")
+    self.add_rect_sketch(60, 60)
+    self.add_pad(5)
+    body = self._require_body()
+    self.add_rect_sketch(4, 4, face=top())
+    self.add_pocket(2)
+    first = body.Tip
+    self.add_rect_sketch(8, 2, face=top())
+    self.add_pocket(1)
+    second = body.Tip
+    self.add_linear_pattern(20, 3, axis="X", spacing=True,
+                            features=[first.Name])
+    linear = body.Tip
+    self.add_rect_sketch(2, 2)
+    self.add_pad(20)
+    listed = state(self.get_tree(), linear.Name)
+    call("rank_view", feature=linear.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": linear.Name, "values": {"axis": "Y"}})
+    at_rank = (shown.get("ok") is True and self._rank_view is not None
+               and body.Tip is second)
+    done = call("set_params", feature=linear.Name, values={
+        "features": [first.Name, second.Name], "axis": "Y",
+        "reversed": True})
+    after = state(done.get("result") or {}, linear.Name)
+    rechosen = (done.get("ok") is True and self._rank_view is None
+                and after.get("features") == [first.Name, second.Name]
+                and after.get("axis") == "Y" and after.get("reversed") is True
+                and clean())
+    # Une arête droite de la plaque, parallèle à X.
+    edge = next(i for i, e in enumerate(second.Shape.Edges)
+                if e.Curve.TypeId == "Part::GeomLine" and e.Length > 50
+                and abs(abs(e.Curve.Direction.x) - 1) < 1e-9)
+    along = call("set_params", feature=linear.Name, values={"edge": edge})
+    on_edge = (along.get("ok") is True
+               and state(along["result"], linear.Name).get("edge") == edge)
+    call("undo")
+    call("undo")
+    report["p119_repetition_rechoisit_fonctions_et_direction"] = (
+        listed == {"features": [first.Name], "axis": "X", "edge": None,
+                   "reversed": False, "mode": "spacing", "dir2": False}
+        and at_rank and rechosen and on_edge
+        and state(self.get_tree(), linear.Name) == listed and clean())
+
+    # Réseau en pas : la distance rééditée est le pas (FreeCAD ignore la
+    # longueur dans ce mode). Pas de 20 : le trou à x = 40 tombe hors de
+    # la plaque ; pas de 10, ou longueur totale de 20 : trois trous.
+    def distance():
+        return next((p for p in self.get_params(linear.Name)["params"]
+                     if p["key"] == "length"), {})
+    pitch = distance()
+    two_holes = body.Shape.Volume
+    tighter = call("set_params", feature=linear.Name, values={"length": 10})
+    three_holes = body.Shape.Volume
+    extent = call("set_params", feature=linear.Name, values={
+        "mode": "extent", "length": 20})
+    total = distance()
+    same = abs(body.Shape.Volume - three_holes) < 1e-6
+    call("undo")
+    call("undo")
+    report["p119_repetition_pas_ou_longueur"] = (
+        pitch.get("prop") == "Offset" and pitch.get("value") == 20
+        and tighter.get("ok") is True
+        and abs(two_holes - three_holes - 4 * 4 * 2) < 1e-6
+        and extent.get("ok") is True
+        and state(extent["result"], linear.Name).get("mode") == "extent"
+        and total.get("prop") == "Length" and total.get("value") == 20
+        and same
+        and call("set_params", feature=linear.Name,
+                 values={"mode": "pas"}).get("ok") is False
+        and state(self.get_tree(), linear.Name) == listed and clean())
+
+    # La deuxième direction s'active (pas de 10, réseau en pas), suit son
+    # nombre, se retire ; une symétrie change de plan ; refus.
+    opened = call("set_params", feature=linear.Name, values={
+        "dir2": True, "axis2": "Y", "length2": 10, "count2": 2})
+    two = state(opened.get("result") or {}, linear.Name)
+    recount = call("set_params", feature=linear.Name, values={"count2": 3})
+    stretched = abs(float(linear.Length2) - 20) < 1e-6
+    closed = call("set_params", feature=linear.Name, values={"dir2": False})
+    self.add_mirror("YZ", features=[first.Name])
+    mirror = body.Tip
+    flipped = call("set_params", feature=mirror.Name, values={"plane": "XZ"})
+    refused = [
+        call("set_params", feature=linear.Name, values=values)
+        for values in ({"features": []}, {"dir2": True}, {"plane": "XY"},
+                       {"edge": 999}, {"length2": 5})]
+    report["p119_repetition_direction_2_et_symetrie"] = (
+        opened.get("ok") is True and two.get("dir2") is True
+        and two.get("axis2") == "Y" and two.get("length2") == 10
+        and recount.get("ok") is True and stretched
+        and closed.get("ok") is True and int(linear.Occurrences2) == 1
+        and flipped.get("ok") is True
+        and state(flipped["result"], mirror.Name).get("plane") == "XZ"
+        and call("set_params", feature=mirror.Name,
+                 values={"axis": "X"}).get("ok") is False
+        and all(r.get("ok") is False for r in refused) and clean())

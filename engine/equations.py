@@ -92,9 +92,22 @@ class EquationsMixin:
         # son esquisse se réécrit, avant les cotes.
         positions = (values.pop("positions", None)
                      if obj.TypeId == "PartDesign::Hole" else None)
+        # Ce qu'une répétition re-choisit : ses fonctions, sa direction,
+        # son sens, son plan, sa deuxième direction.
+        pattern = ({key: values.pop(key) for key in self._PATTERN_PICKS
+                    if key in values}
+                   if self._is_feature_pattern(obj) else {})
         if neutral is not None:
             neutral = parse_neutral_plane(neutral)
         values, asked = self._props_from_keys(obj, values)
+        if obj.TypeId == "PartDesign::LinearPattern":
+            # En mode « pas » (celui d'avant, ou celui qu'on choisit), la
+            # distance est le pas : FreeCAD y recalcule ``Length``.
+            spacing = (pattern["mode"] == "spacing" if "mode" in pattern
+                       else self._counts_in_pitch(obj))
+            if spacing and "Length" in values:
+                values["Offset"] = values.pop("Length")
+                asked["Offset"] = asked.pop("Length")
         if merge is not None and not self._merge_editable(obj):
             raise KernelError("« Fusionner » ne se change que sur un "
                               "volume ajouté : extrusion, révolution, "
@@ -118,6 +131,15 @@ class EquationsMixin:
                 raise KernelError(_explain(exc))
         if positions is not None:
             self._set_hole_positions(obj, positions)
+        if pattern:
+            try:
+                self._set_pattern_picks(obj, pattern, values, previous)
+            except KernelError:
+                self._restore_props(obj, previous)
+                raise
+            except Exception as exc:  # noqa: BLE001
+                self._restore_props(obj, previous)
+                raise KernelError(_explain(exc))
         if draft and (targets is not None or neutral is not None):
             # Le plan neutre se repose sur la face (peut-être nouvelle) :
             # une face parallèle de la base, autre que celle qu'on dépouille.
@@ -168,7 +190,7 @@ class EquationsMixin:
             # Réseau de corps : ses cotes sont des propriétés de l'hôte.
             editable = editable + ("Length2", "Occurrences2")
         if obj.TypeId == "PartDesign::LinearPattern":
-            editable = editable + ("Occurrences2",)
+            editable = editable + ("Occurrences2", "Offset")
             pitch2 = float(getattr(obj, "FreeSolidPitch2", 0) or 0)
             if pitch2 and "Occurrences2" in values:
                 try:
@@ -451,9 +473,13 @@ class EquationsMixin:
             two = str(getattr(obj, "SideType", "")) == "Two sides"
             return self._EDITABLE_PROPS + (("Length2",) if two else ())
         if getattr(obj, "TypeId", "") == "PartDesign::LinearPattern":
-            # La deuxième direction n'apparaît que si elle sert.
+            # La deuxième direction n'apparaît que si elle sert ; en mode
+            # « pas », la distance est le pas.
             two = int(getattr(obj, "Occurrences2", 1) or 1) > 1
-            return self._EDITABLE_PROPS + (("Occurrences2",) if two else ())
+            props = self._EDITABLE_PROPS + (("Occurrences2",) if two else ())
+            if self._counts_in_pitch(obj):
+                props = tuple("Offset" if p == "Length" else p for p in props)
+            return props
         if getattr(obj, "TypeId", "") != "PartDesign::Chamfer":
             return self._EDITABLE_PROPS
         kind = self._chamfer_kind(obj)
@@ -488,8 +514,9 @@ class EquationsMixin:
             if not hasattr(obj, prop):
                 continue
             value = getattr(obj, prop)
-            entry = {"key": param_key_for(type_key, prop) or prop,
-                     "prop": prop,
+            key = ("length" if prop == "Offset" and self._counts_in_pitch(obj)
+                   else param_key_for(type_key, prop) or prop)
+            entry = {"key": key, "prop": prop,
                      "value": float(getattr(value, "Value", value))}
             if prop in exprs:
                 entry["expr"] = exprs[prop]
