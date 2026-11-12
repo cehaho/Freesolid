@@ -27,6 +27,8 @@ export function featureEditor(item) {
   if (item.text) return "text";
   if (item.surface_cut) return "surface_cut";
   if (item.type_key === "chamfer" && item.chamfer) return "chamfer";
+  // Congé : ses arêtes se re-choisissent (sinon, son rayon seul).
+  if (item.type_key === "fillet" && item.dressup) return "fillet";
   if ((item.type_key === "revolution" || item.type_key === "groove")
       && item.revolution) return "revolution";
   if ((item.type_key === "pad" || item.type_key === "pocket")

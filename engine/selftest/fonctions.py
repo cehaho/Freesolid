@@ -4500,3 +4500,99 @@ def p112_reseau_reduit_confirme(self, mark, report, etat):
     report["p112_copies_vides_sans_question"] = (
         quiet.get("ok") is True and "confirm" not in quiet
         and len(self._body_pattern_copies(host)) == 1 and clean())
+
+
+
+def p113_habillage_reedite_ses_aretes(self, mark, report, etat):
+    mark("p113: un congé, un chanfrein re-choisissent leurs arêtes au rang")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def entry(tree, name):
+        return next((f for f in tree.get("features", ())
+                     if f.get("name") == name), {})
+
+    # Une extrusion, un congé sur deux arêtes, puis une extrusion qui
+    # recouvre le dessus : la pièce d'aujourd'hui n'a plus les arêtes
+    # d'avant le congé.
+    self.new_part("Habillage réédité")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    self.add_fillet(2, edges=[0, 2])
+    fillet = body.Tip
+    self.add_rect_sketch(6, 6)
+    self.add_pad(20)
+    last = body.Tip
+    report["p113_arbre_dit_les_aretes"] = (
+        entry(self.get_tree(), fillet.Name).get("dressup")
+        == {"edges": [0, 2]})
+
+    # Au rang du congé : la pièce d'avant lui. L'aperçu le montre réédité
+    # sans quitter ce rang.
+    call("rank_view", feature=fillet.Name)
+    base_faces = len(body.Shape.Faces)
+    shown = call("preview", op="set_params", params={
+        "feature": fillet.Name,
+        "values": {"radius": 1.5, "edges": [0, 2, 4, 6]}})
+    groups = (shown.get("result") or {}).get("groups") or []
+    report["p113_apercu_au_rang"] = (
+        shown.get("ok") is True and self._rank_view is not None
+        and body.Tip is pad and base_faces == 6 and len(groups) > base_faces
+        and list(fillet.Base[1]) == ["Edge1", "Edge3"])
+
+    # OK : la barre revient, les arêtes et le rayon changent ensemble ; un
+    # Ctrl+Z rend les arêtes d'avant.
+    done = call("set_params", feature=fillet.Name,
+                values={"radius": 1.5, "edges": [0, 2, 4, 6]})
+    changed = (done.get("ok") is True and self._rank_view is None
+               and body.Tip is last
+               and list(fillet.Base[1]) == ["Edge1", "Edge3", "Edge5", "Edge7"]
+               and abs(float(fillet.Radius) - 1.5) < 1e-9
+               and entry(done["result"], fillet.Name).get("dressup")
+               == {"edges": [0, 2, 4, 6]} and clean())
+    call("undo")
+    report["p113_aretes_rechoisies"] = (
+        changed and list(fillet.Base[1]) == ["Edge1", "Edge3"] and clean())
+
+    # Un chanfrein après le congé, sur une arête que le congé a faite :
+    # re-choisir les arêtes du congé la ferait disparaître — refusé, en
+    # nommant le chanfrein. Le chanfrein, lui, passe à une face ; une
+    # arête inconnue, des arêtes pour une extrusion : refusées.
+    self.new_part("Habillage et sa suite")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    self.add_fillet(2, edges=[0, 2])
+    fillet = body.Tip
+    self.add_chamfer(1, edges=[5])
+    chamfer = body.Tip
+    self.add_rect_sketch(6, 6)
+    self.add_pad(20)
+    broken = call("set_params", feature=fillet.Name,
+                  values={"edges": [0, 2, 4, 6]})
+    report["p113_refus_si_la_suite_perd_son_arete"] = (
+        entry(self.get_tree(), chamfer.Name).get("dressup") == {"edges": [5]}
+        and broken.get("ok") is False
+        and chamfer.Label in str(broken.get("error"))
+        and list(fillet.Base[1]) == ["Edge1", "Edge3"] and clean())
+    top = next(i for i, f in enumerate(chamfer.Base[0].Shape.Faces)
+               if abs(f.CenterOfMass.z - 10) < 1e-6)
+    faced = call("set_params", feature=chamfer.Name, values={"face": top})
+    unknown = call("set_params", feature=fillet.Name, values={"edges": [99]})
+    foreign = call("set_params", feature=pad.Name, values={"edges": [1]})
+    report["p113_face_et_refus"] = (
+        faced.get("ok") is True
+        and entry(faced["result"], chamfer.Name).get("dressup")
+        == {"face": top}
+        and unknown.get("ok") is False
+        and "99" in str(unknown.get("error"))
+        and list(fillet.Base[1]) == ["Edge1", "Edge3"]
+        and foreign.get("ok") is False and clean())

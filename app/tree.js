@@ -14,6 +14,7 @@ import { featureDrop } from "./treedrop.js";
 import { renameClickAction } from "./rename.js";
 import {
   chamferRows, chamferFieldValue, chamferEditValues, chamferProblem,
+  dressupPick, dressupPickValues, filletEditRows, filletEditValues,
   revolutionGroups, revolutionEditValues, revolutionProblem,
   extrudeEditInitial, extrudeEditProblem, extrudeEditValues, extrudeGroups,
   bodyChoiceGroups, bodyChoiceValues, extrudeMergeProblem,
@@ -2049,36 +2050,103 @@ export function installTree(ctx) {
 
   function editChamfer(feature) {
     const spec = feature.chamfer;
-    panel.open({
+    return editDressup(feature, {
       icon: "chamfer",
+      selectionLabel: "Éléments à chanfreiner",
+      group: "Paramètres du chanfrein",
+      rows: chamferRows({
+        kind: spec.type,
+        size: chamferFieldValue(feature.params, "size", spec.size),
+        size2: chamferFieldValue(feature.params, "size2", spec.size2),
+        angle: chamferFieldValue(feature.params, "angle", spec.angle),
+        flip: spec.flip,
+      }),
+      values: (v) => chamferEditValues(v, spec, feature.params),
+      problem: (v) => chamferProblem(v),
+    });
+  }
+
+  function editFillet(feature) {
+    return editDressup(feature, {
+      icon: "fillet",
+      selectionLabel: "Éléments à arrondir",
+      group: "Paramètres du congé",
+      rows: filletEditRows(feature),
+      values: (v) => filletEditValues(v, feature),
+      problem: () => "Valeur invalide",
+    });
+  }
+
+  /** Congé, chanfrein : le panneau de la création, sa zone remplie des
+   *  arêtes (ou de la face) qu'il arrondit. Comme dans les modeleurs
+   *  courants, elles se re-choisissent sur la pièce à son rang
+   *  (`rank_view`, la barre juste au-dessus de lui) : celles qu'il a
+   *  arrondies y existent encore, et l'aperçu le montre réédité. Sans la
+   *  vue au rang (refusée), seules les cotes se rééditent, sur la pièce
+   *  d'aujourd'hui. */
+  async function editDressup(feature, { icon, selectionLabel, group, rows,
+    values, problem }) {
+    const atRank = dressupPick(feature.dressup)
+      ? await call("rank_view", { feature: feature.name }).catch(() => null)
+      : null;
+    if (atRank) await refresh(Promise.resolve(atRank));
+    const pick = atRank ? dressupPick(feature.dressup) : null;
+    const build = (v) => {
+      const own = values(v);
+      if (own === null || !pick) return own;
+      const chosen = dressupPickValues(v.sel, feature.dressup);
+      return chosen === null ? null : { ...own, ...chosen };
+    };
+    const missing = (v) => (pick && dressupPickValues(v.sel, feature.dressup) === null
+      ? "Cliquez des arêtes (Ctrl = ajouter) ou une face" : problem(v));
+    let applied = false;
+    panel.open({
+      icon,
       title: feature.label,
-      groups: [{
-        label: "Paramètres du chanfrein",
-        rows: chamferRows({
-          kind: spec.type,
-          size: chamferFieldValue(feature.params, "size", spec.size),
-          size2: chamferFieldValue(feature.params, "size2", spec.size2),
-          angle: chamferFieldValue(feature.params, "angle", spec.angle),
-          flip: spec.flip,
-        }),
-      }],
+      groups: [
+        ...(pick ? [{ label: selectionLabel, rows: [{
+          type: "selection", key: "sel", accepts: ["edges", "face"],
+          hint: "Cliquez des arêtes (Ctrl = ajouter) ou une face",
+          value: pick }] }] : []),
+        { label: group, rows },
+      ],
+      hint: (v) => (build(v) ? null : missing(v)),
       onChange: (v) => {
-        const values = chamferEditValues(v, spec, feature.params);
-        schedulePreview(values
+        const changed = build(v);
+        schedulePreview(changed
           ? { op: "set_params",
-              params: { feature: feature.name, values } }
+              params: { feature: feature.name, values: changed } }
           : null);
       },
+      // Fermé sans réédition : la barre revient (voir editRemoveBodies).
+      onClose: () => setTimeout(() => {
+        if (atRank && !applied) refresh(call("rank_view_end"));
+      }, 0),
       onApply: (v) => {
-        const values = chamferEditValues(v, spec, feature.params);
-        if (values === null) {
-          say(chamferProblem(v), true);
+        const changed = build(v);
+        if (changed === null) {
+          say(t(missing(v)), true);
           return;
         }
-        if (!Object.keys(values).length) return;
-        refresh(call("set_params", { feature: feature.name, values }));
+        if (!Object.keys(changed).length) return;
+        applied = true;
+        const edited = call("set_params",
+          { feature: feature.name, values: changed });
+        if (!atRank) {
+          refresh(edited);
+          return;
+        }
+        // Refusée, la pièce d'aujourd'hui revient quand même : le moteur a
+        // rendu la barre avant d'essayer. Le message reste affiché.
+        edited.then((tree) => refresh(Promise.resolve(tree)), async (error) => {
+          await refresh(call("get_tree"));
+          say(error.message, true);
+        });
       },
     });
+    // La vue surligne ce que la zone contient, et Ctrl+clic part de là.
+    if (pick?.kind === "edges") ctx.selectEdgeIds?.(pick.edges);
+    else if (pick?.kind === "face") ctx.selectFaceId?.(pick.face);
   }
 
   /** Groupe « Contours » d'une fonction dont l'esquisse en a plusieurs. */
@@ -2295,6 +2363,7 @@ export function installTree(ctx) {
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),
     chamfer: (feature) => editChamfer(feature),
+    fillet: (feature) => editFillet(feature),
     revolution: (feature) => editRevolved(feature),
     extrude: (feature) => editExtrude(feature),
     // Coque : épaisseur et sens ; perçage : type, cotes, condition de fin.

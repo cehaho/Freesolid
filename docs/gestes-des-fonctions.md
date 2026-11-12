@@ -35,8 +35,8 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Congé | oui + bulle de rayon | rayon | arêtes ou face | oui, sans la bulle | oui | oui (rayon) |
-| Chanfrein | oui | type, taille, taille 2, angle, sens | arêtes ou face | oui | oui | oui |
+| Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui, sans la bulle | oui | oui (rayon, arêtes) |
+| Chanfrein | oui | type, taille, taille 2, angle, sens ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui | oui | oui |
 | Chanfrein de sommet | oui | distances | le sommet | non | à vérifier (booléen, jusqu'à deux lignes) | oui |
 | Coque | oui | épaisseur, « vers l'extérieur » | faces à ouvrir | oui | oui | oui (sens, refus d'une coque trop épaisse) |
 | Dépouille | oui | angle | face, plan neutre | oui | oui | non |
@@ -153,9 +153,13 @@ Contre-exemple à suivre : Supprimer des corps vient d'être rendu rééditable 
 
 ### 4. Les sélections qui ne reviennent pas
 
-Arêtes, faces, profils, corps, directions, outils : aucun ne se re-choisit.
+Arêtes, faces, profils, corps, directions, outils : presque aucun ne se re-choisit.
 
-- **Arêtes et faces** : Congé, Chanfrein, Coque (faces à ouvrir), Dépouille (face et plan neutre), Chanfrein de sommet (le sommet est repéré par son numéro), Perçage (positions et face), Texte (face d'appui).
+Corrigé pour le Congé et le Chanfrein. Leur double-clic rouvre le panneau de la création, sa zone remplie de leurs arêtes (ou de leur face). Comme dans les modeleurs courants, la pièce se montre à leur rang, comme pour Supprimer des corps (`rank_view`) : les arêtes qu'ils ont arrondies y existent encore, se surlignent, et Ctrl+clic en ajoute ou en retire. L'aperçu les montre rééditées sans quitter ce rang. `set_params` prend `edges` ou `face` ; une fonction plus bas qui perdrait une arête qu'elle utilise fait refuser la réédition, en la nommant. Selftest p113.
+
+Reste :
+
+- **Arêtes et faces** : Coque (faces à ouvrir), Dépouille (face et plan neutre), Chanfrein de sommet (le sommet est repéré par son numéro), Perçage (positions et face), Texte (face d'appui).
 - **Profils et esquisses** : Extrusion, Enlèvement, Révolution, Hélice, Surface extrudée, de révolution et plane. L'esquisse ne change plus après coup ; seuls les contours bougent. Pour les deux surfaces extrudée et de révolution, l'esquisse n'est même pas un choix à la création : le moteur prend la dernière esquisse libre, alors que la Surface plane et la Surface balayée préremplissent avec la sélection de l'arbre.
 - **Corps et fonctions répétés** : fonctions répétées, corps répétés, corps concernés (écart n° 22, « Restent… »).
 - **Direction** : axe, arête, inversion, pour les trois répétitions. Pas ou longueur totale, activation de la direction 2 : la deuxième direction n'apparaît à la réédition que si elle existe déjà.

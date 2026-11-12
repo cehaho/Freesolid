@@ -83,6 +83,50 @@ export function chamferFieldValue(params, key, fallback) {
   return fallback;
 }
 
+/** Zone d'un congé ou d'un chanfrein qu'on réédite : ce qu'il arrondit
+ *  (`dressup` de l'arbre : des arêtes ou une face), comme la zone de la
+ *  création ; null si l'arbre ne le dit pas. */
+export function dressupPick(dressup) {
+  if (Array.isArray(dressup?.edges) && dressup.edges.length) {
+    return { kind: "edges", edges: [...dressup.edges] };
+  }
+  if (Number.isInteger(dressup?.face)) {
+    return { kind: "face", face: dressup.face };
+  }
+  return null;
+}
+
+/** Valeurs `set_params` de la zone rééditée : `{}` si elle n'a pas
+ *  changé, `{ edges }` ou `{ face }` sinon, null si elle est vide. */
+export function dressupPickValues(sel, dressup) {
+  if (sel?.kind === "edges" && sel.edges?.length) {
+    const chosen = [...new Set(sel.edges)];
+    const before = new Set(dressup?.edges ?? []);
+    const same = chosen.length === before.size
+      && chosen.every((edge) => before.has(edge));
+    return same ? {} : { edges: chosen };
+  }
+  if (sel?.kind === "face" && Number.isInteger(sel.face)) {
+    return sel.face === dressup?.face ? {} : { face: sel.face };
+  }
+  return null;
+}
+
+/** Congé qu'on réédite : son rayon. */
+export function filletEditRows(feature) {
+  return [measureRow("radius", "Rayon",
+                     chamferFieldValue(feature.params, "radius", 3), "mm")];
+}
+
+/** Valeurs `set_params` du rayon : `{}` s'il n'a pas changé, null s'il
+ *  est invalide. */
+export function filletEditValues(v, feature) {
+  const stored = storedMeasure(feature.params, "radius", 3);
+  const radius = readMeasure(v.radius, stored, { min: 0, max: Infinity });
+  if (radius == null) return null;
+  return sameMeasure(radius, stored) ? {} : { radius };
+}
+
 /** Chanfrein de sommet : une distance égale, ou une par arête. */
 export function vertexChamferRows({ distances = [2, 2, 2] } = {}) {
   const same = distances.every((d) => d === distances[0]);

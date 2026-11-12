@@ -1856,6 +1856,59 @@ class SolidsMixin:
             "cutAngle": size("HoleCutCountersinkAngle", cut == "fraisage"),
         }
 
+    #: Habillages dont les arêtes (ou la face) se re-choisissent.
+    _DRESSUP_PICKS = ("PartDesign::Fillet", "PartDesign::Chamfer")
+
+    @staticmethod
+    def _dressup_targets(obj):
+        """Ce qu'un congé ou un chanfrein arrondit : ``{"edges": [ids]}``
+        ou ``{"face": id}``, ids comptés sur la forme de sa base (la pièce
+        à son rang) ; None si ses éléments ne se lisent pas ainsi."""
+        base = getattr(obj, "Base", None)
+        subs = list(base[1]) if base else []
+        edges, faces = [], []
+        for sub in subs:
+            name = str(sub).rsplit(".", 1)[-1]
+            for prefix, found in (("Edge", edges), ("Face", faces)):
+                if name.startswith(prefix) and name[len(prefix):].isdigit():
+                    found.append(int(name[len(prefix):]) - 1)
+                    break
+            else:
+                return None
+        if edges and not faces:
+            return {"edges": edges}
+        if len(faces) == 1 and not edges:
+            return {"face": faces[0]}
+        return None
+
+    def _dressup_subs(self, obj, edges=None, face=None):
+        """Éléments re-choisis d'un congé ou d'un chanfrein -> noms
+        ``EdgeN`` / ``FaceN`` de sa base, comme à la création : des
+        arêtes, ou une face. Refus clair sinon."""
+        from engine.kernel import KernelError
+        base = getattr(obj, "Base", None)
+        base = base[0] if base else getattr(obj, "BaseFeature", None)
+        shape = getattr(base, "Shape", None)
+        if edges:
+            if face is not None or not isinstance(edges, (list, tuple)):
+                raise KernelError(
+                    "sélectionnez des arêtes ou une face de la pièce")
+            subs = []
+            for edge in edges:
+                if (type(edge) is not int or shape is None
+                        or not 0 <= edge < len(shape.Edges)):
+                    raise KernelError("arête inconnue : {}".format(edge))
+                name = "Edge{}".format(edge + 1)
+                if name not in subs:
+                    subs.append(name)
+            return subs
+        if face is not None:
+            if (type(face) is not int or shape is None
+                    or not 0 <= face < len(shape.Faces)):
+                raise KernelError("face inconnue : {}".format(face))
+            return ["Face{}".format(face + 1)]
+        raise KernelError("sélectionnez des arêtes ou une face de la pièce")
+
     def _chamfer_state(self, obj):
         """État relu pour l'arbre et la réédition."""
         return {
