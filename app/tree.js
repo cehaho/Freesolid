@@ -17,7 +17,7 @@ import {
   draftEditGroups, draftEditValues, dressupPick, dressupPickValues,
   filletEditRows, filletEditValues, shellFacesPick, shellFacesValues,
   holePositionValues, holePositions, holePositionsPick,
-  holePositionsRow,
+  holePositionsRow, textEditValues, textRows,
   revolutionGroups, revolutionEditValues, revolutionProblem,
   extrudeEditInitial, extrudeEditProblem, extrudeEditValues, extrudeGroups,
   bodyChoiceGroups, bodyChoiceValues, extrudeMergeProblem,
@@ -2315,34 +2315,27 @@ export function installTree(ctx) {
     });
   }
 
-  // Gravure rééditable (P032) : panneau dédié -> edit_text.
+  /** Texte : le panneau de sa création, sa face d'appui re-choisie sur
+   *  la pièce à son rang. */
   function editText(feature) {
-    const txt = feature.text;
-    panel.open({
+    const text = feature.text;
+    const face = Number.isInteger(text.face) ? text.face : null;
+    return editAtRank(feature, {
       icon: TREE_ICONS[feature.type_key] ?? "body",
-      title: feature.label,
-      groups: [{
-        label: t("Gravure"),
-        rows: [
-          { type: "text", key: "text", label: t("Texte"), value: txt.text },
-          { type: "number", key: "size", label: t("Taille"), unit: "mm",
-            value: txt.size },
-          { type: "number", key: "depth", label: t("Profondeur"), unit: "mm",
-            value: txt.depth },
-          { type: "number", key: "x", label: t("X"), unit: "mm", value: txt.x },
-          { type: "number", key: "y", label: t("Y"), unit: "mm", value: txt.y },
-        ],
-      }],
-      onApply: (v) => {
-        refresh(call("edit_text", {
-          feature: feature.name,
-          text: String(v.text ?? txt.text),
-          size: num(v.size) ?? txt.size,
-          depth: num(v.depth) ?? txt.depth,
-          x: num(v.x) ?? txt.x,
-          y: num(v.y) ?? txt.y,
-        }));
+      zone: {
+        label: "Face d'appui",
+        row: { type: "selection", key: "sel", accepts: ["face"],
+               value: face === null ? null : { kind: "face", face } },
+        // Aucune face ne le porte plus (la pièce a changé en amont) : la
+        // zone vide le laisse où il est.
+        changed: (v) => (face === null && !v.sel ? {}
+          : dressupPickValues(v.sel, { face })),
+        missing: "Cliquez une face dans la zone graphique",
+        select: () => (face === null ? null : ctx.selectFaceId?.(face)),
       },
+      groups: [{ label: "Texte", rows: textRows(text) }],
+      values: (v) => textEditValues(v, text),
+      problem: () => "Valeurs du texte invalides",
     });
   }
 

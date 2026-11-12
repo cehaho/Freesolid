@@ -53,6 +53,8 @@ export {
   revolutionEditValues,
   revolutionGroups,
   revolutionProblem,
+  textEditValues,
+  textRows,
 } from "./features/volumes.js";
 export {
   chamferCreationParams,

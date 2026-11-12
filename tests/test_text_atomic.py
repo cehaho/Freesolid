@@ -108,13 +108,15 @@ class TestGravureEditable:
     def test_edit_text_change_le_texte(self):
         gravure = self._part_with_text()
         assert gravure["text"]["text"] == "AB"
+        top = gravure["text"]["face"]
+        assert isinstance(top, int)
         tris = len(self.k.tessellate()["indices"])
         vol = self._volume()
         tree = self.k.edit_text(gravure["name"], text="CD", size=10)
         entry = next(f for f in tree["features"]
                      if f["name"] == gravure["name"])
         assert entry["text"] == {"text": "CD", "size": 10.0, "depth": 1.0,
-                                 "x": 0.0, "y": 0.0}
+                                 "x": 0.0, "y": 0.0, "face": top}
         assert entry["label"].startswith("Gravure « CD »")
         assert len(self.k.tessellate()["indices"]) != tris
         assert not any(f["error"] for f in tree["features"])
