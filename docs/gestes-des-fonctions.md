@@ -76,7 +76,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Surface décalée | non | le panneau de la création, au rang : surface (clic dans l'arbre), distance et « inverser le côté » | — | oui | oui (drapeau) | oui (surface, refus d'elle-même et d'une surface d'après) |
 | Surface de remplissage | non | rien | contour, case « tangent » | — | oui (drapeau) | non |
 | Surface frontière | non | rien | 2 à 4 courbes | — | oui (drapeau) | non |
-| Surface radiée | non | distance et « vers l'intérieur », comme à la création (pilotée par une équation : la distance signée, dans le panneau des cotes) | contour | non | oui (drapeau) | non |
+| Surface radiée | non | le panneau de la création, au rang : contour plan, distance et « vers l'intérieur » (pilotée par une équation : la distance signée, dans le panneau des cotes) | — | oui | oui (drapeau) | oui (contour, refus d'une forme d'après) |
 | Surface médiane | non, voulu | rien (forme figée) | tout : les deux faces ou toutes les parois, épaisseur | — | oui (drapeau) | non |
 | Surface réglée | non | rien | les deux courbes | — | oui (drapeau) | non |
 
@@ -173,10 +173,12 @@ Outils de surface (Couper avec une surface, Courbe d'intersection, Projeter une 
 
 Ajuster : le même panneau, au rang, où la surface ajustée se montre entière. La zone « Outil de coupe » revient remplie, la zone « Partie à garder » aussi, sur un point de la partie gardée ; un clic sur une autre partie, ou sur une autre surface, la change. Un outil changé sans nouveau clic garde la partie du même côté. Un ajustement mutuel reste deux lignes, chacune rééditée seule. `set_params` prend `source`, `tool` et `point`. Le panneau ne propose plus « Garder l'autre partie » : comme à la création, on clique la partie. Selftest p123.
 
+Surface radiée : le même panneau, au rang. La zone « Contour plan » revient remplie, arête par arête (une esquisse prise entière revient en ses arêtes) ; un clic en ajoute, la croix en retire. Une forme qui vient après la surface est refusée. Une radiée dont la distance est pilotée par une équation garde le panneau des cotes. `set_params` prend `boundary`, comme à la création, avec `distance`. Selftest p124.
+
 Reste :
 
 - **Outils** : le corps outil de Combiner.
-- **Surfaces d'origine** : Surface radiée, Forme libre, Pôles ; le Congé de surfaces n'a qu'un rayon pour toutes ses arêtes.
+- **Surfaces d'origine** : Forme libre, Pôles ; le Congé de surfaces n'a qu'un rayon pour toutes ses arêtes.
 - **Indices de face ou d'arête** : si la source change de topologie, la fonction peut pointer sur autre chose. Aucun test de décalage d'indice trouvé (comportement à vérifier).
 
 Où ça se décide : le panneau de réédition ne contient que les cotes (`app/tree.js`, `editFeature` ; `engine/equations.py`, `get_params` et `set_params`). Les sélections sont saisies par les panneaux de création (`app/features/habillage.js`, `repetitions.js`, `surfaces.js`, `combiner.js`, `volumes.js`) et le moteur ne sait pas les remplacer (`engine/ops/`). Piste : rouvrir le panneau de création rempli, comme `editRemoveBodies`.
@@ -242,7 +244,7 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 
 ### 10. La couverture du selftest
 
-Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, radiée, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 

@@ -2,7 +2,7 @@
 surface plane, la surface d'un décalage ou d'un épaississement, le bord
 d'un prolongement, les arêtes d'un congé, les deux formes d'une courbe
 d'intersection, l'esquisse et la face d'une courbe projetée, l'outil et
-la partie gardée d'un ajustement.
+la partie gardée d'un ajustement, le contour d'une surface radiée.
 
 Mixin de ``Kernel``. Pas d'import FreeCAD au niveau du module.
 """
@@ -19,6 +19,7 @@ class SurfaceReeditMixin:
         "intersection": ("first", "second", "body"),
         "project": ("sketch", "surface", "face"),
         "trim": ("source", "tool", "point"),
+        "radiate": ("boundary", "distance"),
     }
 
     def _surface_pick_kind(self, obj):
@@ -62,11 +63,13 @@ class SurfaceReeditMixin:
         self._refuse_later_source(obj, source)
         return source
 
-    def _set_surface_params(self, obj, values):
+    def _set_surface_params(self, obj, values, kind=None):
         """``set_params`` d'une surface à source re-choisie : tout ou rien,
-        la surface d'avant revient sur refus."""
+        la surface d'avant revient sur refus. ``kind`` : le genre, quand
+        seule une clé de ``values`` l'aiguille ici (le contour d'une
+        surface radiée, dont la distance garde la voie des cotes)."""
         from engine.kernel import KernelError, _explain
-        kind = self._surface_pick_kind(obj)
+        kind = kind or self._surface_pick_kind(obj)
         for key in values:
             if key not in self._SURFACE_PICK_KEYS[kind]:
                 raise KernelError("propriété non éditable : {}".format(key))
@@ -85,6 +88,8 @@ class SurfaceReeditMixin:
                 self._set_intersection_params(obj, values)
             elif kind == "trim":
                 self._set_trim_params(obj, values)
+            elif kind == "radiate":
+                self._set_radiate_params(obj, values)
             else:
                 self._set_projection_params(obj, values)
             self._recompute()
@@ -113,6 +118,9 @@ class SurfaceReeditMixin:
             return [(slicer, "Base", slicer.Base),
                     (slicer, "Tools", list(slicer.Tools)),
                     (obj, "items", obj.items)]
+        if kind == "radiate":
+            return [(obj.Source, "Support", list(obj.Source.Support)),
+                    (obj, "Value", obj.Value)]
         props = {
             "planar": ("Sources",),
             "extend": ("Face", "ExtendUNeg", "ExtendUPos", "ExtendVNeg",
@@ -250,3 +258,26 @@ class SurfaceReeditMixin:
         center = Part.Vertex(faces[0].CenterOfMass)
         point = faces[0].distToShape(center)[1][0][0]
         return [point.x, point.y, point.z]
+
+    def _set_radiate_params(self, obj, values):
+        """Surface radiée : son contour (``boundary``, comme à la
+        création : arêtes de surface, de courbe, du solide, esquisses
+        entières) et sa distance signée."""
+        from engine.kernel import KernelError
+        if "distance" in values:
+            distance = float(values["distance"])
+            if distance == 0:
+                raise KernelError("la distance ne peut pas être nulle")
+            obj.Value = distance
+        if "boundary" not in values:
+            return
+        groups, order = {}, []
+        for linked, sub in self._boundary_links(values["boundary"]):
+            if linked.Name not in groups:
+                if linked.TypeId != "PartDesign::Body":
+                    self._refuse_later_source(obj, linked)
+                groups[linked.Name] = (linked, [])
+                order.append(linked.Name)
+            groups[linked.Name][1].append(sub)
+        obj.Source.Support = [(groups[n][0], tuple(groups[n][1]))
+                              for n in order]

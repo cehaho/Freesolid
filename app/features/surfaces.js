@@ -1,6 +1,7 @@
 // Fonctions — surfaces et courbes : construction, retouche, passage
 // au solide.
 
+import { t } from "../i18n.js";
 import { num } from "../num.js";
 import { resolveProfileSketch } from "./commun.js";
 
@@ -178,6 +179,41 @@ export function trimEditValues(v, spec) {
     out.point = point;
   }
   return out;
+}
+
+/** Le nom affiché d'une ligne de l'arbre (surface, fonction, esquisse). */
+function treeLabel(tree, name) {
+  const stack = [...(tree?.surfaces ?? []), ...(tree?.features ?? [])];
+  while (stack.length) {
+    const item = stack.pop();
+    if (item?.name === name) return item.label ?? name;
+    if (item?.children) stack.push(...item.children);
+  }
+  return name;
+}
+
+/** Le contour d'une surface radiée, arête par arête, comme la zone le
+ *  montre. */
+export function radiateBoundaryPick(tree, spec) {
+  const items = (spec?.boundary ?? []).map((b) => (b.body
+    ? { kind: "boundary", body: true, name: "body", label: t("Solide"),
+        edge: b.edge }
+    : { kind: "boundary", name: b.name, label: treeLabel(tree, b.name),
+        edge: b.edge }));
+  return items.length ? { items } : null;
+}
+
+/** Contour d'une surface radiée re-choisi : `{}` s'il est le même,
+ *  `{ boundary }` sinon, null si la zone est vide. */
+export function radiateBoundaryValues(sel, spec) {
+  const items = sel?.items ?? [];
+  if (!items.length) return null;
+  const boundary = items.map(boundaryParam);
+  const before = spec?.boundary ?? [];
+  const same = boundary.length === before.length
+    && boundary.every((b, i) => !!b.body === !!before[i].body
+      && (b.body || b.name === before[i].name) && b.edge === before[i].edge);
+  return same ? {} : { boundary };
 }
 
 /** Coupe par surface rééditée : le côté et la bande, seulement ce qui

@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
+  radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
@@ -225,5 +225,28 @@ describe("ajustement réédité", () => {
     assert.equal(trimEditValues(
       { tool: tool("Surface001"), keep: keep("Surface001", 5) }, spec), null);
     assert.equal(trimEditValues({ keep: keep("Surface", 5) }, spec), null);
+  });
+});
+
+describe("surface radiée rééditée", () => {
+  const spec = { kind: "radiate", distance: 5,
+                 boundary: [{ body: true, edge: 3 }, { name: "Surface", edge: 1 }] };
+
+  it("revient avec son contour, arête par arête", () => {
+    const items = radiateBoundaryPick(tree, spec).items;
+    assert.deepEqual(items.map((i) => [i.name, i.edge, !!i.body]),
+                     [["body", 3, true], ["Surface", 1, false]]);
+    assert.equal(items[1].label, "Plane");
+  });
+
+  it("n'envoie le contour que s'il change", () => {
+    const zone = radiateBoundaryPick(tree, spec);
+    assert.deepEqual(radiateBoundaryValues(zone, spec), {});
+    assert.deepEqual(radiateBoundaryValues({ items: zone.items.slice(1) }, spec),
+                     { boundary: [{ name: "Surface", edge: 1 }] });
+    assert.deepEqual(radiateBoundaryValues(
+      { items: [{ kind: "sketch", name: "Sketch" }] }, spec),
+    { boundary: [{ name: "Sketch" }] });
+    assert.equal(radiateBoundaryValues({ items: [] }, spec), null);
   });
 });

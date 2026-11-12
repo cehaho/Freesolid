@@ -5514,3 +5514,56 @@ def p123_ajuster_rechoisit(self, mark, report, etat):
         and edit(trim, tool=other.Name).get("ok") is False
         and span(trim) == (0, 30, 50)
         and clean())
+
+
+def p124_radiee_rechoisit_son_contour(self, mark, report, etat):
+    mark("p124: une surface radiée re-choisit son contour")
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def square(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return name
+
+    def boundary(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name)["surface"]["boundary"]
+
+    # Un bloc 40 × 40 × 10 et un carré de 20 à côté ; une collerette de 5
+    # autour du haut du bloc, puis autour du carré.
+    self.new_part("Radiée re-choisie")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    top = [i for i, e in enumerate(body.Shape.Edges)
+           if abs(e.CenterOfMass.z - 10) < 1e-6]
+    plate = last(self.surface_planar(sketch=square(100, 0, 120, 20)))
+    collar = last(self.surface_radiate(
+        [{"body": True, "edge": i} for i in top], 5))
+    listed = boundary(collar) == [{"body": True, "edge": i} for i in top]
+    around = abs(collar.Shape.Area - (50 * 50 - 40 * 40)) < 1e-3
+    moved = edit(collar, boundary=[{"name": plate.Name}])
+    plate_area = collar.Shape.Area
+    later = self.surface_planar(sketch=square(200, 0, 220, 20))
+    refused = edit(collar, boundary=[{"name": later["surfaces"][-1]["name"]}])
+    report["p124_radiee_rechoisit_son_contour"] = (
+        listed and around
+        and moved.get("ok") is True
+        and abs(plate_area - (30 * 30 - 20 * 20)) < 1e-3
+        and len(boundary(collar)) == 4
+        and all(b.get("name") == plate.Name for b in boundary(collar))
+        and refused.get("ok") is False
+        and "vient après" in (refused.get("error") or "")
+        and abs(collar.Shape.Area - plate_area) < 1e-6
+        and clean())

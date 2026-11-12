@@ -33,7 +33,8 @@ import {
   filletEdgesValues,
   intersectionEditValues, ownSketchPick, planarEditValues,
   projectEditValues, projectTargetPick, signedEditValues, sourceEditValues,
-  surfacePick, trimEditValues, trimKeepPick,
+  radiateBoundaryPick, radiateBoundaryValues, surfacePick, trimEditValues,
+  trimKeepPick,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -1999,30 +2000,6 @@ export function installTree(ctx) {
     });
   }
 
-  /** Distance d'une surface décalée ou radiée et son côté, comme à la
-   *  création : le moteur la garde signée (négative = de l'autre côté). */
-  function editSignedDistance(surface, signed, { icon, side }) {
-    panel.open({
-      icon,
-      title: surface.label,
-      groups: [{
-        label: t("Paramètres"),
-        rows: [{ type: "number", key: "distance", label: t("Distance"),
-                 value: Math.abs(signed), unit: "mm" },
-               { type: "check", key: "side", label: side,
-                 value: signed < 0 }],
-      }],
-      onApply: (v) => {
-        const size = num(v.distance);
-        if (!size) return;
-        const distance = v.side ? -Math.abs(size) : Math.abs(size);
-        if (distance === signed) return;
-        refresh(call("set_params", {
-          feature: surface.name, values: { distance } }));
-      },
-    });
-  }
-
   // Surface décalée : sa surface, sa distance et son côté, comme à la
   // création, sur la pièce à son rang.
   function editOffset(surface) {
@@ -2064,8 +2041,31 @@ export function installTree(ctx) {
                    type_key: surface.type_key });
       return;
     }
-    editSignedDistance(surface, distance.value,
-      { icon: "surface_radiate", side: t("Vers l'intérieur") });
+    // Son contour et sa distance, comme à la création, sur la pièce à son
+    // rang.
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "surface_radiate",
+      note: "Une bande plane part du contour, dans son plan (une collerette).",
+      zone: {
+        label: "Contour plan",
+        row: { type: "selection", key: "boundary",
+               accepts: ["boundary", "sketch", "surface"], multiple: true,
+               hint: "Cliquez les arêtes d'un contour plan : solide, "
+                 + "surface ou esquisse",
+               value: radiateBoundaryPick(ctx.lastTree, spec) },
+        changed: (v) => radiateBoundaryValues(v.boundary, spec),
+        missing: "Radiée : un contour plan et une distance",
+      },
+      groups: [{ label: "Paramètres", rows: [
+        { type: "number", key: "distance", label: "Distance",
+          value: Math.abs(distance.value), unit: "mm" },
+        { type: "check", key: "flip", label: "Vers l'intérieur",
+          value: distance.value < 0 }] }],
+      values: (v) => (num(v.distance)
+        ? signedEditValues(v, distance.value) : null),
+      problem: () => "Radiée : un contour plan et une distance",
+    });
   }
 
   // Ajustement : son outil, la surface ajustée et la partie gardée (un

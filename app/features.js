@@ -116,6 +116,8 @@ export {
   planarEditValues,
   projectEditValues,
   projectTargetPick,
+  radiateBoundaryPick,
+  radiateBoundaryValues,
   signedEditValues,
   sourceEditValues,
   surfaceCutParams,
