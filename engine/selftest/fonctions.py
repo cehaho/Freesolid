@@ -1158,7 +1158,7 @@ def p92_coque_et_percage_reedites(self, mark, report, etat):
 
     tree = self.add_thickness(faces=[top_face()], thickness=2)
     shell = body.Tip.Name
-    ok = (row(tree, shell).get("shell") == {"outward": False}
+    ok = ((row(tree, shell).get("shell") or {}).get("outward") is False
           and abs(body.Shape.Volume - (32000 - 36 * 36 * 18)) < 1e-3)
     self.set_params(shell, {"outward": True})
     box = body.Shape.BoundBox
@@ -4596,3 +4596,90 @@ def p113_habillage_reedite_ses_aretes(self, mark, report, etat):
         and "99" in str(unknown.get("error"))
         and list(fillet.Base[1]) == ["Edge1", "Edge3"]
         and foreign.get("ok") is False and clean())
+
+
+def p114_coque_depouille_rechoisissent(self, mark, report, etat):
+    mark("p114: une coque, une dépouille re-choisissent leurs faces au rang")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def entry(tree, name):
+        return next((f for f in tree.get("features", ())
+                     if f.get("name") == name), {})
+
+    def face_at(shape, axis, value):
+        return next(i for i, f in enumerate(shape.Faces)
+                    if abs((f.CenterOfMass.x, f.CenterOfMass.y,
+                            f.CenterOfMass.z)[axis] - value) < 1e-6)
+
+    # Coque ouverte sur le dessus, puis une extrusion par-dessus.
+    self.new_part("Coque rééditée")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    top = face_at(pad.Shape, 2, 10)
+    side = face_at(pad.Shape, 0, 10)
+    self.add_thickness(faces=[top], thickness=1)
+    shell = body.Tip
+    self.add_rect_sketch(6, 6)
+    self.add_pad(20)
+    listed = entry(self.get_tree(), shell.Name).get("shell") or {}
+    call("rank_view", feature=shell.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": shell.Name, "values": {"faces": [top, side]}})
+    at_rank = (shown.get("ok") is True and self._rank_view is not None
+               and body.Tip is pad)
+    done = call("set_params", feature=shell.Name,
+                values={"faces": [top, side], "thickness": 1.5})
+    changed = (done.get("ok") is True and self._rank_view is None
+               and sorted(shell.Base[1]) == sorted(
+                   ["Face{}".format(top + 1), "Face{}".format(side + 1)])
+               and (entry(done["result"], shell.Name).get("shell") or {})
+               .get("faces") == [top, side] and clean())
+    call("undo")
+    empty = call("set_params", feature=shell.Name, values={"faces": []})
+    edges = call("set_params", feature=shell.Name, values={"edges": [1]})
+    report["p114_coque_rechoisit_ses_faces"] = (
+        listed.get("faces") == [top] and at_rank and changed
+        and list(shell.Base[1]) == ["Face{}".format(top + 1)]
+        and empty.get("ok") is False and edges.get("ok") is False
+        and clean())
+
+    # Dépouille d'un flanc : passe à un autre flanc ; un plan neutre
+    # parallèle à la face est refusé, la pièce reste telle quelle.
+    self.new_part("Dépouille rééditée")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    side = face_at(pad.Shape, 0, 10)
+    other = face_at(pad.Shape, 1, 10)
+    self.add_draft(side, 5, "XY")
+    draft = body.Tip
+    listed = entry(self.get_tree(), draft.Name).get("draft")
+    call("rank_view", feature=draft.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": draft.Name, "values": {"face": other}})
+    at_rank = shown.get("ok") is True and self._rank_view is not None
+    done = call("set_params", feature=draft.Name,
+                values={"face": other, "angle": 4})
+    moved = (done.get("ok") is True
+             and list(draft.Base[1]) == ["Face{}".format(other + 1)]
+             and entry(done["result"], draft.Name).get("draft")
+             == {"face": other, "neutral": "XY"} and clean())
+    parallel = call("set_params", feature=draft.Name,
+                    values={"neutral": "XZ"})
+    unknown = call("set_params", feature=draft.Name, values={"neutral": "AB"})
+    foreign = call("set_params", feature=pad.Name, values={"neutral": "XY"})
+    report["p114_depouille_rechoisit_face_et_plan"] = (
+        listed == {"face": side, "neutral": "XY"} and at_rank and moved
+        and parallel.get("ok") is False
+        and self._draft_neutral_token(draft) == "XY"
+        and unknown.get("ok") is False and foreign.get("ok") is False
+        and clean())

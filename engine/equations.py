@@ -52,6 +52,7 @@ class EquationsMixin:
             KernelError,
             NeedsConfirm,
             _explain,
+            parse_neutral_plane,
             parse_user_number,
             shell_too_thick_message,
         )
@@ -69,15 +70,16 @@ class EquationsMixin:
         chosen = "bodies" in values
         bodies = values.pop("bodies", None)
         merge = values.pop("merge", None)
-        # Arêtes (ou face) d'un congé ou d'un chanfrein, re-choisies sur la
-        # pièce à son rang : des éléments de sa base, pas une cote.
-        targets = None
-        if "edges" in values or "face" in values:
-            if obj.TypeId not in self._DRESSUP_PICKS:
-                raise KernelError("propriété non éditable : {}".format(
-                    "edges" if "edges" in values else "face"))
-            targets = self._dressup_subs(obj, values.pop("edges", None),
-                                         values.pop("face", None))
+        # Arêtes ou faces d'un habillage (congé, chanfrein, coque,
+        # dépouille), re-choisies sur la pièce à son rang : des éléments de
+        # sa base, pas une cote. Le plan neutre d'une dépouille suit.
+        picks = {key: values.pop(key) for key in ("edges", "face", "faces")
+                 if key in values}
+        targets = self._picked_subs(obj, picks) if picks else None
+        draft = obj.TypeId == "PartDesign::Draft"
+        neutral = values.pop("neutral", None) if draft else None
+        if neutral is not None:
+            neutral = parse_neutral_plane(neutral)
         values, asked = self._props_from_keys(obj, values)
         if merge is not None and not self._merge_editable(obj):
             raise KernelError("« Fusionner » ne se change que sur un "
@@ -96,8 +98,19 @@ class EquationsMixin:
         if targets is not None:
             previous.append(("Base", None, obj.Base))
             try:
-                obj.Base = (obj.Base[0] if obj.Base else obj.BaseFeature,
-                            targets)
+                obj.Base = (self._pick_base(obj), targets)
+            except Exception as exc:  # noqa: BLE001
+                self._restore_props(obj, previous)
+                raise KernelError(_explain(exc))
+        if draft and (targets is not None or neutral is not None):
+            # Le plan neutre se repose sur la face (peut-être nouvelle) :
+            # une face parallèle de la base, autre que celle qu'on dépouille.
+            plane = neutral or self._draft_neutral_token(obj)
+            face = (self._base_face_ids(obj) or [None])[0]
+            previous.append(("NeutralPlane", None, obj.NeutralPlane))
+            try:
+                obj.NeutralPlane = self._draft_neutral_ref(
+                    self._pick_base(obj), plane, face)
             except Exception as exc:  # noqa: BLE001
                 self._restore_props(obj, previous)
                 raise KernelError(_explain(exc))
@@ -332,6 +345,9 @@ class EquationsMixin:
                     raise KernelError(invalid)
             if shelled and self._shell_left_full(obj):
                 raise KernelError(shell_too_thick_message())
+            if (draft and (targets is not None or neutral is not None)
+                    and self._draft_without_effect(obj)):
+                raise KernelError(self._DRAFT_NO_EFFECT)
         except KernelError as exc:
             self._restore_props(obj, previous)
             try:

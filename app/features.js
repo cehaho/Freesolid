@@ -56,6 +56,8 @@ export {
   chamferFieldValue,
   chamferProblem,
   chamferRows,
+  draftEditGroups,
+  draftEditValues,
   dressupPick,
   dressupPickValues,
   filletEditRows,
@@ -63,6 +65,8 @@ export {
   shellBuild,
   shellEditGroups,
   shellEditValues,
+  shellFacesPick,
+  shellFacesValues,
   vertexChamferDistances,
   vertexChamferRows,
 } from "./features/habillage.js";

@@ -1,11 +1,13 @@
-// Congé et chanfrein qu'on réédite : la zone revient remplie de ce qu'ils
-// arrondissent, et seul ce qui a changé part au moteur.
+// Habillages qu'on réédite (congé, chanfrein, coque, dépouille) : la zone
+// revient remplie de ce qu'ils visent, et seul ce qui a changé part au
+// moteur.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  dressupPick, dressupPickValues, filletEditRows, filletEditValues,
+  draftEditGroups, draftEditValues, dressupPick, dressupPickValues,
+  filletEditRows, filletEditValues, shellFacesPick, shellFacesValues,
 } from "../../app/features.js";
 
 describe("zone d'un habillage réédité", () => {
@@ -63,5 +65,47 @@ describe("rayon d'un congé réédité", () => {
     assert.deepEqual(filletEditValues({ radius: "Rayon" }, driven), {});
     assert.deepEqual(filletEditValues({ radius: "2*Rayon" }, driven),
       { radius: "2*Rayon" });
+  });
+});
+
+describe("faces ouvertes d'une coque rééditée", () => {
+  it("reviennent dans la zone, une par ligne", () => {
+    assert.deepEqual(shellFacesPick([5, 1]), { kind: "face", items: [
+      { kind: "face", face: 5 }, { kind: "face", face: 1 }] });
+  });
+
+  it("n'envoient que ce qui change", () => {
+    const zone = (faces) => shellFacesPick(faces);
+    assert.deepEqual(shellFacesValues(zone([1, 5]), [5, 1]), {});
+    assert.deepEqual(shellFacesValues(zone([5, 1, 3]), [5, 1]),
+      { faces: [5, 1, 3] });
+    assert.equal(shellFacesValues(zone([]), [5]), null);
+  });
+});
+
+describe("dépouille rééditée", () => {
+  const feature = { params: [{ key: "angle", value: 5 }],
+                    draft: { face: 1, neutral: "XZ" } };
+
+  it("reprend son angle et son plan neutre", () => {
+    const [angle, neutral] = draftEditGroups(feature)[0].rows;
+    assert.equal(angle.value, 5);
+    assert.equal(neutral.value, "XZ");
+  });
+
+  it("n'envoie que ce qui change", () => {
+    assert.deepEqual(draftEditValues({ angle: "5", neutral: "XZ" }, feature),
+      {});
+    assert.deepEqual(draftEditValues({ angle: "4", neutral: "XY" }, feature),
+      { angle: 4, neutral: "XY" });
+    assert.equal(draftEditValues({ angle: "95", neutral: "XZ" }, feature),
+      null);
+  });
+
+  it("sa face se compare comme celle d'un congé", () => {
+    assert.deepEqual(dressupPickValues({ kind: "face", face: 1 }, { face: 1 }),
+      {});
+    assert.deepEqual(dressupPickValues({ kind: "face", face: 2 }, { face: 1 }),
+      { face: 2 });
   });
 });

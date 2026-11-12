@@ -14,7 +14,8 @@ import { featureDrop } from "./treedrop.js";
 import { renameClickAction } from "./rename.js";
 import {
   chamferRows, chamferFieldValue, chamferEditValues, chamferProblem,
-  dressupPick, dressupPickValues, filletEditRows, filletEditValues,
+  draftEditGroups, draftEditValues, dressupPick, dressupPickValues,
+  filletEditRows, filletEditValues, shellFacesPick, shellFacesValues,
   revolutionGroups, revolutionEditValues, revolutionProblem,
   extrudeEditInitial, extrudeEditProblem, extrudeEditValues, extrudeGroups,
   bodyChoiceGroups, bodyChoiceValues, extrudeMergeProblem,
@@ -2050,65 +2051,118 @@ export function installTree(ctx) {
 
   function editChamfer(feature) {
     const spec = feature.chamfer;
-    return editDressup(feature, {
+    return editAtRank(feature, {
       icon: "chamfer",
-      selectionLabel: "Éléments à chanfreiner",
-      group: "Paramètres du chanfrein",
-      rows: chamferRows({
+      zone: dressupZone(feature, "Éléments à chanfreiner"),
+      groups: [{ label: "Paramètres du chanfrein", rows: chamferRows({
         kind: spec.type,
         size: chamferFieldValue(feature.params, "size", spec.size),
         size2: chamferFieldValue(feature.params, "size2", spec.size2),
         angle: chamferFieldValue(feature.params, "angle", spec.angle),
         flip: spec.flip,
-      }),
+      }) }],
       values: (v) => chamferEditValues(v, spec, feature.params),
       problem: (v) => chamferProblem(v),
     });
   }
 
   function editFillet(feature) {
-    return editDressup(feature, {
+    return editAtRank(feature, {
       icon: "fillet",
-      selectionLabel: "Éléments à arrondir",
-      group: "Paramètres du congé",
-      rows: filletEditRows(feature),
+      zone: dressupZone(feature, "Éléments à arrondir"),
+      groups: [{ label: "Paramètres du congé",
+                 rows: filletEditRows(feature) }],
       values: (v) => filletEditValues(v, feature),
       problem: () => "Valeur invalide",
     });
   }
 
-  /** Congé, chanfrein : le panneau de la création, sa zone remplie des
-   *  arêtes (ou de la face) qu'il arrondit. Comme dans les modeleurs
-   *  courants, elles se re-choisissent sur la pièce à son rang
-   *  (`rank_view`, la barre juste au-dessus de lui) : celles qu'il a
-   *  arrondies y existent encore, et l'aperçu le montre réédité. Sans la
-   *  vue au rang (refusée), seules les cotes se rééditent, sur la pièce
-   *  d'aujourd'hui. */
-  async function editDressup(feature, { icon, selectionLabel, group, rows,
-    values, problem }) {
-    const atRank = dressupPick(feature.dressup)
+  /** Coque : ses faces ouvertes, son épaisseur et son sens. */
+  function editShell(feature) {
+    const faces = feature.shell?.faces;
+    return editAtRank(feature, {
+      icon: "shell",
+      zone: faces?.length ? {
+        label: "Faces à supprimer",
+        row: { type: "selection", key: "faces", accepts: ["face"],
+               multiple: true,
+               hint: "Cliquez les faces à ouvrir — un second clic retire",
+               value: shellFacesPick(faces) },
+        changed: (v) => shellFacesValues(v.faces, faces),
+        missing: "Coque : cliquez au moins une face à ouvrir",
+      } : null,
+      groups: shellEditGroups(feature),
+      values: (v) => shellEditValues(v, feature),
+      problem: () => "Épaisseur invalide",
+    });
+  }
+
+  /** Dépouille : sa face, son angle et son plan neutre. */
+  function editDraft(feature) {
+    const face = feature.draft?.face;
+    return editAtRank(feature, {
+      icon: "draft",
+      zone: Number.isInteger(face) ? {
+        label: "Faces à dépouiller",
+        row: { type: "selection", key: "sel", accepts: ["face"],
+               value: { kind: "face", face } },
+        changed: (v) => dressupPickValues(v.sel, { face }),
+        missing: "Cliquez une face dans la zone graphique",
+        select: () => ctx.selectFaceId?.(face),
+      } : null,
+      groups: draftEditGroups(feature),
+      values: (v) => draftEditValues(v, feature),
+      problem: () => "Valeur invalide",
+    });
+  }
+
+  /** Zone d'un congé ou d'un chanfrein : ses arêtes, ou sa face. */
+  function dressupZone(feature, label) {
+    const value = dressupPick(feature.dressup);
+    if (!value) return null;
+    return {
+      label,
+      row: { type: "selection", key: "sel", accepts: ["edges", "face"],
+             hint: "Cliquez des arêtes (Ctrl = ajouter) ou une face", value },
+      changed: (v) => dressupPickValues(v.sel, feature.dressup),
+      missing: "Cliquez des arêtes (Ctrl = ajouter) ou une face",
+      select: () => (value.kind === "edges"
+        ? ctx.selectEdgeIds?.(value.edges) : ctx.selectFaceId?.(value.face)),
+    };
+  }
+
+  /** Habillage (congé, chanfrein, coque, dépouille) : le panneau de la
+   *  création, sa zone remplie de ce qu'il vise. Comme dans les modeleurs
+   *  courants, cela se re-choisit sur la pièce à son rang (`rank_view`,
+   *  la barre juste au-dessus de lui) : ses arêtes, ses faces y existent
+   *  encore, et l'aperçu le montre réédité. Sans la vue au rang (refusée)
+   *  ni zone, seuls ses réglages se rééditent, sur la pièce d'aujourd'hui.
+   *
+   *  `zone` : `{ label, row, changed(v), missing, select?() }` — `changed`
+   *  rend `{}` (inchangée), les valeurs `set_params` du re-choix, ou null
+   *  (vide) ; `select` donne à la vue ce que la zone contient. */
+  async function editAtRank(feature, { icon, zone, groups, values,
+    problem }) {
+    const atRank = zone
       ? await call("rank_view", { feature: feature.name }).catch(() => null)
       : null;
     if (atRank) await refresh(Promise.resolve(atRank));
-    const pick = atRank ? dressupPick(feature.dressup) : null;
+    const pick = atRank ? zone : null;
     const build = (v) => {
       const own = values(v);
       if (own === null || !pick) return own;
-      const chosen = dressupPickValues(v.sel, feature.dressup);
+      const chosen = pick.changed(v);
       return chosen === null ? null : { ...own, ...chosen };
     };
-    const missing = (v) => (pick && dressupPickValues(v.sel, feature.dressup) === null
-      ? "Cliquez des arêtes (Ctrl = ajouter) ou une face" : problem(v));
+    const missing = (v) => (pick && pick.changed(v) === null
+      ? pick.missing : problem(v));
     let applied = false;
     panel.open({
       icon,
       title: feature.label,
       groups: [
-        ...(pick ? [{ label: selectionLabel, rows: [{
-          type: "selection", key: "sel", accepts: ["edges", "face"],
-          hint: "Cliquez des arêtes (Ctrl = ajouter) ou une face",
-          value: pick }] }] : []),
-        { label: group, rows },
+        ...(pick ? [{ label: pick.label, rows: [pick.row] }] : []),
+        ...groups,
       ],
       hint: (v) => (build(v) ? null : missing(v)),
       onChange: (v) => {
@@ -2145,8 +2199,7 @@ export function installTree(ctx) {
       },
     });
     // La vue surligne ce que la zone contient, et Ctrl+clic part de là.
-    if (pick?.kind === "edges") ctx.selectEdgeIds?.(pick.edges);
-    else if (pick?.kind === "face") ctx.selectFaceId?.(pick.face);
+    pick?.select?.();
   }
 
   /** Groupe « Contours » d'une fonction dont l'esquisse en a plusieurs. */
@@ -2367,8 +2420,8 @@ export function installTree(ctx) {
     revolution: (feature) => editRevolved(feature),
     extrude: (feature) => editExtrude(feature),
     // Coque : épaisseur et sens ; perçage : type, cotes, condition de fin.
-    shell: (feature) => editWithValues(feature, shellEditGroups(feature),
-      (v) => shellEditValues(v, feature), "Épaisseur invalide"),
+    shell: (feature) => editShell(feature),
+    draft: (feature) => editDraft(feature),
     hole: (feature) => editWithValues(feature,
       [...holeGroups(holeEditInitial(feature)),
        ...bodyChoiceGroups(feature, ctx.lastTree)],

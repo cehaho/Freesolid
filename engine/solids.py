@@ -1673,6 +1673,35 @@ class SolidsMixin:
                 return token
         return "XY"
 
+    def _draft_neutral_ref(self, tip, plane, face):
+        """Plan neutre d'une dépouille de la face ``face`` de ``tip``.
+
+        XY : plan d'origine (comportement historique, OK pour les parois).
+        XZ/YZ : une face de ``tip`` parallèle — les plans d'origine XZ/YZ
+        sont un no-op OCCT sur les faces de calotte (FreeCAD 1.0).
+        """
+        origin = (self._origin_feature(self._PLANE_ROLES[plane]), [""])
+        if plane == "XY":
+            return origin
+        return self._tip_face_parallel_to(
+            tip, plane, exclude_face=face) or origin
+
+    @staticmethod
+    def _draft_without_effect(obj):
+        """La dépouille ne change rien à la pièce : sa face ne se dépouille
+        pas par rapport à ce plan neutre."""
+        base = getattr(obj, "BaseFeature", None)
+        try:
+            return abs(float(obj.Shape.Volume)
+                       - float(base.Shape.Volume)) < 1e-9
+        except Exception:  # noqa: BLE001 - forme absente : pas ce refus-là
+            return False
+
+    #: Refus d'une dépouille sans effet (création et réédition).
+    _DRAFT_NO_EFFECT = (
+        "cette face ne peut pas être dépouillée par rapport à ce "
+        "plan neutre — choisissez un autre plan neutre ou une autre face")
+
     def add_draft(self, face, angle, neutral="XY"):
         """Dépouille de la face cliquée ; plan neutre XY/XZ/YZ."""
         from engine.kernel import (
@@ -1686,17 +1715,7 @@ class SolidsMixin:
         if tip is None:
             raise KernelError("pas de solide à dépouiller")
         plane = parse_neutral_plane(neutral)
-        # XY : plan d'origine (comportement historique, OK pour les parois).
-        # XZ/YZ : une face du Tip parallèle — les plans d'origine XZ/YZ sont
-        # un no-op OCCT sur les faces de calotte (FreeCAD 1.0).
-        if plane == "XY":
-            neutral_ref = (self._origin_feature(self._PLANE_ROLES[plane]), [""])
-        else:
-            neutral_ref = self._tip_face_parallel_to(
-                tip, plane, exclude_face=face)
-            if neutral_ref is None:
-                neutral_ref = (
-                    self._origin_feature(self._PLANE_ROLES[plane]), [""])
+        neutral_ref = self._draft_neutral_ref(tip, plane, face)
         volume_before = float(body.Shape.Volume)
         previous_tip = tip
         feature = body.newObject("PartDesign::Draft", "Draft")
@@ -1721,9 +1740,7 @@ class SolidsMixin:
                 body.Tip = previous_tip
                 doc.removeObject(feature.Name)
                 self._recompute()
-            raise KernelError(
-                "cette face ne peut pas être dépouillée par rapport à ce "
-                "plan neutre — choisissez un autre plan neutre ou une autre face")
+            raise KernelError(self._DRAFT_NO_EFFECT)
         return self.get_tree()
 
     def _dressup(self, type_id, prop, value, face=None, edges=None):
@@ -1881,14 +1898,75 @@ class SolidsMixin:
             return {"face": faces[0]}
         return None
 
+    #: Ce qui se re-choisit à la réédition, par genre : les clés de
+    #: ``set_params`` qui remplacent les éléments de sa base.
+    _BASE_PICKS = {
+        "PartDesign::Fillet": ("edges", "face"),
+        "PartDesign::Chamfer": ("edges", "face"),
+        "PartDesign::Thickness": ("faces",),
+        "PartDesign::Draft": ("face",),
+    }
+
+    @staticmethod
+    def _pick_base(obj):
+        """La forme sur laquelle se comptent les éléments d'un habillage :
+        sa base (la pièce à son rang)."""
+        base = getattr(obj, "Base", None)
+        return base[0] if base else getattr(obj, "BaseFeature", None)
+
+    @staticmethod
+    def _base_face_ids(obj):
+        """Faces de la base d'une coque ou d'une dépouille, en ids ; None
+        si elle porte autre chose que des faces."""
+        base = getattr(obj, "Base", None)
+        ids = []
+        for sub in (list(base[1]) if base else []):
+            name = str(sub).rsplit(".", 1)[-1]
+            if not (name.startswith("Face") and name[4:].isdigit()):
+                return None
+            ids.append(int(name[4:]) - 1)
+        return ids
+
+    def _picked_subs(self, obj, picks):
+        """Éléments re-choisis à la réédition (``edges``, ``face``,
+        ``faces``) -> sous-éléments de la base, comme à la création. Une
+        clé que la fonction ne prend pas est refusée comme une cote."""
+        from engine.kernel import KernelError
+        allowed = self._BASE_PICKS.get(obj.TypeId, ())
+        for key in picks:
+            if key not in allowed:
+                raise KernelError("propriété non éditable : {}".format(key))
+        if obj.TypeId == "PartDesign::Thickness":
+            return self._face_subs(obj, picks["faces"],
+                                   "coque : cliquez au moins une face à ouvrir")
+        if obj.TypeId == "PartDesign::Draft":
+            return self._face_subs(obj, [picks["face"]],
+                                   "face inconnue : {}".format(picks["face"]))
+        return self._dressup_subs(obj, picks.get("edges"), picks.get("face"))
+
+    def _face_subs(self, obj, faces, empty):
+        """Faces re-choisies (ids sur la base) -> ``FaceN``. ``empty`` : le
+        refus d'une liste vide."""
+        from engine.kernel import KernelError
+        shape = getattr(self._pick_base(obj), "Shape", None)
+        if not isinstance(faces, (list, tuple)) or not faces:
+            raise KernelError(empty)
+        subs = []
+        for face in faces:
+            if (type(face) is not int or shape is None
+                    or not 0 <= face < len(shape.Faces)):
+                raise KernelError("face inconnue : {}".format(face))
+            name = "Face{}".format(face + 1)
+            if name not in subs:
+                subs.append(name)
+        return subs
+
     def _dressup_subs(self, obj, edges=None, face=None):
         """Éléments re-choisis d'un congé ou d'un chanfrein -> noms
         ``EdgeN`` / ``FaceN`` de sa base, comme à la création : des
         arêtes, ou une face. Refus clair sinon."""
         from engine.kernel import KernelError
-        base = getattr(obj, "Base", None)
-        base = base[0] if base else getattr(obj, "BaseFeature", None)
-        shape = getattr(base, "Shape", None)
+        shape = getattr(self._pick_base(obj), "Shape", None)
         if edges:
             if face is not None or not isinstance(edges, (list, tuple)):
                 raise KernelError(
@@ -1903,10 +1981,7 @@ class SolidsMixin:
                     subs.append(name)
             return subs
         if face is not None:
-            if (type(face) is not int or shape is None
-                    or not 0 <= face < len(shape.Faces)):
-                raise KernelError("face inconnue : {}".format(face))
-            return ["Face{}".format(face + 1)]
+            return self._face_subs(obj, [face], "")
         raise KernelError("sélectionnez des arêtes ou une face de la pièce")
 
     def _chamfer_state(self, obj):
