@@ -1,6 +1,7 @@
 """Réédition de ce qu'une surface prend : l'esquisse du contour d'une
 surface plane, la surface d'un décalage ou d'un épaississement, le bord
-d'un prolongement, les arêtes d'un congé.
+d'un prolongement, les arêtes d'un congé, les deux formes d'une courbe
+d'intersection, l'esquisse et la face d'une courbe projetée.
 
 Mixin de ``Kernel``. Pas d'import FreeCAD au niveau du module.
 """
@@ -14,6 +15,8 @@ class SurfaceReeditMixin:
         "planar": ("sketch",),
         "extend": ("source", "edge", "distance"),
         "fillet": ("source", "edges", "radius"),
+        "intersection": ("first", "second", "body"),
+        "project": ("sketch", "surface", "face"),
     }
 
     def _surface_pick_kind(self, obj):
@@ -29,6 +32,10 @@ class SurfaceReeditMixin:
             return "extend"
         if obj.TypeId == "Part::Fillet":
             return "fillet"
+        if obj.TypeId == "Part::Section":
+            return "intersection"
+        if obj.TypeId == "Part::ProjectOnSurface":
+            return "project"
         return None
 
     def _refuse_later_source(self, obj, source):
@@ -68,9 +75,17 @@ class SurfaceReeditMixin:
                     obj.Sources = [sketch]
             elif kind == "extend":
                 self._set_extend_params(obj, values)
-            else:
+            elif kind == "fillet":
                 self._set_surface_fillet_params(obj, values)
+            elif kind == "intersection":
+                self._set_intersection_params(obj, values)
+            else:
+                self._set_projection_params(obj, values)
             self._recompute()
+            if kind in ("intersection", "project") and not obj.Shape.Edges:
+                raise KernelError("les deux formes ne se coupent pas"
+                                  if kind == "intersection" else
+                                  "la projection ne touche pas la face")
         except Exception as exc:  # noqa: BLE001
             for prop, value in saved:
                 setattr(obj, prop, value)
@@ -92,6 +107,8 @@ class SurfaceReeditMixin:
             "extend": ("Face", "ExtendUNeg", "ExtendUPos", "ExtendVNeg",
                        "ExtendVPos", "FreeSolidDistance", "FreeSolidEdge"),
             "fillet": ("Base", "Edges"),
+            "intersection": ("Base", "Tool"),
+            "project": ("SupportFace", "Projection", "Direction"),
         }[kind]
         return [(prop, getattr(obj, prop)) for prop in props
                 if prop in obj.PropertiesList]
@@ -135,3 +152,54 @@ class SurfaceReeditMixin:
         source = self._picked_surface(obj, name, faces=not obj.Fill)
         previous.append(("Source", None, obj.Source))
         obj.Source = source
+
+    def _set_intersection_params(self, obj, values):
+        """Courbe d'intersection : sa première surface (``first``), la
+        seconde (``second``) ou le solide du corps actif (``body``)."""
+        from engine.kernel import KernelError
+        base, tool = obj.Base, obj.Tool
+        if "first" in values:
+            base = self._picked_surface(obj, values["first"], faces=False)
+        solid = bool(values.get("body", tool.TypeId == "PartDesign::Body"))
+        if solid:
+            tool = self._require_body()
+            if not getattr(tool, "Shape", None) or not tool.Shape.Solids:
+                raise KernelError("le corps n'a pas encore de solide")
+        elif "second" in values:
+            tool = self._picked_surface(obj, values["second"], faces=False)
+        elif tool.TypeId == "PartDesign::Body":
+            raise KernelError("choisissez une seconde surface")
+        if tool is base:
+            raise KernelError("choisissez deux surfaces différentes")
+        obj.Base = base
+        obj.Tool = tool
+
+    def _set_projection_params(self, obj, values):
+        """Courbe projetée : son esquisse (``sketch``), la surface et la
+        face où elle se projette (``surface``, ``face`` base 0). La
+        direction suit la normale de l'esquisse, comme à la création."""
+        from engine.kernel import KernelError
+        App = self._app()
+        sketch = next(iter(self._surface_sketch_objects(obj)), None)
+        if "sketch" in values:
+            sketch = self._get_sketch(str(values["sketch"]))
+            self._refuse_later_source(obj, sketch)
+        if sketch is None:
+            raise KernelError("cliquez l'esquisse à projeter")
+        support = obj.SupportFace
+        src = support[0] if support else None
+        subs = support[1] if support else ()
+        face = int(subs[0][4:]) - 1 if subs else 0
+        if "surface" in values:
+            src = self._picked_surface(obj, values["surface"])
+            face = 0
+        if "face" in values:
+            face = int(values["face"])
+        if src is None:
+            raise KernelError("projeter demande une surface, pas une courbe")
+        if face < 0 or face >= len(src.Shape.Faces):
+            raise KernelError("face inconnue : {}".format(face))
+        normal = sketch.Placement.Rotation.multVec(App.Vector(0, 0, 1))
+        obj.SupportFace = (src, ["Face%d" % (face + 1)])
+        obj.Projection = [sketch]
+        obj.Direction = normal * -1

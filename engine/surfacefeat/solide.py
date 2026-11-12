@@ -34,33 +34,12 @@ class SurfaceSolidMixin:
         src = self._get_surface(surface)
         if not src.Shape.Faces:
             raise KernelError("couper demande une surface, pas une courbe")
-        normal = self._surface_normal(src.Shape)
-        if normal.Length < 1e-9:
-            raise KernelError("la surface n'a pas de côté défini — elle se "
-                              "referme sur elle-même")
-        normal.normalize()
-        if flip:
-            normal = normal * -1
-        reach = max(1000.0, 4 * shape.BoundBox.DiagonalLength
-                    + 4 * src.Shape.BoundBox.DiagonalLength)
-        before = shape.Volume
         if thickness is not None:
             thickness = abs(float(thickness))
             if thickness < 1e-9:
                 raise KernelError("l'épaisseur ne peut pas être nulle")
-            half = doc.addObject("Part::Offset", "SurfaceCutThick")
-            self._mark_internal(half)
-            half.Source = src
-            half.Value = -thickness if flip else thickness
-            half.Fill = True
-        else:
-            half = doc.addObject("Part::Extrusion", "SurfaceCutHalf")
-            self._mark_internal(half)
-            half.Base = src
-            half.DirMode = "Custom"
-            half.Dir = normal
-            half.LengthFwd = reach
-            half.Solid = True
+        before = shape.Volume
+        half = self._surface_cut_half(src, shape, flip, thickness)
         tool_body = doc.addObject("PartDesign::Body", "SurfaceCutBody")
         self._mark_internal(tool_body)
         tool_body.BaseFeature = half
@@ -426,6 +405,136 @@ class SurfaceSolidMixin:
             raise KernelError("surface médiane : le modeleur ne sait pas "
                               "suivre ces deux faces")
         return result
+
+    def _surface_cut_half(self, src, shape, flip, thickness):
+        """L'outil d'une coupe par surface : le demi-espace que la surface
+        balaie du côté de sa normale (ou de l'autre, ``flip``), ou la
+        bande de ``thickness`` qu'elle occupe épaissie. ``shape`` : le
+        solide à couper, pour la portée du demi-espace."""
+        from engine.kernel import KernelError
+        doc = self._require_doc()
+        if thickness:
+            half = doc.addObject("Part::Offset", "SurfaceCutThick")
+            self._mark_internal(half)
+            half.Source = src
+            half.Value = -thickness if flip else thickness
+            half.Fill = True
+            return half
+        normal = self._surface_normal(src.Shape)
+        if normal.Length < 1e-9:
+            raise KernelError("la surface n'a pas de côté défini — elle se "
+                              "referme sur elle-même")
+        normal.normalize()
+        half = doc.addObject("Part::Extrusion", "SurfaceCutHalf")
+        self._mark_internal(half)
+        half.Base = src
+        half.DirMode = "Custom"
+        half.Dir = normal * -1 if flip else normal
+        half.LengthFwd = max(1000.0, 4 * shape.BoundBox.DiagonalLength
+                             + 4 * src.Shape.BoundBox.DiagonalLength)
+        half.Solid = True
+        return half
+
+    @staticmethod
+    def _surface_cut_tool(obj):
+        """Le corps outil d'une coupe par surface et son outil (demi-espace
+        ou bande épaisse)."""
+        from engine.kernel import KernelError
+        tool_body = next((o for o in (getattr(obj, "Group", None) or [])
+                          if o.TypeId == "PartDesign::Body"), None)
+        half = getattr(tool_body, "BaseFeature", None)
+        if half is None:
+            raise KernelError("coupe incomplète — le corps outil est absent")
+        return tool_body, half
+
+    def _set_surface_cut_params(self, obj, values):
+        """``set_params`` d'une coupe par surface, comme à la création :
+        sa surface outil (``surface``), le côté (``flip``), la bande
+        épaisse (``thickness`` ; 0 ou None : tout un côté). L'outil se
+        refait quand la surface ou le genre change ; tout ou rien."""
+        from engine.kernel import KernelError, _explain
+        for key in values:
+            if key not in ("surface", "flip", "thickness"):
+                raise KernelError("propriété non éditable : {}".format(key))
+        doc = self._require_doc()
+        tool_body, half = self._surface_cut_tool(obj)
+        banded = half.TypeId == "Part::Offset"
+        src = half.Source if banded else half.Base
+        if "surface" in values:
+            src = self._get_surface(values["surface"])
+            if not src.Shape.Faces:
+                raise KernelError("couper demande une surface, pas une "
+                                  "courbe")
+            self._refuse_later_source(obj, src)
+        flip = bool(values.get("flip", obj.FreeSolidCutflip))
+        thickness = (values["thickness"] if "thickness" in values
+                     else float(obj.FreeSolidCutthick or 0.0))
+        thickness = abs(float(thickness or 0.0))
+        if "thickness" in values and values["thickness"] is not None \
+                and thickness < 1e-9:
+            raise KernelError("l'épaisseur ne peut pas être nulle")
+        base = getattr(obj, "BaseFeature", None)
+        shape = base.Shape if base is not None else obj.Shape
+        stamps = [(name, getattr(obj, name)) for name in
+                  ("FreeSolidCutsurface", "FreeSolidCutflip",
+                   "FreeSolidCutthick")]
+        made = None
+        rebuild = (src is not (half.Source if banded else half.Base)
+                   or banded != bool(thickness))
+        try:
+            if rebuild:
+                made = self._surface_cut_half(src, shape, flip, thickness)
+                tool_body.BaseFeature = made
+            elif banded:
+                half.Value = -thickness if flip else thickness
+            elif flip != bool(obj.FreeSolidCutflip):
+                half.Dir = half.Dir * -1
+            self._stamp(obj, cutsurface=src.Name, cutflip=int(flip),
+                        cutthick=thickness)
+            self._recompute()
+            self._check_surface_cut(obj, shape, thickness)
+        except Exception as exc:  # noqa: BLE001
+            for name, value in stamps:
+                setattr(obj, name, value)
+            if made is not None:
+                tool_body.BaseFeature = half
+                try:
+                    doc.removeObject(made.Name)
+                except Exception:  # noqa: BLE001
+                    pass
+            elif rebuild:
+                pass  # l'outil d'avant n'a pas été touché
+            elif banded:
+                half.Value = (-1 if stamps[1][1] else 1) * stamps[2][1]
+            elif flip != bool(stamps[1][1]):
+                half.Dir = half.Dir * -1
+            try:
+                self._recompute()
+            except KernelError:
+                pass  # l'état d'avant était sain : ne pas masquer exc
+            message = (str(exc) if isinstance(exc, KernelError)
+                       else _explain(exc))
+            raise KernelError(
+                "{} — la pièce n'a pas été modifiée".format(message))
+        if made is not None:
+            doc.removeObject(half.Name)
+            self._recompute()
+        return self.get_tree()
+
+    @staticmethod
+    def _check_surface_cut(obj, shape, thickness):
+        """Une coupe par surface enlève de la matière, sans tout enlever."""
+        from engine.kernel import KernelError
+        before = shape.Volume if shape.Solids else 0.0
+        after = obj.Shape.Volume if obj.Shape.Solids else 0.0
+        if abs(after - before) < 1e-6 * max(before, 1.0):
+            raise KernelError("la surface épaissie ne touche pas le solide"
+                              if thickness else
+                              "la surface ne coupe pas le solide — elle doit "
+                              "le traverser de part en part")
+        if after < 1e-6 * before:
+            raise KernelError("la surface enlève tout le solide — inversez "
+                              "le côté")
 
     def edit_surface_cut(self, feature, flip, thickness=None):
         """Rééditer une coupe par surface : garder l'autre côté ; pour une

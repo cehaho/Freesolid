@@ -101,6 +101,7 @@ export {
 } from "./features/combiner.js";
 export {
   boundaryParam,
+  cutOptionValues,
   deleteFacesBuild,
   deleteFacesParams,
   extendParams,
@@ -109,9 +110,12 @@ export {
   filletEdgesPick,
   filletEdgesValues,
   freeformParams,
+  intersectionEditValues,
   midParams,
+  ownSketchPick,
   planarEditValues,
-  planarSketchPick,
+  projectEditValues,
+  projectTargetPick,
   signedEditValues,
   sourceEditValues,
   surfaceCutParams,

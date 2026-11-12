@@ -60,6 +60,8 @@ export function surfaceEditor(item) {
   // Surface plane, épaississement : ce qu'ils prennent se re-choisit.
   if (kind === "planar") return "planar";
   if (kind === "thicken") return "thicken";
+  // Courbes d'intersection et projetées : leurs formes se re-choisissent.
+  if (kind === "intersection" || kind === "project") return kind;
   if (kind === "fillet") return "surface_fillet";
   if (kind === "freeform") return item.surface.moves ? "poles" : "freeform";
   if (kind === "flatten") return "flatten";

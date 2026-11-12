@@ -267,6 +267,22 @@ class SurfaceCommonMixin:
             sources = list(getattr(obj, "Sources", None) or ())
             return {"kind": "planar",
                     "sketch": sources[0].Name if sources else None}
+        if obj.TypeId == "Part::Section":
+            base, tool = obj.Base, obj.Tool
+            solid = tool is not None and tool.TypeId == "PartDesign::Body"
+            return {"kind": "intersection",
+                    "first": base.Name if base is not None else None,
+                    "second": (tool.Name if tool is not None and not solid
+                               else None),
+                    "body": solid}
+        if obj.TypeId == "Part::ProjectOnSurface":
+            support = obj.SupportFace
+            sketches = self._surface_sketch_objects(obj)
+            subs = support[1] if support else ()
+            return {"kind": "project",
+                    "sketch": sketches[0].Name if sketches else None,
+                    "surface": support[0].Name if support else None,
+                    "face": int(subs[0][4:]) - 1 if subs else 0}
         if obj.TypeId == "Surface::Filling":
             return {"kind": "fill",
                     "edges": len(getattr(obj, "BoundaryEdges", ()) or ())}
