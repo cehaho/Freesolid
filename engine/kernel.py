@@ -1118,12 +1118,12 @@ _DIRTY_OPS = frozenset({"undo", "redo", "sketch_move",
 #: celles que le panneau de réédition et la vue font pendant qu'il est
 #: ouvert. Toute autre opération rend d'abord la barre où elle était.
 #: L'aperçu annule tout ce qu'il fait ; la chaîne d'arêtes ne fait que
-#: lire la pièce affichée.
+#: lire la pièce affichée, la flèche de profondeur la fonction rééditée.
 _RANK_VIEW_READS = frozenset({
     "rank_view", "rank_view_end", "get_tree", "tessellate",
     "tessellate_edges", "remove_bodies_info", "get_params", "progress",
     "document_status", "undo_history", "material_library", "list_variables",
-    "preview", "edge_chain",
+    "preview", "edge_chain", "feature_drag_info",
 })
 
 

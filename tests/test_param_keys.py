@@ -387,7 +387,7 @@ def test_les_conditions_d_une_extrusion_se_reeditent():
     assert kernel._extrude_state(obj) == {
         "cond": "borgne", "midplane": False, "reversed": False,
         "taper": 2.0, "offset": 0.0, "cond2": "borgne", "taper2": -3.0,
-        "face": False, "alone": True}
+        "face": None, "alone": True}
     kernel.set_params("F", {"cond2": None})
     assert obj.SideType == "One side"
 
@@ -401,17 +401,47 @@ def test_a_travers_tout_d_un_enlevement():
 
 
 def test_jusqu_a_la_face_sans_face_est_refuse_sans_rien_changer():
-    """La face d'arrivée ne se choisit pas à la réédition : sans face, la
-    condition est refusée et la fonction reste telle quelle."""
+    """Passer à « jusqu'à la face » sans cliquer de face : la condition
+    est refusée et la fonction reste telle quelle."""
     obj = _pad(Reversed=True)
     kernel = _kernel(obj)
-    with pytest.raises(KernelError, match="pas de face d'arrivée"):
+    with pytest.raises(KernelError, match="cliquez la face d'arrivée"):
         kernel.set_params("F", {"cond": "face", "reversed": False,
                                 "length": 3})
     assert (obj.Type, obj.Reversed, obj.Length) == ("Length", True, 10.0)
     with pytest.raises(KernelError, match="booléen attendu"):
         kernel.set_params("F", {"reversed": "oui"})
     assert obj.Reversed is True
+
+
+class _Shape:
+    def __init__(self, faces):
+        self.Faces = [object()] * faces
+
+    def isNull(self):
+        return False
+
+
+def test_la_face_d_arrivee_se_re_choisit_sur_la_piece_a_son_rang():
+    """``face`` : une face de la fonction d'avant (la pièce au rang), avec
+    la condition « jusqu'à la face » — celle de la fonction ou celle qu'on
+    lui donne. Une face inconnue, ou une autre condition, est refusée et
+    la fonction reste telle quelle."""
+    base = _Obj("Base", "PartDesign::Pad", Shape=_Shape(6))
+    obj = _pad(BaseFeature=base, Reversed=True)
+    kernel = _kernel(obj, base)
+    kernel.set_params("F", {"cond": "face", "face": 2, "offset": 1.5})
+    assert (obj.Type, obj.UpToFace, obj.Offset) == (
+        "UpToFace", (base, ["Face3"]), 1.5)
+    assert kernel._extrude_state(obj)["face"] == 2
+    kernel.set_params("F", {"face": 5})
+    assert obj.UpToFace == (base, ["Face6"])
+    with pytest.raises(KernelError, match="face inconnue : 6"):
+        kernel.set_params("F", {"face": 6, "reversed": False})
+    assert (obj.UpToFace, obj.Reversed) == ((base, ["Face6"]), True)
+    with pytest.raises(KernelError, match="n'est pas « jusqu'à la face »"):
+        kernel.set_params("F", {"cond": "borgne", "face": 1})
+    assert (obj.Type, obj.UpToFace) == ("UpToFace", (base, ["Face6"]))
 
 
 def test_le_cote_de_la_paroi_mince_se_reedite():

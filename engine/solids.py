@@ -831,7 +831,8 @@ class SolidsMixin:
     def _extrude_state(self, obj):
         """Conditions de fin d'une extrusion ou d'un enlèvement, dans les
         mots de la création (``engine.extrude.extrude_state``), plus
-        ``face`` : la face d'arrivée existe. None sinon."""
+        ``face`` : la face d'arrivée, numéro d'une face de la pièce à son
+        rang (None sans elle). None sinon."""
         from engine.extrude import extrude_state
         kind = self._EXTRUDE_KINDS.get(getattr(obj, "TypeId", ""))
         if kind is None:
@@ -847,15 +848,31 @@ class SolidsMixin:
                                  else "One side")
         state = extrude_state(kind, props)
         if state is not None:
-            state["face"] = bool(getattr(obj, "UpToFace", None))
+            state["face"] = self._arrival_face(obj)
             # Premier volume de son corps : aucun « jusqu'à » ne l'arrête.
             state["alone"] = getattr(obj, "BaseFeature", None) is None
         return state
 
-    def _set_extrude_options(self, obj, options, previous, exprs_before):
+    @staticmethod
+    def _arrival_face(obj):
+        """La face d'arrivée de ``obj`` (« jusqu'à la face ») : son numéro
+        (base 0) sur la pièce à son rang, celle d'où la création l'a
+        cliquée. None sans face, ou sur un autre objet."""
+        import re
+        link = getattr(obj, "UpToFace", None)
+        if not link or link[0] is not getattr(obj, "BaseFeature", None):
+            return None
+        subs = link[1] or ()
+        found = re.search(r"Face(\d+)$", str(subs[0])) if subs else None
+        return int(found.group(1)) - 1 if found else None
+
+    def _set_extrude_options(self, obj, options, previous, exprs_before,
+                             face=None):
         """Pose les conditions rééditées (``options`` : propriété de
         ``_EXTRUDE_OPTIONS`` -> valeur) par-dessus celles de la fonction.
-        ``previous`` reçoit de quoi tout défaire (``set_params``)."""
+        ``face`` : la face d'arrivée re-choisie, numéro d'une face de la
+        pièce à son rang. ``previous`` reçoit de quoi tout défaire
+        (``set_params``)."""
         from engine.kernel import KernelError, _explain, parse_user_number
         from engine.extrude import ExtrudeError, extrude_options
         state = self._extrude_state(obj)
@@ -890,10 +907,24 @@ class SolidsMixin:
                 self._EXTRUDE_KINDS[obj.TypeId], **state)
         except ExtrudeError as exc:
             raise KernelError(str(exc))
-        for prop, face in (("Type", "UpToFace"), ("Type2", "UpToFace2")):
-            if props.get(prop) == "UpToFace" and not getattr(obj, face, None):
+        if face is not None:
+            if props.get("Type") != "UpToFace":
+                raise KernelError("face d'arrivée : la condition de fin "
+                                  "n'est pas « jusqu'à la face »")
+            base = getattr(obj, "BaseFeature", None)
+            shape = getattr(base, "Shape", None)
+            if base is None or shape is None or shape.isNull():
                 raise KernelError(
-                    "jusqu'à la face : la fonction n'a pas de face d'arrivée")
+                    "jusqu'à la face : la pièce n'a pas encore de face")
+            if (type(face) is not int
+                    or not 0 <= face < len(shape.Faces)):
+                raise KernelError("face inconnue : {}".format(face))
+            props["UpToFace"] = (base, ["Face{}".format(face + 1)])
+        for prop, link in (("Type", "UpToFace"), ("Type2", "UpToFace2")):
+            if (props.get(prop) == "UpToFace" and link not in props
+                    and not getattr(obj, link, None)):
+                raise KernelError(
+                    "jusqu'à la face : cliquez la face d'arrivée")
         side = props.pop("SideType")
         if "SideType" in obj.PropertiesList:
             props = {"SideType": side, **props}
