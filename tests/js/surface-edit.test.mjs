@@ -5,12 +5,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  cutOptionValues, intersectionEditValues, projectEditValues,
+  freeformEditValues, radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
 } from "../../app/features.js";
 import { surfaceEditor } from "../../app/editkind.js";
+import { polesEditValues } from "../../app/poles.js";
 
 const tree = { surfaces: [{ name: "Surface", label: "Plane" },
                           { name: "Surface001", label: "Petite" }] };
@@ -194,4 +195,89 @@ describe("courbe projetée rééditée", () => {
   function pick(name) {
     return { kind: "surface", name };
   }
+});
+
+describe("ajustement réédité", () => {
+  const spec = { kind: "trim", source: "Surface", tool: "Surface001",
+                 point: [5, 20, 0] };
+  const keep = (name, x) => ({ kind: "surfpoint", name, x, y: 20, z: 0 });
+  const tool = (name) => ({ kind: "surface", name });
+
+  it("revient sur la partie gardée", () => {
+    assert.deepEqual(trimKeepPick(tree, spec), {
+      kind: "surfpoint", name: "Surface", label: "Plane", x: 5, y: 20, z: 0 });
+  });
+
+  it("n'envoie que l'outil, la surface ou le point qui changent", () => {
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface", 5) }, spec), {});
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface002"), keep: keep("Surface", 5) }, spec),
+    { tool: "Surface002" });
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface", 35) }, spec),
+    { point: [35, 20, 0] });
+    assert.deepEqual(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface003", 5) }, spec),
+    { source: "Surface003" });
+  });
+
+  it("refuse une partie gardée sur l'outil, ou sans outil", () => {
+    assert.equal(trimEditValues(
+      { tool: tool("Surface001"), keep: keep("Surface001", 5) }, spec), null);
+    assert.equal(trimEditValues({ keep: keep("Surface", 5) }, spec), null);
+  });
+});
+
+describe("surface radiée rééditée", () => {
+  const spec = { kind: "radiate", distance: 5,
+                 boundary: [{ body: true, edge: 3 }, { name: "Surface", edge: 1 }] };
+
+  it("revient avec son contour, arête par arête", () => {
+    const items = radiateBoundaryPick(tree, spec).items;
+    assert.deepEqual(items.map((i) => [i.name, i.edge, !!i.body]),
+                     [["body", 3, true], ["Surface", 1, false]]);
+    assert.equal(items[1].label, "Plane");
+  });
+
+  it("n'envoie le contour que s'il change", () => {
+    const zone = radiateBoundaryPick(tree, spec);
+    assert.deepEqual(radiateBoundaryValues(zone, spec), {});
+    assert.deepEqual(radiateBoundaryValues({ items: zone.items.slice(1) }, spec),
+                     { boundary: [{ name: "Surface", edge: 1 }] });
+    assert.deepEqual(radiateBoundaryValues(
+      { items: [{ kind: "sketch", name: "Sketch" }] }, spec),
+    { boundary: [{ name: "Sketch" }] });
+    assert.equal(radiateBoundaryValues({ items: [] }, spec), null);
+  });
+});
+
+describe("forme libre rééditée", () => {
+  const spec = { kind: "freeform", source: "Surface", radius: 10,
+                 keep_edges: false, pushes: [[20, 20, 0, 5]] };
+
+  it("n'envoie que ce qui change", () => {
+    const same = { radius: "10", pushes: [[20, 20, 0, 5]], keepEdges: false };
+    assert.deepEqual(freeformEditValues(same, spec), {});
+    assert.deepEqual(freeformEditValues({ ...same, radius: "6" }, spec),
+                     { radius: 6 });
+    assert.deepEqual(freeformEditValues(
+      { ...same, pushes: [[10, 10, 0, -4]], keepEdges: true }, spec),
+    { pushes: [[10, 10, 0, -4]], keep_edges: true });
+  });
+
+  it("refuse sans point ni rayon", () => {
+    assert.equal(freeformEditValues({ radius: "10", pushes: [] }, spec), null);
+    assert.equal(freeformEditValues(
+      { radius: "0", pushes: [[20, 20, 0, 5]] }, spec), null);
+  });
+
+  it("pôles : la surface ne part que si elle change", () => {
+    const params = { surface: "Surface", grid: 6, moves: [[0, 1, 1, 0, 0, 7]] };
+    assert.deepEqual(polesEditValues(params, { source: "Surface" }),
+                     { moves: params.moves, grid: 6 });
+    assert.deepEqual(polesEditValues({ ...params, surface: "Surface001" },
+                                     { source: "Surface" }),
+                     { moves: params.moves, grid: 6, source: "Surface001" });
+  });
 });

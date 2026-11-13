@@ -30,10 +30,10 @@ import {
   patternFeaturesValues, patternSourcesPick, patternSourcesValues,
   BODY_PATTERN_TYPES, bodyZoneRow,
   cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
-  filletEdgesValues,
-  intersectionEditValues, ownSketchPick, planarEditValues,
-  projectEditValues, projectTargetPick, signedEditValues, sourceEditValues,
-  surfacePick,
+  filletEdgesValues, freeformEditValues, intersectionEditValues,
+  ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
+  radiateBoundaryPick, radiateBoundaryValues, signedEditValues,
+  sourceEditValues, surfacePick, trimEditValues, trimKeepPick,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -1944,30 +1944,39 @@ export function installTree(ctx) {
   }
 
   // Forme libre : hauteur et rayon d'influence.
+  // Forme libre : sa surface, ses points poussés, le rayon et les bords
+  // fixes, comme à la création, sur la pièce à son rang.
   function editFreeform(surface) {
     const spec = surface.surface;
-    panel.open({
+    return editAtRank(surface, {
       icon: "surface_freeform",
-      title: surface.label,
+      note: "Chaque point bombe la surface selon sa normale, de sa hauteur "
+        + "(4e colonne ; négative : un creux).",
+      zone: {
+        label: "Surface",
+        row: { type: "selection", key: "surface", accepts: ["surface"],
+               hint: "Cliquez la surface à déformer",
+               value: surfacePick(ctx.lastTree, spec.source) },
+        changed: (v) => sourceEditValues(v.surface, spec.source),
+        missing: "Forme libre : une surface, des points à pousser, un rayon",
+      },
       groups: [
-        { label: t("Points à pousser"),
+        { label: "Points à pousser",
           rows: [{ type: "points", key: "pushes", value: spec.pushes,
-                   extra: { label: "Hauteur", value: 5 } }] },
-        { label: t("Paramètres"),
+                   extra: { label: "Hauteur", value: 5 },
+                   empty: "Puis cliquez les points à pousser, sur la "
+                     + "surface" }] },
+        { label: "Paramètres",
           rows: [
-            { type: "number", key: "radius", label: t("Rayon d'influence"),
+            { type: "number", key: "radius", label: "Rayon d'influence",
               value: spec.radius, unit: "mm", min: 0.01 },
-            { type: "check", key: "keepEdges", label: t("Bords fixes"),
+            { type: "check", key: "keepEdges", label: "Bords fixes",
               value: spec.keep_edges },
           ] },
       ],
-      onApply: (v) => {
-        const radius = num(v.radius);
-        const pushes = (v.pushes ?? []).filter((p) => p.length === 4);
-        if (!(radius > 0) || !pushes.length) return;
-        refresh(call("edit_surface_freeform", { surface: surface.name,
-          radius, pushes, keep_edges: !!v.keepEdges }));
-      },
+      values: (v) => freeformEditValues(v, spec),
+      problem: () => "Forme libre : une surface, des points à pousser, un "
+        + "rayon",
     });
   }
 
@@ -1996,30 +2005,6 @@ export function installTree(ctx) {
         return Math.abs(radius - spec.radius) > 1e-9 ? { radius } : {};
       },
       problem: () => "Congé : des arêtes d'une même surface et un rayon",
-    });
-  }
-
-  /** Distance d'une surface décalée ou radiée et son côté, comme à la
-   *  création : le moteur la garde signée (négative = de l'autre côté). */
-  function editSignedDistance(surface, signed, { icon, side }) {
-    panel.open({
-      icon,
-      title: surface.label,
-      groups: [{
-        label: t("Paramètres"),
-        rows: [{ type: "number", key: "distance", label: t("Distance"),
-                 value: Math.abs(signed), unit: "mm" },
-               { type: "check", key: "side", label: side,
-                 value: signed < 0 }],
-      }],
-      onApply: (v) => {
-        const size = num(v.distance);
-        if (!size) return;
-        const distance = v.side ? -Math.abs(size) : Math.abs(size);
-        if (distance === signed) return;
-        refresh(call("set_params", {
-          feature: surface.name, values: { distance } }));
-      },
     });
   }
 
@@ -2064,25 +2049,55 @@ export function installTree(ctx) {
                    type_key: surface.type_key });
       return;
     }
-    editSignedDistance(surface, distance.value,
-      { icon: "surface_radiate", side: t("Vers l'intérieur") });
+    // Son contour et sa distance, comme à la création, sur la pièce à son
+    // rang.
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "surface_radiate",
+      note: "Une bande plane part du contour, dans son plan (une collerette).",
+      zone: {
+        label: "Contour plan",
+        row: { type: "selection", key: "boundary",
+               accepts: ["boundary", "sketch", "surface"], multiple: true,
+               hint: "Cliquez les arêtes d'un contour plan : solide, "
+                 + "surface ou esquisse",
+               value: radiateBoundaryPick(ctx.lastTree, spec) },
+        changed: (v) => radiateBoundaryValues(v.boundary, spec),
+        missing: "Radiée : un contour plan et une distance",
+      },
+      groups: [{ label: "Paramètres", rows: [
+        { type: "number", key: "distance", label: "Distance",
+          value: Math.abs(distance.value), unit: "mm" },
+        { type: "check", key: "flip", label: "Vers l'intérieur",
+          value: distance.value < 0 }] }],
+      values: (v) => (num(v.distance)
+        ? signedEditValues(v, distance.value) : null),
+      problem: () => "Radiée : un contour plan et une distance",
+    });
   }
 
-  // Ajustement : garder l'autre partie (la partie écartée n'est plus
-  // visible, on ne peut pas la cliquer).
+  // Ajustement : son outil, la surface ajustée et la partie gardée (un
+  // clic dessus), comme à la création, sur la pièce à son rang.
   function editTrim(surface) {
-    panel.open({
+    const spec = surface.surface;
+    return editAtRank(surface, {
       icon: "surface_trim",
-      title: surface.label,
-      groups: [{
-        label: t("Partie à garder"),
-        rows: [{ type: "check", key: "other",
-                 label: t("Garder l'autre partie"), value: true }],
-      }],
-      onApply: (v) => {
-        if (!v.other) return;
-        refresh(call("edit_surface_trim", { surface: surface.name }));
+      zone: {
+        label: "Outil de coupe",
+        row: { type: "selection", key: "tool", accepts: ["surface"],
+               hint: "Cliquez la surface qui coupe",
+               value: surfacePick(ctx.lastTree, spec.tool) },
+        changed: (v) => trimEditValues(v, spec),
+        missing: "Ajuster : l'outil, puis la partie à garder d'une autre "
+          + "surface",
       },
+      groups: [{ label: "Partie à garder", rows: [
+        { type: "selection", key: "keep", accepts: ["surfpoint"],
+          hint: "Puis cliquez, sur la surface à ajuster, la partie à garder",
+          value: trimKeepPick(ctx.lastTree, spec) }] }],
+      values: () => ({}),
+      problem: () => "Ajuster : l'outil, puis la partie à garder d'une "
+        + "autre surface",
     });
   }
 

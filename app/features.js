@@ -109,6 +109,7 @@ export {
   extendTargetValues,
   filletEdgesPick,
   filletEdgesValues,
+  freeformEditValues,
   freeformParams,
   intersectionEditValues,
   midParams,
@@ -116,11 +117,15 @@ export {
   planarEditValues,
   projectEditValues,
   projectTargetPick,
+  radiateBoundaryPick,
+  radiateBoundaryValues,
   signedEditValues,
   sourceEditValues,
   surfaceCutParams,
   surfaceFilletParams,
   surfacePick,
+  trimEditValues,
+  trimKeepPick,
   trimParams,
 } from "./features/surfaces.js";
 

@@ -75,6 +75,11 @@ class EquationsMixin:
         if getattr(obj, "FreeSolidCutsurface", ""):
             # Une coupe par surface : sa surface outil, son côté, sa bande.
             return self._set_surface_cut_params(obj, dict(values))
+        if (obj.TypeId == "Part::Offset2D" and "boundary" in values
+                and self._radiate_binder(obj) is not None):
+            # Le contour d'une surface radiée (sa distance seule, peut-être
+            # pilotée par une équation, garde la voie des cotes).
+            return self._set_surface_params(obj, dict(values), "radiate")
         if self._surface_pick_kind(obj) is not None:
             # Surface plane, prolongement, congé de surface : ce qu'ils
             # prennent (esquisse, surface, bord, arêtes) et leurs cotes.

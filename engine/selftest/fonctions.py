@@ -5457,3 +5457,165 @@ def p122_outil_rechoisi(self, mark, report, etat):
         and "vient après" in (edit(projected, sketch=later).get("error")
                               or "")
         and clean())
+
+
+def p123_ajuster_rechoisit(self, mark, report, etat):
+    mark("p123: un ajustement re-choisit son outil et sa partie gardée")
+    import FreeCAD as App
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def square(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return last(self.surface_planar(sketch=name))
+
+    def wall(x):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_line(name, x, -10, x, 100)
+        self.sketch_finish(name)
+        self._doc.getObject(name).AttachmentOffset = App.Placement(
+            App.Vector(0, 0, -10), App.Rotation())
+        self._recompute()
+        return last(self.surface_extrude(20, sketch=name))
+
+    def span(obj):
+        box = obj.Shape.BoundBox
+        return (round(box.XMin, 3), round(box.XMax, 3), round(box.YMin, 3))
+
+    # Deux carrés de 40 (y de 0 à 40, et de 50 à 90), coupés par des murs
+    # à x = 10 et x = 30.
+    self.new_part("Ajuster re-choisi")
+    floor, other = square(0, 0, 40, 40), square(0, 50, 40, 90)
+    near, far = wall(10), wall(30)
+    trim = last(self.surface_trim(floor.Name, near.Name, point=[5, 20, 0]))
+    listed = next(s for s in self.get_tree()["surfaces"]
+                  if s["name"] == trim.Name)["surface"]
+    tool = edit(trim, tool=far.Name)
+    same_side = span(trim)
+    side = edit(trim, point=[35, 20, 0])
+    other_side = span(trim)
+    moved = edit(trim, source=other.Name, point=[5, 70, 0])
+    report["p123_ajuster_rechoisit_outil_et_partie"] = (
+        listed.get("tool") == near.Name and listed.get("point") is not None
+        and tool.get("ok") is True and same_side == (0, 30, 0)
+        and side.get("ok") is True and other_side == (30, 40, 0)
+        and moved.get("ok") is True and span(trim) == (0, 30, 50)
+        and edit(trim, tool=other.Name).get("ok") is False
+        and span(trim) == (0, 30, 50)
+        and clean())
+
+
+def p124_radiee_rechoisit_son_contour(self, mark, report, etat):
+    mark("p124: une surface radiée re-choisit son contour")
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def square(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return name
+
+    def boundary(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name)["surface"]["boundary"]
+
+    # Un bloc 40 × 40 × 10 et un carré de 20 à côté ; une collerette de 5
+    # autour du haut du bloc, puis autour du carré.
+    self.new_part("Radiée re-choisie")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    top = [i for i, e in enumerate(body.Shape.Edges)
+           if abs(e.CenterOfMass.z - 10) < 1e-6]
+    plate = last(self.surface_planar(sketch=square(100, 0, 120, 20)))
+    collar = last(self.surface_radiate(
+        [{"body": True, "edge": i} for i in top], 5))
+    listed = boundary(collar) == [{"body": True, "edge": i} for i in top]
+    around = abs(collar.Shape.Area - (50 * 50 - 40 * 40)) < 1e-3
+    moved = edit(collar, boundary=[{"name": plate.Name}])
+    plate_area = collar.Shape.Area
+    later = self.surface_planar(sketch=square(200, 0, 220, 20))
+    refused = edit(collar, boundary=[{"name": later["surfaces"][-1]["name"]}])
+    report["p124_radiee_rechoisit_son_contour"] = (
+        listed and around
+        and moved.get("ok") is True
+        and abs(plate_area - (30 * 30 - 20 * 20)) < 1e-3
+        and len(boundary(collar)) == 4
+        and all(b.get("name") == plate.Name for b in boundary(collar))
+        and refused.get("ok") is False
+        and "vient après" in (refused.get("error") or "")
+        and abs(collar.Shape.Area - plate_area) < 1e-6
+        and clean())
+
+
+def p125_forme_libre_rechoisit_sa_surface(self, mark, report, etat):
+    mark("p125: une forme libre (points ou pôles) re-choisit sa surface")
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def square(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return last(self.surface_planar(sketch=name))
+
+    def spec(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name)["surface"]
+
+    def span(obj):
+        box = obj.Shape.BoundBox
+        return (round(box.XMin, 3), round(box.YMin, 3), round(box.ZMax, 3))
+
+    # Deux carrés qui se chevauchent : une bosse de 5 au milieu du premier,
+    # puis la même forme libre sur le second ; un pôle levé de 7.
+    self.new_part("Forme libre re-choisie")
+    first, second = square(0, 0, 40, 40), square(-10, -10, 30, 30)
+    bump = last(self.surface_freeform(first.Name, radius=10,
+                                      pushes=[[20, 20, 0, 5]]))
+    moved = edit(bump, source=second.Name)
+    pole = last(self.surface_freeform(first.Name, moves=[[1, 1, 0, 0, 7]]))
+    pole_moved = edit(pole, source=second.Name)
+    later = square(100, 0, 110, 10)
+    report["p125_forme_libre_rechoisit_sa_surface"] = (
+        spec(bump)["source"] == second.Name and moved.get("ok") is True
+        and span(bump) == (-10, -10, 5)
+        and edit(bump, radius=6).get("ok") is True
+        and spec(bump)["radius"] == 6
+        and pole_moved.get("ok") is True
+        and spec(pole)["source"] == second.Name and span(pole) == (-10, -10, 7)
+        and edit(pole, radius=3).get("ok") is False
+        and "vient après" in (edit(bump, source=later.Name).get("error")
+                              or "")
+        and spec(bump)["source"] == second.Name
+        and clean())

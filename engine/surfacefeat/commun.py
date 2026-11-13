@@ -230,10 +230,14 @@ class SurfaceCommonMixin:
             return {"kind": obj.FreeSolidKind}
         if getattr(obj, "FreeSolidKind", "") == "trim":
             base = getattr(obj, "Base", None)
+            point = self._trim_point(obj)
             return {"kind": "trim",
                     "source": base.Base.Name if base is not None else None,
                     "tool": (base.Tools[0].Name
-                             if base is not None and base.Tools else None)}
+                             if base is not None and base.Tools else None),
+                    # Un point de la partie gardée : la zone le montre.
+                    "point": ([round(v, 6) for v in point]
+                              if point is not None else None)}
         if getattr(obj, "FreeSolidCapedges", ""):
             return {"kind": "fill", "cap": True}
         if getattr(obj, "FreeSolidFreemoves", ""):
@@ -247,7 +251,8 @@ class SurfaceCommonMixin:
             return {"kind": "freeform", "pushes": pushes,
                     "height": pushes[0][3],
                     "radius": float(obj.FreeSolidFreeradius),
-                    "keep_edges": bool(getattr(obj, "FreeSolidFreeedges", 0))}
+                    "keep_edges": bool(getattr(obj, "FreeSolidFreeedges", 0)),
+                    "source": str(obj.FreeSolidFreesource)}
         if getattr(obj, "FreeSolidFlatsource", ""):
             spec = {"kind": "flatten",
                     "face": int(getattr(obj, "FreeSolidFlatface", 0))}
@@ -283,10 +288,39 @@ class SurfaceCommonMixin:
                     "sketch": sketches[0].Name if sketches else None,
                     "surface": support[0].Name if support else None,
                     "face": int(subs[0][4:]) - 1 if subs else 0}
+        binder = self._radiate_binder(obj)
+        if binder is not None:
+            # Surface radiée : sa distance signée et son contour, arête par
+            # arête (base 0 ; ``body`` : une arête du solide).
+            value = getattr(obj, "Value", 0.0)
+            boundary = []
+            for linked, subs in binder.Support or ():
+                solid = linked.TypeId == "PartDesign::Body"
+                for sub in subs:
+                    if not sub.startswith("Edge"):
+                        continue
+                    edge = int(sub[4:]) - 1
+                    boundary.append({"body": True, "edge": edge} if solid
+                                    else {"name": linked.Name,
+                                          "edge": edge})
+            return {"kind": "radiate",
+                    "distance": float(getattr(value, "Value", value)),
+                    "boundary": boundary}
         if obj.TypeId == "Surface::Filling":
             return {"kind": "fill",
                     "edges": len(getattr(obj, "BoundaryEdges", ()) or ())}
         return None
+
+    @staticmethod
+    def _radiate_binder(obj):
+        """Le lieur caché qui porte le contour d'une surface radiée, ou
+        None."""
+        binder = (getattr(obj, "Source", None)
+                  if obj.TypeId == "Part::Offset2D" else None)
+        if (binder is None or binder.TypeId != "PartDesign::SubShapeBinder"
+                or not getattr(binder, "FreeSolidSurfaceTool", False)):
+            return None
+        return binder
 
     def _refresh_frozen_shapes(self):
         """Recalcule les formes figées qui dépendent d'une fonction du

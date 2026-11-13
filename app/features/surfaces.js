@@ -1,6 +1,7 @@
 // Fonctions — surfaces et courbes : construction, retouche, passage
 // au solide.
 
+import { t } from "../i18n.js";
 import { num } from "../num.js";
 import { resolveProfileSketch } from "./commun.js";
 
@@ -83,6 +84,21 @@ export function freeformParams(v) {
     surface: v.surface.name, radius, pushes, keep_edges: !!v.keepEdges } };
 }
 
+/** Forme libre rééditée : rayon, points poussés et bords fixes, s'ils
+ *  changent ; null sans point ou sans rayon. */
+export function freeformEditValues(v, spec) {
+  const radius = num(v.radius);
+  const pushes = (v.pushes ?? []).filter((p) => p.length === 4 && p[3]);
+  if (!pushes.length || !(radius > 0)) return null;
+  const out = {};
+  if (Math.abs(radius - spec.radius) > 1e-9) out.radius = radius;
+  if (JSON.stringify(pushes) !== JSON.stringify(spec.pushes)) {
+    out.pushes = pushes;
+  }
+  if (!!v.keepEdges !== !!spec.keep_edges) out.keep_edges = !!v.keepEdges;
+  return out;
+}
+
 /** Ajuster (et ajustement mutuel) → paramètres, ou null. */
 export function trimParams(v) {
   if (!v.tool || !v.keep || v.keep.name === v.tool.name) return null;
@@ -154,6 +170,65 @@ export function projectEditValues(v, spec) {
     out.face = face;
   }
   return out;
+}
+
+/** La partie qu'un ajustement garde, comme la zone la montre. */
+export function trimKeepPick(tree, spec) {
+  if (!spec?.source || !spec.point) return null;
+  const [x, y, z] = spec.point;
+  return { ...surfacePick(tree, spec.source), kind: "surfpoint", x, y, z };
+}
+
+/** Ajustement réédité : l'outil, la surface ajustée et le point de la
+ *  partie gardée, s'ils changent ; null si l'outil ou la partie manque. */
+export function trimEditValues(v, spec) {
+  if (!v.tool?.name || !v.keep?.name || v.keep.name === v.tool.name) {
+    return null;
+  }
+  const out = {};
+  if (v.tool.name !== spec.tool) out.tool = v.tool.name;
+  if (v.keep.name !== spec.source) out.source = v.keep.name;
+  const point = [v.keep.x, v.keep.y, v.keep.z];
+  const before = spec.point ?? [];
+  if (point.some((c, i) => !(Math.abs(c - before[i]) <= 1e-6))) {
+    out.point = point;
+  }
+  return out;
+}
+
+/** Le nom affiché d'une ligne de l'arbre (surface, fonction, esquisse). */
+function treeLabel(tree, name) {
+  const stack = [...(tree?.surfaces ?? []), ...(tree?.features ?? [])];
+  while (stack.length) {
+    const item = stack.pop();
+    if (item?.name === name) return item.label ?? name;
+    if (item?.children) stack.push(...item.children);
+  }
+  return name;
+}
+
+/** Le contour d'une surface radiée, arête par arête, comme la zone le
+ *  montre. */
+export function radiateBoundaryPick(tree, spec) {
+  const items = (spec?.boundary ?? []).map((b) => (b.body
+    ? { kind: "boundary", body: true, name: "body", label: t("Solide"),
+        edge: b.edge }
+    : { kind: "boundary", name: b.name, label: treeLabel(tree, b.name),
+        edge: b.edge }));
+  return items.length ? { items } : null;
+}
+
+/** Contour d'une surface radiée re-choisi : `{}` s'il est le même,
+ *  `{ boundary }` sinon, null si la zone est vide. */
+export function radiateBoundaryValues(sel, spec) {
+  const items = sel?.items ?? [];
+  if (!items.length) return null;
+  const boundary = items.map(boundaryParam);
+  const before = spec?.boundary ?? [];
+  const same = boundary.length === before.length
+    && boundary.every((b, i) => !!b.body === !!before[i].body
+      && (b.body || b.name === before[i].name) && b.edge === before[i].edge);
+  return same ? {} : { boundary };
 }
 
 /** Coupe par surface rééditée : le côté et la bande, seulement ce qui

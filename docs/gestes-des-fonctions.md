@@ -76,7 +76,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Surface décalée | non | le panneau de la création, au rang : surface (clic dans l'arbre), distance et « inverser le côté » | — | oui | oui (drapeau) | oui (surface, refus d'elle-même et d'une surface d'après) |
 | Surface de remplissage | non | rien | contour, case « tangent » | — | oui (drapeau) | non |
 | Surface frontière | non | rien | 2 à 4 courbes | — | oui (drapeau) | non |
-| Surface radiée | non | distance et « vers l'intérieur », comme à la création (pilotée par une équation : la distance signée, dans le panneau des cotes) | contour | non | oui (drapeau) | non |
+| Surface radiée | non | le panneau de la création, au rang : contour plan, distance et « vers l'intérieur » (pilotée par une équation : la distance signée, dans le panneau des cotes) | — | oui | oui (drapeau) | oui (contour, refus d'une forme d'après) |
 | Surface médiane | non, voulu | rien (forme figée) | tout : les deux faces ou toutes les parois, épaisseur | — | oui (drapeau) | non |
 | Surface réglée | non | rien | les deux courbes | — | oui (drapeau) | non |
 
@@ -89,12 +89,12 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Supprimer la face (solide) | oui | rien | liste de faces | — | oui (Tip du corps) | non |
 | Supprimer la face (surface) | oui | rien | surface, faces | — | oui (drapeau) | non |
 | Annuler l'ajustement | non | rien | surface, face | — | oui (drapeau) | non |
-| Congé de surfaces | non | le panneau de la création, au rang : arêtes (d'une même surface, qui peut changer), rayon | un rayon par arête | oui | oui (drapeau) | oui (rayon, arêtes, autre surface) |
+| Congé de surfaces | non | le panneau de la création, au rang : arêtes (d'une même surface, qui peut changer), rayon (un pour toutes, comme à la création) | — | oui | oui (drapeau) | oui (rayon, arêtes, autre surface) |
 | Aplatir | non | un panneau d'information, sans réglage | face, surface | — | oui (drapeau) | non |
-| Forme libre | non | points poussés, hauteurs, rayon, bords fixes | surface source, face | non | oui (drapeau) | oui |
-| Pôles | surcouche dans la vue | déplacements, pas de grille | surface source, face | non | oui (drapeau) | oui |
+| Forme libre | non | le panneau de la création, au rang : surface (clic dans l'arbre ; les points poussés s'y reprojettent), points poussés, hauteurs, rayon, bords fixes | — | oui | oui (drapeau) | oui (surface, rayon) |
+| Pôles | surcouche dans la vue | surface (clic dans l'arbre ; les pôles déplacés gardent leurs indices), déplacements, pas de grille ; une autre face, en cliquant ses pôles | — | non | oui (drapeau) | oui (surface) |
 | Prolonger | non | le panneau de la création, au rang : bord (ou la surface entière, pour tous ses bords ; un bord d'une autre surface la change), distance | — | oui | oui (drapeau) | oui (tous les bords, un bord, autre surface) |
-| Ajuster | non | « garder l'autre partie » | outil, surface, point cliqué, ajustement mutuel | non | oui (drapeau) | oui |
+| Ajuster | non | le panneau de la création, au rang : outil, surface ajustée et partie gardée (un clic dessus) | ajustement mutuel (deux lignes : chacune se réédite seule) | oui | oui (drapeau) | oui (outil, partie gardée, autre surface, refus) |
 | Courbe d'intersection | non | le panneau de la création, au rang : les deux surfaces, ou une surface et le solide (« avec le solide ») | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (seconde surface, solide, refus) |
 | Projeter une courbe | non | le panneau de la création, au rang : esquisse, face cible (la direction suit la normale de l'esquisse) | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (esquisse, surface, refus) |
 | Hélice 3D | non | pas, hauteur, rayon, angle | axe, sens | non | oui (drapeau) | oui (pas) |
@@ -171,10 +171,15 @@ Surfaces qui prennent une surface, une esquisse, un bord ou des arêtes (Surface
 
 Outils de surface (Couper avec une surface, Courbe d'intersection, Projeter une courbe) : le même panneau, au rang. La coupe re-choisit sa surface outil d'un clic dans l'arbre, son côté, et passe de tout un côté à une bande épaisse, et retour : l'outil caché se refait, comme à la création. Une coupe qui n'enlèverait rien, ou tout, est refusée. La courbe d'intersection re-choisit ses deux surfaces, ou passe à une surface et le solide ; la courbe projetée, son esquisse, sa surface et sa face, la direction suivant la normale de l'esquisse. Une forme qui vient après, ou qui dépend de la courbe, est refusée ; deux formes qui ne se coupent plus aussi. `set_params` prend `surface`, `flip` et `thickness` (None : tout un côté) pour la coupe ; `first`, `second` et `body` pour l'intersection ; `sketch`, `surface` et `face` pour la projection. Selftest p122.
 
+Ajuster : le même panneau, au rang, où la surface ajustée se montre entière. La zone « Outil de coupe » revient remplie, la zone « Partie à garder » aussi, sur un point de la partie gardée ; un clic sur une autre partie, ou sur une autre surface, la change. Un outil changé sans nouveau clic garde la partie du même côté. Un ajustement mutuel reste deux lignes, chacune rééditée seule. `set_params` prend `source`, `tool` et `point`. Le panneau ne propose plus « Garder l'autre partie » : comme à la création, on clique la partie. Selftest p123.
+
+Surface radiée : le même panneau, au rang. La zone « Contour plan » revient remplie, arête par arête (une esquisse prise entière revient en ses arêtes) ; un clic en ajoute, la croix en retire. Une forme qui vient après la surface est refusée. Une radiée dont la distance est pilotée par une équation garde le panneau des cotes. `set_params` prend `boundary`, comme à la création, avec `distance`. Selftest p124.
+
+Forme libre et Pôles : la surface déformée revient dans sa zone et se re-choisit d'un clic dans l'arbre, la Forme libre au rang avec l'aperçu. Les points poussés se reprojettent sur la nouvelle surface ; les pôles déplacés gardent leurs indices, et la grille se redessine sur elle. Une surface qui vient après, ou qui dépend de la forme libre, est refusée. `set_params` prend `source` avec, selon le genre, `pushes`, `radius` et `keep_edges`, ou `moves` et `grid`. Selftest p125.
+
 Reste :
 
 - **Outils** : le corps outil de Combiner.
-- **Surfaces d'origine** : Surface radiée, Forme libre, Pôles, Ajuster (outil, point cliqué) ; le Congé de surfaces n'a qu'un rayon pour toutes ses arêtes.
 - **Indices de face ou d'arête** : si la source change de topologie, la fonction peut pointer sur autre chose. Aucun test de décalage d'indice trouvé (comportement à vérifier).
 
 Où ça se décide : le panneau de réédition ne contient que les cotes (`app/tree.js`, `editFeature` ; `engine/equations.py`, `get_params` et `set_params`). Les sélections sont saisies par les panneaux de création (`app/features/habillage.js`, `repetitions.js`, `surfaces.js`, `combiner.js`, `volumes.js`) et le moteur ne sait pas les remplacer (`engine/ops/`). Piste : rouvrir le panneau de création rempli, comme `editRemoveBodies`.
@@ -196,14 +201,14 @@ Reste :
 - **Extrusion et Enlèvement** : passer à « jusqu'à la face » ou changer de face (une sélection, thème 4), activer la paroi mince ou changer son genre (un, plan milieu, deux côtés), ce qui ajoute ou retire des profils cachés. « Fusionner » et les corps qu'elle fusionne se rééditent pour l'Extrusion, la Révolution, le Lissage et le Balayage. Décochée, la fonction sort de son corps pour un corps neuf ; cochée sur le premier volume d'un corps, elle fond les corps qu'elle touche, ou ceux de la zone. La zone est remplie des corps fondus et, si la fonction part d'une fonction d'avant, de son corps : retiré, elle en sort pour un corps neuf qui fond les autres ; un clic dans la vue ou le dossier en ajoute ou en retire un, la croix d'une ligne le retire (un corps fondu ne se voit plus à part dans la vue). Le Lissage et le Balayage, sans cote, se rouvrent sur leur zone quand la pièce a d'autres corps. Un corps ajouté est fondu, ou creusé par l'enlèvement, à leur rang ; retiré, il revient. Cette zone s'appelle « Corps concernés » partout : ajout ou enlèvement, création ou réédition. Une fonction ne fait que l'un ou l'autre, comme la liste unique « Corps volumiques affectés » des modeleurs courants. Leur « Fusionner » se change aussi : décochée, la fonction sort de son corps, et chaque profil et la trajectoire y entrent par un liant caché, comme à la création dans un autre corps (une courbe 3D garde le sien). Un balayage dont le profil n'est pas d'un seul tenant ne sort pas : d'un liant, FreeCAD ne balaie qu'une face.
 - **Texte** : relief ou gravure, police. Le relief est dans la forme des lettres et dans le genre du booléen : il faut reconstruire.
 - **Fonctions graphe et Répétition variable** : ajout ou enlèvement, fonctions répétées, nature de la fonction.
-- **Réédition partielle qui laisse croire à une réédition complète** : Ajuster, Hélice 3D (ni axe ni sens), Forme libre.
+- **Réédition partielle qui laisse croire à une réédition complète** : Hélice 3D (ni axe ni sens).
 
 Où ça se décide : `engine/equations.py` (`set_params`, `_editable_props`) ; `engine/solids.py` (`_extrude_state`, `_set_extrude_options`, `_hole_state`) ; `engine/extrude.py` (`extrude_state`, `extrude_options`) ; `engine/vocab.py` (`PARAM_KEYS`) ; `app/features/volumes.js` et `habillage.js` (panneaux partagés entre création et réédition) ; `app/tree.js` (`editFeature`) ; `app/editkind.js`.
 
 ### 6. L'aperçu absent ou inégal
 
 - **À la création** : absent pour toutes les surfaces (sauf Couper avec une surface) et toutes les opérations sur surfaces et courbes (sauf Remplacer et Supprimer la face du solide, et Supprimer la face d'une surface), pour l'Axe, le Point et le Repère, pour les fonctions graphe et la Répétition variable. Les surfaces dont le résultat est le plus incertain (Ajuster, Diviser) sont celles sans aperçu. Deux absences sont voulues : Combiner (booléen lent) et la Surface médiane.
-- **À la réédition** : absent pour les panneaux d'édition d'Ajuster et de la Forme libre, Supprimer des corps, les fonctions graphe. La Répétition de corps passe par le même aperçu que les fonctions, sans le fantôme des seuls corps nouveaux de la création (à vérifier).
+- **À la réédition** : absent pour les Pôles, Supprimer des corps, les fonctions graphe. La Répétition de corps passe par le même aperçu que les fonctions, sans le fantôme des seuls corps nouveaux de la création (à vérifier).
 - **Surfaces** : l'aperçu d'une surface rééditée par `set_params` montre la surface elle-même (vérifié pour la Surface plane, la décalée, Épaissir, Prolonger et le Congé de surfaces ; les autres surfaces rééditées par leurs cotes passent par la même voie, à vérifier).
 - **Bulle de rayon du Congé** : présente à la création, absente à la réédition.
 - **Flèche de profondeur** : seulement pour l'Extrusion et l'Enlèvement. Ni Révolution, ni Perçage, ni Hélice, ni Surface extrudée.
@@ -240,7 +245,7 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 
 ### 10. La couverture du selftest
 
-Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, radiée, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 
