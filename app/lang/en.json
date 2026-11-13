@@ -557,6 +557,7 @@
  "Surface : {s} cm²": "Area: {s} cm²",
  "Importé — {n} solide(s), la forme est la base du corps.": "Imported — {n} solid(s), the shape is the base of the body.",
  "Importé — {n} solides, chacun base de son propre corps.": "Imported — {n} solids, each the base of its own body.",
+ "Fichier de l'atelier Part : ses cotes et ses booléennes ne sont pas reprises.": "Part workbench file: its dimensions and booleans are not carried over.",
  "{k} corps illisible(s) laissé(s) de côté.": "{k} unreadable bod(ies) left out.",
  "Ouvert — {n} corps dans le fichier.": "Opened — {n} bodies in the file.",
  "Ouvert.": "Opened.",

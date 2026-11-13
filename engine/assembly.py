@@ -122,13 +122,18 @@ class AssemblyMixin:
         bodies = [o for o in part_doc.Objects
                   if o.TypeId == "PartDesign::Body"]
         if not bodies:
+            # Une pièce de l'atelier Part : le lien vise sa forme finale.
+            from engine.files import part_leaves
+            bodies = [o for o in part_leaves(part_doc.Objects)
+                      if o.Shape.Solids]
+        if not bodies:
             if opened_here:
                 try:
                     App.closeDocument(part_doc.Name)
                 except Exception:
                     pass
             raise KernelError(
-                "aucun corps PartDesign dans {}".format(path))
+                "ni corps PartDesign ni solide dans {}".format(path))
         try:
             asm = self._assembly_object()
         except KernelError:

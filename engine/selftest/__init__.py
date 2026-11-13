@@ -255,6 +255,7 @@ def _etapes():
         fonctions.p136_fleches_percage_helice,
         fonctions.p137_barre_et_references,
         fonctions.p138_formes_figees_et_barre,
+        document.p139_fichier_atelier_part,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

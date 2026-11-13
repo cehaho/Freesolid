@@ -2424,7 +2424,11 @@ async function openDocument(path) {
     const skipped = tree.skipped_bodies > 0
       ? " " + t("{k} corps illisible(s) laissé(s) de côté.", { k: tree.skipped_bodies })
       : "";
-    say(opened + skipped);
+    // Fichier de l'atelier Part : la forme est reprise, pas son histoire.
+    const fromPart = tree.from_part_workbench
+      ? " " + t("Fichier de l'atelier Part : ses cotes et ses booléennes ne sont pas reprises.")
+      : "";
+    say(opened + skipped + fromPart);
   } catch (error) {
     if (gen !== viewGen) return;
     say(error.message, true);
