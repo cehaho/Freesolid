@@ -38,8 +38,8 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui, sans la bulle | oui | oui (rayon, arêtes) |
 | Chanfrein | oui | type, taille, taille 2, angle, sens ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui | oui | oui |
 | Chanfrein de sommet | oui | distances | le sommet | non | à vérifier (booléen, jusqu'à deux lignes) | oui |
-| Coque | oui | épaisseur, « vers l'extérieur » | faces à ouvrir | oui | oui | oui (sens, refus d'une coque trop épaisse) |
-| Dépouille | oui | angle | face, plan neutre | oui | oui | non |
+| Coque | oui | épaisseur, « vers l'extérieur » ; faces à ouvrir, re-choisies sur la pièce à son rang | — | oui | oui | oui (sens, refus d'une coque trop épaisse, faces) |
+| Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
 | Combiner | non, voulu | rien | opération, corps outil | — | oui | non |
 | Supprimer des corps | non | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non | oui (drapeau) | oui |
 | Plan de référence | oui + fantôme | rien | appui, décalage, angle | — | non (d'après le code, à vérifier) | non |
@@ -155,11 +155,11 @@ Contre-exemple à suivre : Supprimer des corps vient d'être rendu rééditable 
 
 Arêtes, faces, profils, corps, directions, outils : presque aucun ne se re-choisit.
 
-Corrigé pour le Congé et le Chanfrein. Leur double-clic rouvre le panneau de la création, sa zone remplie de leurs arêtes (ou de leur face). Comme dans les modeleurs courants, la pièce se montre à leur rang, comme pour Supprimer des corps (`rank_view`) : les arêtes qu'ils ont arrondies y existent encore, se surlignent, et Ctrl+clic en ajoute ou en retire. L'aperçu les montre rééditées sans quitter ce rang. `set_params` prend `edges` ou `face` ; une fonction plus bas qui perdrait une arête qu'elle utilise fait refuser la réédition, en la nommant. Selftest p113.
+Corrigé pour le Congé, le Chanfrein, la Coque et la Dépouille. Leur double-clic rouvre le panneau de la création, sa zone remplie de leurs arêtes ou de leurs faces. Comme dans les modeleurs courants, la pièce se montre à leur rang, comme pour Supprimer des corps (`rank_view`) : les arêtes qu'ils ont arrondies y existent encore, se surlignent, et Ctrl+clic en ajoute ou en retire. L'aperçu les montre rééditées sans quitter ce rang. `set_params` prend `edges` ou `face` (congé, chanfrein), `faces` (coque), `face` et `neutral` (dépouille, dont le plan neutre se repose sur la nouvelle face) ; une fonction plus bas qui perdrait une arête qu'elle utilise fait refuser la réédition, en la nommant. Toutes les faces d'une zone se surlignent, pas seulement la dernière cliquée (à la création aussi). Selftest p113, p114.
 
 Reste :
 
-- **Arêtes et faces** : Coque (faces à ouvrir), Dépouille (face et plan neutre), Chanfrein de sommet (le sommet est repéré par son numéro), Perçage (positions et face), Texte (face d'appui).
+- **Arêtes et faces** : Chanfrein de sommet (le sommet est repéré par son numéro), Perçage (positions et face), Texte (face d'appui).
 - **Profils et esquisses** : Extrusion, Enlèvement, Révolution, Hélice, Surface extrudée, de révolution et plane. L'esquisse ne change plus après coup ; seuls les contours bougent. Pour les deux surfaces extrudée et de révolution, l'esquisse n'est même pas un choix à la création : le moteur prend la dernière esquisse libre, alors que la Surface plane et la Surface balayée préremplissent avec la sélection de l'arbre.
 - **Corps et fonctions répétés** : fonctions répétées, corps répétés, corps concernés (écart n° 22, « Restent… »).
 - **Direction** : axe, arête, inversion, pour les trois répétitions. Pas ou longueur totale, activation de la direction 2 : la deuxième direction n'apparaît à la réédition que si elle existe déjà.
@@ -179,11 +179,11 @@ Corrigé pour quatre fonctions : leur double-clic rouvre le panneau de la créat
 - **Coque** : la case « vers l'extérieur » (clé `outward`). La garde de la création vaut aussi à la réédition : une coque vers l'intérieur qui n'évide rien est refusée.
 - **Perçage** : type, condition de fin, angle du fraisage. Les cotes suivent le type : la profondeur seulement en borgne, le Ø de tête sans « Perçage » simple, la profondeur du lamage pour le lamage, l'angle pour le fraisage. FreeCAD remet les cotes de tête à ses valeurs quand le type change : le panneau les renvoie alors toutes.
 - **Surface décalée et Surface radiée** : la case de sens de la création, au lieu du signe de la distance (voir thème 7).
+- **Dépouille** : le plan neutre (clé `neutral`), reposé sur la face choisie ; un plan parallèle à la face est refusé, la pièce reste telle quelle.
 
 Reste :
 
 - **Extrusion et Enlèvement** : passer à « jusqu'à la face » ou changer de face (une sélection, thème 4), activer la paroi mince ou changer son genre (un, plan milieu, deux côtés), ce qui ajoute ou retire des profils cachés. « Fusionner » et les corps qu'elle fusionne se rééditent pour l'Extrusion, la Révolution, le Lissage et le Balayage. Décochée, la fonction sort de son corps pour un corps neuf ; cochée sur le premier volume d'un corps, elle fond les corps qu'elle touche, ou ceux de la zone. La zone est remplie des corps fondus et, si la fonction part d'une fonction d'avant, de son corps : retiré, elle en sort pour un corps neuf qui fond les autres ; un clic dans la vue ou le dossier en ajoute ou en retire un, la croix d'une ligne le retire (un corps fondu ne se voit plus à part dans la vue). Le Lissage et le Balayage, sans cote, se rouvrent sur leur zone quand la pièce a d'autres corps. Un corps ajouté est fondu, ou creusé par l'enlèvement, à leur rang ; retiré, il revient. Cette zone s'appelle « Corps concernés » partout : ajout ou enlèvement, création ou réédition. Une fonction ne fait que l'un ou l'autre, comme la liste unique « Corps volumiques affectés » des modeleurs courants. Leur « Fusionner » se change aussi : décochée, la fonction sort de son corps, et chaque profil et la trajectoire y entrent par un liant caché, comme à la création dans un autre corps (une courbe 3D garde le sien). Un balayage dont le profil n'est pas d'un seul tenant ne sort pas : d'un liant, FreeCAD ne balaie qu'une face.
-- **Dépouille** : le plan neutre.
 - **Texte** : relief ou gravure, police. Le relief est dans la forme des lettres et dans le genre du booléen : il faut reconstruire.
 - **Couper avec une surface** : passer de « tout un côté » à « bande épaisse » change le genre de l'outil.
 - **Fonctions graphe et Répétition variable** : ajout ou enlèvement, fonctions répétées, nature de la fonction.
@@ -231,7 +231,7 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 
 ### 10. La couverture du selftest
 
-Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Dépouille, Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, décalée, radiée, Épaissir, et les opérations Diviser, Annuler l'ajustement, Courbe d'intersection, Projeter, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, décalée, radiée, Épaissir, et les opérations Diviser, Annuler l'ajustement, Courbe d'intersection, Projeter, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 

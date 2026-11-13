@@ -506,18 +506,24 @@ function repaintBoundaries() {
   }
 }
 
-/** Corps et surfaces retenus par une zone du panneau : surlignés, le
- *  corps actif compris — une zone qui le tient l'a choisi (répéter,
+/** Corps, surfaces et faces retenus par une zone du panneau : surlignés,
+ *  le corps actif compris — une zone qui le tient l'a choisi (répéter,
  *  supprimer). */
 function setPickedBodies(items) {
   const picked = (items ?? []).filter((i) => i.kind === "body")
     .map((i) => (Number.isInteger(i.solid) ? `${i.name}#${i.solid}` : i.name));
   const surfaces = (items ?? []).filter((i) => i.kind === "surface")
     .map((i) => i.name);
-  if (!picked.length && !surfaces.length && !ctx.pickedBodies?.size
-      && !ctx.pickedSurfaces?.size) return;
+  // Faces du corps actif retenues par une zone (les faces ouvertes d'une
+  // coque…) : surlignées toutes, pas seulement la dernière cliquée.
+  const faces = (items ?? []).filter((i) => i.kind === "face"
+    && Number.isInteger(i.face)).map((i) => i.face);
+  if (!picked.length && !surfaces.length && !faces.length
+      && !ctx.pickedBodies?.size && !ctx.pickedSurfaces?.size
+      && !ctx.pickedFaces?.size) return;
   ctx.pickedBodies = new Set(picked);
   ctx.pickedSurfaces = new Set(surfaces);
+  ctx.pickedFaces = new Set(faces);
   repaintGroups();
   repaintOtherBodies();
   repaintSurfaces();

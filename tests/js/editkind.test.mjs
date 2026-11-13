@@ -28,6 +28,11 @@ describe("éditeur d'une fonction", () => {
       "revolution");
     assert.equal(featureEditor({ type_key: "pocket", extrude: {} }), "extrude");
     assert.equal(featureEditor({ type_key: "thickness", shell: {} }), "shell");
+    // Dépouille : sa face et son plan neutre ; sans eux, son angle seul.
+    assert.equal(featureEditor({ type_key: "draft", draft: { face: 1 } }),
+      "draft");
+    assert.equal(featureEditor({ type_key: "draft", has_params: true }),
+      "params");
     assert.equal(featureEditor({ type_key: "hole", hole: {} }), "hole");
     // Perçage taraudé : le moteur n'envoie pas `hole`, les cotes suffisent.
     assert.equal(featureEditor({ type_key: "hole", has_params: true }),

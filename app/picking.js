@@ -488,7 +488,8 @@ export function installPicking(ctx) {
         const hovered = (ctx.hoveredBody?.active
           && wholeHover(ctx.hoveredBody.name, ctx.meshGroups[i]))
           || i === ctx.hoveredGroup;
-        const picked = active && pickedBody(active, ctx.meshGroups[i]);
+        const picked = (active && pickedBody(active, ctx.meshGroups[i]))
+          || ctx.pickedFaces?.has(ctx.meshGroups[i].faceId);
         g.materialIndex = isSelected ? 2 : hovered ? 1 : picked ? 2
           : (ctx.meshGroups[i].baseIndex ?? 0);
       });

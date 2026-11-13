@@ -112,6 +112,50 @@ export function dressupPickValues(sel, dressup) {
   return null;
 }
 
+/** Zone des faces ouvertes d'une coque qu'on réédite. */
+export function shellFacesPick(faces) {
+  return { kind: "face",
+           items: (faces ?? []).map((face) => ({ kind: "face", face })) };
+}
+
+/** Valeurs `set_params` des faces ouvertes : `{}` si elles n'ont pas
+ *  changé, `{ faces }` sinon, null si la zone est vide. */
+export function shellFacesValues(zone, before) {
+  const chosen = [...new Set((zone?.items ?? []).map((item) => item.face)
+    .filter((face) => Number.isInteger(face)))];
+  if (!chosen.length) return null;
+  const kept = new Set(before ?? []);
+  const same = chosen.length === kept.size
+    && chosen.every((face) => kept.has(face));
+  return same ? {} : { faces: chosen };
+}
+
+const NEUTRAL_PLANES = [["XY", "Plan de dessus"], ["XZ", "Plan de face"],
+                        ["YZ", "Plan de droite"]];
+
+/** Dépouille qu'on réédite : son angle et son plan neutre. */
+export function draftEditGroups(feature) {
+  return [{ label: "Angle de dépouille", rows: [
+    measureRow("angle", "Angle",
+               chamferFieldValue(feature.params, "angle", 3), "°"),
+    { type: "select", key: "neutral", label: "Plan neutre",
+      value: feature.draft?.neutral ?? "XY", options: NEUTRAL_PLANES },
+  ] }];
+}
+
+/** Valeurs `set_params` de l'angle et du plan neutre : `{}` si rien n'a
+ *  changé, null si l'angle est invalide. */
+export function draftEditValues(v, feature) {
+  const stored = storedMeasure(feature.params, "angle", 3);
+  const angle = readMeasure(v.angle, stored, { min: 0, max: 90 });
+  if (angle == null) return null;
+  const values = {};
+  if (!sameMeasure(angle, stored)) values.angle = angle;
+  const neutral = v.neutral ?? feature.draft?.neutral ?? "XY";
+  if (neutral !== (feature.draft?.neutral ?? "XY")) values.neutral = neutral;
+  return values;
+}
+
 /** Congé qu'on réédite : son rayon. */
 export function filletEditRows(feature) {
   return [measureRow("radius", "Rayon",
@@ -333,8 +377,7 @@ export const HABILLAGE = [
       { type: "number", key: "angle", label: "Angle", value: 3,
         unit: "°", min: 0.01 },
       { type: "select", key: "neutral", value: "XY", label: "Plan neutre",
-        options: [["XY", "Plan de dessus"], ["XZ", "Plan de face"],
-                  ["YZ", "Plan de droite"]] },
+        options: NEUTRAL_PLANES },
     ],
     build: (v) => {
       const angle = num(v.angle);

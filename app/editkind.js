@@ -34,6 +34,8 @@ export function featureEditor(item) {
   if ((item.type_key === "pad" || item.type_key === "pocket")
       && item.extrude) return "extrude";
   if (item.type_key === "thickness" && item.shell) return "shell";
+  // Dépouille : sa face et son plan neutre (sinon, son angle seul).
+  if (item.type_key === "draft" && item.draft) return "draft";
   if (item.type_key === "hole" && item.hole) return "hole";
   if (item.type_key === "remove_bodies") return "remove_bodies";
   return params(item);

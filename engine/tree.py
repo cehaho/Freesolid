@@ -1293,6 +1293,16 @@ class TreeMixin:
                 item["extrude"] = extrude
             if obj.TypeId == "PartDesign::Thickness":
                 item["shell"] = {"outward": not bool(obj.Reversed)}
+                faces = self._base_face_ids(obj)
+                if faces:
+                    # Les faces ouvertes : la réédition les re-choisit sur
+                    # la pièce à son rang.
+                    item["shell"]["faces"] = faces
+            if obj.TypeId == "PartDesign::Draft":
+                faces = self._base_face_ids(obj)
+                if faces and len(faces) == 1:
+                    item["draft"] = {"face": faces[0],
+                                     "neutral": self._draft_neutral_token(obj)}
             if obj.TypeId == "PartDesign::Hole":
                 hole = self._hole_state(obj)
                 if hole is not None:
