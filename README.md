@@ -31,6 +31,11 @@ Details and the release procedure: [`desktop/README.md`](desktop/README.md).
 - **Surfaces**: extruded, revolved, lofted, swept, filled and boundary
   surfaces, trim, knit, thicken, freeform — **parametric and editable**
   (double-click, expressions)
+- **Editing as in mainstream modellers**: a double-click reopens any
+  feature in its creation panel, its edges, faces, profiles or bodies
+  re-picked on the part as it stood at that point of the history; a
+  yellow live preview while creating and editing, with depth arrows to
+  drag; one rollback bar for the whole part, reference geometry included
 - **3D sketches**: splines and polylines in space, snapped to the part,
   with axis, angle and length rules
 - **Multi-body parts** with per-body display colors
