@@ -23,7 +23,8 @@ import {
   bodyChoiceGroups, bodyChoiceValues, extrudeMergeProblem,
   holeEditInitial, holeEditValues, holeGroups, shellEditGroups,
   shellEditValues,
-  checkedContours, contourRows, vertexChamferDistances, vertexChamferRows,
+  checkedContours, contourRows, vertexChamferEditValues, vertexChamferPick,
+  vertexChamferPointValues, vertexChamferRow, vertexChamferRows,
   REMOVE_BODIES_NOTE, removeBodiesGroups, removeBodiesParams,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
@@ -2297,21 +2298,24 @@ export function installTree(ctx) {
     });
   }
 
+  /** Chanfrein de sommet : le panneau de sa création, son coin
+   *  re-choisi sur la pièce à son rang. */
   function editVertexChamfer(feature) {
-    panel.open({
+    const chamfer = feature.vertex_chamfer;
+    const point = chamfer.point ?? null;
+    return editAtRank(feature, {
       icon: "vertex_chamfer",
-      title: feature.label,
-      groups: [{ label: t("Distances"),
-        rows: vertexChamferRows(feature.vertex_chamfer) }],
-      onApply: (v) => {
-        const distances = vertexChamferDistances(v);
-        if (!distances) {
-          say(t("Distance de chanfrein invalide"), true);
-          return;
-        }
-        refresh(call("edit_vertex_chamfer",
-          { feature: feature.name, distances }));
+      zone: {
+        label: "Sommet",
+        row: vertexChamferRow(vertexChamferPick(point)),
+        // Son coin n'est plus sur la pièce : la zone vide le garde.
+        changed: (v) => (point === null && !v.pos ? {}
+          : vertexChamferPointValues(v.pos, point)),
+        missing: "Cliquez près d'un coin de la pièce",
       },
+      groups: [{ label: "Distances", rows: vertexChamferRows(chamfer) }],
+      values: (v) => vertexChamferEditValues(v, chamfer),
+      problem: () => "Distance de chanfrein invalide",
     });
   }
 

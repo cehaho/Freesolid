@@ -74,6 +74,10 @@ export {
   shellFacesPick,
   shellFacesValues,
   vertexChamferDistances,
+  vertexChamferEditValues,
+  vertexChamferPick,
+  vertexChamferPointValues,
+  vertexChamferRow,
   vertexChamferRows,
 } from "./features/habillage.js";
 export {
