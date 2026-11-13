@@ -60,6 +60,14 @@ export function polesParams(v) {
   return { surface: v.surface.name, grid: Number(v.grid) || 6, moves };
 }
 
+/** Pôles réédités : ce que `set_params` reçoit — les pôles déplacés, la
+ *  grille, et la surface si elle change. */
+export function polesEditValues(params, spec) {
+  const values = { moves: params.moves, grid: params.grid };
+  if (params.surface !== spec?.source) values.source = params.surface;
+  return values;
+}
+
 /** Nom d'une ligne : face et indices du pôle. */
 export function poleName([f, i, j]) {
   return `F${f + 1} · ${i}, ${j}`;
@@ -206,9 +214,12 @@ export function installPoles(ctx) {
   function open(surface = null) {
     stop();
     const spec = surface?.surface;
-    // Réédition : les grilles se lisent sur la surface d'origine.
-    const source = spec?.source
-      ? { kind: "surface", name: spec.source } : null;
+    // Réédition : la surface d'origine revient dans sa zone, et se
+    // re-choisit ; les pôles déplacés gardent leurs indices.
+    const known = (ctx.lastTree?.surfaces ?? [])
+      .find((s) => s.name === spec?.source);
+    const source = spec?.source ? { kind: "surface", name: spec.source,
+      label: known?.label ?? spec.source } : null;
     tool = { edit: surface, key: null, grids: null, values: {
       surface: source, grid: spec?.grid ?? 6, moves: spec?.moves ?? [] } };
     scene.add(group);
@@ -219,10 +230,9 @@ export function installPoles(ctx) {
       title: surface ? surface.label : t("Points de contrôle"),
       autoFocus: false,
       groups: [
-        { label: t("Surface"), rows: surface ? [{ type: "note", readonly: true,
-          text: t("Les déplacements s'appliquent à la surface d'origine.") }]
-          : [{ type: "selection", key: "surface", accepts: ["surface"],
-               hint: t("Cliquez la surface à déformer") }] },
+        { label: t("Surface"), rows: [{ type: "selection", key: "surface",
+          accepts: ["surface"], hint: t("Cliquez la surface à déformer"),
+          value: source }] },
         { label: t("Grille"), rows: [{ type: "number", key: "grid",
           label: t("Pôles par côté"), value: tool.values.grid, min: 4,
           step: 1 }] },
@@ -236,25 +246,21 @@ export function installPoles(ctx) {
       onChange: (v) => {
         if (!tool) return;
         tool.values = { ...tool.values, ...v };
-        if (surface) tool.values.surface = source;
         loadGrid();
         draw();
       },
       onClose: () => stop(),
       onApply: (v) => {
         const values = { ...tool?.values, ...v };
-        if (surface) {
-          const params = polesParams({ ...values, surface: source });
-          if (params) {
-            refresh(call("edit_surface_freeform", { surface: surface.name,
-              moves: params.moves, grid: params.grid }));
-          }
-          return;
-        }
         const params = polesParams(values);
         if (!params) {
           say(t("Points de contrôle : une surface et au moins un point "
             + "déplacé"), true);
+          return;
+        }
+        if (surface) {
+          refresh(call("set_params", { feature: surface.name,
+            values: polesEditValues(params, spec) }));
           return;
         }
         refresh(call("surface_freeform", params));

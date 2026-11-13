@@ -30,11 +30,10 @@ import {
   patternFeaturesValues, patternSourcesPick, patternSourcesValues,
   BODY_PATTERN_TYPES, bodyZoneRow,
   cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
-  filletEdgesValues,
-  intersectionEditValues, ownSketchPick, planarEditValues,
-  projectEditValues, projectTargetPick, signedEditValues, sourceEditValues,
-  radiateBoundaryPick, radiateBoundaryValues, surfacePick, trimEditValues,
-  trimKeepPick,
+  filletEdgesValues, freeformEditValues, intersectionEditValues,
+  ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
+  radiateBoundaryPick, radiateBoundaryValues, signedEditValues,
+  sourceEditValues, surfacePick, trimEditValues, trimKeepPick,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -1945,30 +1944,39 @@ export function installTree(ctx) {
   }
 
   // Forme libre : hauteur et rayon d'influence.
+  // Forme libre : sa surface, ses points poussés, le rayon et les bords
+  // fixes, comme à la création, sur la pièce à son rang.
   function editFreeform(surface) {
     const spec = surface.surface;
-    panel.open({
+    return editAtRank(surface, {
       icon: "surface_freeform",
-      title: surface.label,
+      note: "Chaque point bombe la surface selon sa normale, de sa hauteur "
+        + "(4e colonne ; négative : un creux).",
+      zone: {
+        label: "Surface",
+        row: { type: "selection", key: "surface", accepts: ["surface"],
+               hint: "Cliquez la surface à déformer",
+               value: surfacePick(ctx.lastTree, spec.source) },
+        changed: (v) => sourceEditValues(v.surface, spec.source),
+        missing: "Forme libre : une surface, des points à pousser, un rayon",
+      },
       groups: [
-        { label: t("Points à pousser"),
+        { label: "Points à pousser",
           rows: [{ type: "points", key: "pushes", value: spec.pushes,
-                   extra: { label: "Hauteur", value: 5 } }] },
-        { label: t("Paramètres"),
+                   extra: { label: "Hauteur", value: 5 },
+                   empty: "Puis cliquez les points à pousser, sur la "
+                     + "surface" }] },
+        { label: "Paramètres",
           rows: [
-            { type: "number", key: "radius", label: t("Rayon d'influence"),
+            { type: "number", key: "radius", label: "Rayon d'influence",
               value: spec.radius, unit: "mm", min: 0.01 },
-            { type: "check", key: "keepEdges", label: t("Bords fixes"),
+            { type: "check", key: "keepEdges", label: "Bords fixes",
               value: spec.keep_edges },
           ] },
       ],
-      onApply: (v) => {
-        const radius = num(v.radius);
-        const pushes = (v.pushes ?? []).filter((p) => p.length === 4);
-        if (!(radius > 0) || !pushes.length) return;
-        refresh(call("edit_surface_freeform", { surface: surface.name,
-          radius, pushes, keep_edges: !!v.keepEdges }));
-      },
+      values: (v) => freeformEditValues(v, spec),
+      problem: () => "Forme libre : une surface, des points à pousser, un "
+        + "rayon",
     });
   }
 

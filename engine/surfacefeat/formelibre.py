@@ -56,6 +56,19 @@ class SurfaceFreeformMixin:
         obj = self._require_doc().getObject(str(surface))
         if obj is None or not getattr(obj, "FreeSolidFreesource", ""):
             raise KernelError("forme libre inconnue : {}".format(surface))
+        self._apply_freeform_edit(obj, radius=radius, pushes=pushes,
+                                  height=height, keep_edges=keep_edges,
+                                  moves=moves, grid=grid)
+        self._recompute()
+        return self.get_tree()
+
+    def _apply_freeform_edit(self, obj, radius=None, pushes=None,
+                             height=None, keep_edges=None, moves=None,
+                             grid=None):
+        """La forme libre ``obj`` refaite sur sa surface source (rangée
+        sur l'objet), sans recalcul : ``edit_surface_freeform`` et
+        ``set_params``."""
+        from engine.kernel import KernelError
         stamps = self._frozen_stamps(obj)
         if stamps.get("freemoves"):
             src = self._get_surface(stamps["freesource"])
@@ -73,8 +86,7 @@ class SurfaceFreeformMixin:
             obj.Shape = self._free_shape(src.Shape, stamps)
             self._stamp(obj, freemoves=stamps["freemoves"],
                         freegrid=new_grid)
-            self._recompute()
-            return self.get_tree()
+            return
         if radius is None:
             raise KernelError("le rayon d'influence doit être positif")
         current = self._free_pushes(stamps)
@@ -90,8 +102,6 @@ class SurfaceFreeformMixin:
         self._stamp(obj, freepushes=stamps["freepushes"],
                     freeradius=float(radius),
                     freeedges=int(stamps.get("freeedges", 0)))
-        self._recompute()
-        return self.get_tree()
 
     @staticmethod
     def _moves_text(moves, face=0):

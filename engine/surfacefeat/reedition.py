@@ -2,7 +2,8 @@
 surface plane, la surface d'un décalage ou d'un épaississement, le bord
 d'un prolongement, les arêtes d'un congé, les deux formes d'une courbe
 d'intersection, l'esquisse et la face d'une courbe projetée, l'outil et
-la partie gardée d'un ajustement, le contour d'une surface radiée.
+la partie gardée d'un ajustement, le contour d'une surface radiée, la
+surface d'une forme libre.
 
 Mixin de ``Kernel``. Pas d'import FreeCAD au niveau du module.
 """
@@ -20,6 +21,8 @@ class SurfaceReeditMixin:
         "project": ("sketch", "surface", "face"),
         "trim": ("source", "tool", "point"),
         "radiate": ("boundary", "distance"),
+        "freeform": ("source", "pushes", "radius", "keep_edges", "moves",
+                     "grid"),
     }
 
     def _surface_pick_kind(self, obj):
@@ -41,6 +44,8 @@ class SurfaceReeditMixin:
             return "project"
         if getattr(obj, "FreeSolidKind", "") == "trim":
             return "trim"
+        if getattr(obj, "FreeSolidFreesource", ""):
+            return "freeform"
         return None
 
     def _refuse_later_source(self, obj, source):
@@ -90,6 +95,8 @@ class SurfaceReeditMixin:
                 self._set_trim_params(obj, values)
             elif kind == "radiate":
                 self._set_radiate_params(obj, values)
+            elif kind == "freeform":
+                self._set_freeform_params(obj, values)
             else:
                 self._set_projection_params(obj, values)
             self._recompute()
@@ -121,6 +128,10 @@ class SurfaceReeditMixin:
         if kind == "radiate":
             return [(obj.Source, "Support", list(obj.Source.Support)),
                     (obj, "Value", obj.Value)]
+        if kind == "freeform":
+            return [(obj, "Shape", obj.Shape.copy())] + [
+                (obj, prop, getattr(obj, prop)) for prop in obj.PropertiesList
+                if prop.startswith("FreeSolidFree")]
         props = {
             "planar": ("Sources",),
             "extend": ("Face", "ExtendUNeg", "ExtendUPos", "ExtendVNeg",
@@ -281,3 +292,28 @@ class SurfaceReeditMixin:
             groups[linked.Name][1].append(sub)
         obj.Source.Support = [(groups[n][0], tuple(groups[n][1]))
                               for n in order]
+
+    def _set_freeform_params(self, obj, values):
+        """Forme libre : sa surface (``source`` ; les points poussés s'y
+        reprojettent, les pôles déplacés gardent leurs indices), et ce que
+        son panneau règle : points poussés, rayon, bords fixes — ou pôles
+        déplacés et grille."""
+        from engine.kernel import KernelError
+        poles = bool(getattr(obj, "FreeSolidFreemoves", ""))
+        allowed = (("source", "moves", "grid") if poles
+                   else ("source", "pushes", "radius", "keep_edges"))
+        for key in values:
+            if key not in allowed:
+                raise KernelError("propriété non éditable : {}".format(key))
+        if "source" in values:
+            src = self._picked_surface(obj, values["source"])
+            self._stamp(obj, freesource=src.Name)
+        if poles:
+            self._apply_freeform_edit(obj, moves=values.get("moves"),
+                                      grid=values.get("grid"))
+            return
+        self._apply_freeform_edit(
+            obj, radius=values.get("radius",
+                                   float(obj.FreeSolidFreeradius)),
+            pushes=values.get("pushes"),
+            keep_edges=values.get("keep_edges"))

@@ -251,7 +251,8 @@ class SurfaceCommonMixin:
             return {"kind": "freeform", "pushes": pushes,
                     "height": pushes[0][3],
                     "radius": float(obj.FreeSolidFreeradius),
-                    "keep_edges": bool(getattr(obj, "FreeSolidFreeedges", 0))}
+                    "keep_edges": bool(getattr(obj, "FreeSolidFreeedges", 0)),
+                    "source": str(obj.FreeSolidFreesource)}
         if getattr(obj, "FreeSolidFlatsource", ""):
             spec = {"kind": "flatten",
                     "face": int(getattr(obj, "FreeSolidFlatface", 0))}

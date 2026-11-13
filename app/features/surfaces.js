@@ -84,6 +84,21 @@ export function freeformParams(v) {
     surface: v.surface.name, radius, pushes, keep_edges: !!v.keepEdges } };
 }
 
+/** Forme libre rééditée : rayon, points poussés et bords fixes, s'ils
+ *  changent ; null sans point ou sans rayon. */
+export function freeformEditValues(v, spec) {
+  const radius = num(v.radius);
+  const pushes = (v.pushes ?? []).filter((p) => p.length === 4 && p[3]);
+  if (!pushes.length || !(radius > 0)) return null;
+  const out = {};
+  if (Math.abs(radius - spec.radius) > 1e-9) out.radius = radius;
+  if (JSON.stringify(pushes) !== JSON.stringify(spec.pushes)) {
+    out.pushes = pushes;
+  }
+  if (!!v.keepEdges !== !!spec.keep_edges) out.keep_edges = !!v.keepEdges;
+  return out;
+}
+
 /** Ajuster (et ajustement mutuel) → paramètres, ou null. */
 export function trimParams(v) {
   if (!v.tool || !v.keep || v.keep.name === v.tool.name) return null;

@@ -5,12 +5,13 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
+  freeformEditValues, radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
 } from "../../app/features.js";
 import { surfaceEditor } from "../../app/editkind.js";
+import { polesEditValues } from "../../app/poles.js";
 
 const tree = { surfaces: [{ name: "Surface", label: "Plane" },
                           { name: "Surface001", label: "Petite" }] };
@@ -248,5 +249,35 @@ describe("surface radiée rééditée", () => {
       { items: [{ kind: "sketch", name: "Sketch" }] }, spec),
     { boundary: [{ name: "Sketch" }] });
     assert.equal(radiateBoundaryValues({ items: [] }, spec), null);
+  });
+});
+
+describe("forme libre rééditée", () => {
+  const spec = { kind: "freeform", source: "Surface", radius: 10,
+                 keep_edges: false, pushes: [[20, 20, 0, 5]] };
+
+  it("n'envoie que ce qui change", () => {
+    const same = { radius: "10", pushes: [[20, 20, 0, 5]], keepEdges: false };
+    assert.deepEqual(freeformEditValues(same, spec), {});
+    assert.deepEqual(freeformEditValues({ ...same, radius: "6" }, spec),
+                     { radius: 6 });
+    assert.deepEqual(freeformEditValues(
+      { ...same, pushes: [[10, 10, 0, -4]], keepEdges: true }, spec),
+    { pushes: [[10, 10, 0, -4]], keep_edges: true });
+  });
+
+  it("refuse sans point ni rayon", () => {
+    assert.equal(freeformEditValues({ radius: "10", pushes: [] }, spec), null);
+    assert.equal(freeformEditValues(
+      { radius: "0", pushes: [[20, 20, 0, 5]] }, spec), null);
+  });
+
+  it("pôles : la surface ne part que si elle change", () => {
+    const params = { surface: "Surface", grid: 6, moves: [[0, 1, 1, 0, 0, 7]] };
+    assert.deepEqual(polesEditValues(params, { source: "Surface" }),
+                     { moves: params.moves, grid: 6 });
+    assert.deepEqual(polesEditValues({ ...params, surface: "Surface001" },
+                                     { source: "Surface" }),
+                     { moves: params.moves, grid: 6, source: "Surface001" });
   });
 });

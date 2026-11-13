@@ -5567,3 +5567,55 @@ def p124_radiee_rechoisit_son_contour(self, mark, report, etat):
         and "vient après" in (refused.get("error") or "")
         and abs(collar.Shape.Area - plate_area) < 1e-6
         and clean())
+
+
+def p125_forme_libre_rechoisit_sa_surface(self, mark, report, etat):
+    mark("p125: une forme libre (points ou pôles) re-choisit sa surface")
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def square(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return last(self.surface_planar(sketch=name))
+
+    def spec(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name)["surface"]
+
+    def span(obj):
+        box = obj.Shape.BoundBox
+        return (round(box.XMin, 3), round(box.YMin, 3), round(box.ZMax, 3))
+
+    # Deux carrés qui se chevauchent : une bosse de 5 au milieu du premier,
+    # puis la même forme libre sur le second ; un pôle levé de 7.
+    self.new_part("Forme libre re-choisie")
+    first, second = square(0, 0, 40, 40), square(-10, -10, 30, 30)
+    bump = last(self.surface_freeform(first.Name, radius=10,
+                                      pushes=[[20, 20, 0, 5]]))
+    moved = edit(bump, source=second.Name)
+    pole = last(self.surface_freeform(first.Name, moves=[[1, 1, 0, 0, 7]]))
+    pole_moved = edit(pole, source=second.Name)
+    later = square(100, 0, 110, 10)
+    report["p125_forme_libre_rechoisit_sa_surface"] = (
+        spec(bump)["source"] == second.Name and moved.get("ok") is True
+        and span(bump) == (-10, -10, 5)
+        and edit(bump, radius=6).get("ok") is True
+        and spec(bump)["radius"] == 6
+        and pole_moved.get("ok") is True
+        and spec(pole)["source"] == second.Name and span(pole) == (-10, -10, 7)
+        and edit(pole, radius=3).get("ok") is False
+        and "vient après" in (edit(bump, source=later.Name).get("error")
+                              or "")
+        and spec(bump)["source"] == second.Name
+        and clean())

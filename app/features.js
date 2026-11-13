@@ -109,6 +109,7 @@ export {
   extendTargetValues,
   filletEdgesPick,
   filletEdgesValues,
+  freeformEditValues,
   freeformParams,
   intersectionEditValues,
   midParams,
