@@ -171,13 +171,17 @@ class TreeMixin:
 
     def _history_role(self, obj, consumed):
         """Rôle dans l'historique : ``feature`` / ``sketch`` / ``surface``
-        / ``pattern`` (réseau de corps) / ``remove`` (suppression de corps),
-        ou None si hors historique. Un code, pas un libellé : ``kind`` reste
-        le nom affiché d'un objet."""
+        / ``pattern`` (réseau de corps) / ``remove`` (suppression de corps)
+        / ``reference`` (plan, axe, point, repère), ou None si hors
+        historique. Un code, pas un libellé : ``kind`` reste le nom affiché
+        d'un objet."""
         if self._is_thin_helper(obj):
             return None
         if self._is_surface_obj(obj):
             return "surface"
+        if self._is_reference(obj):
+            # Une ligne comme une autre : elle recule avec la barre.
+            return "reference"
         if "FreeSolidBodyPattern" in obj.PropertiesList:
             return "pattern"
         if "FreeSolidRemoveBodies" in obj.PropertiesList:
@@ -316,8 +320,8 @@ class TreeMixin:
 
     def _history_lines(self):
         """Lignes d'historique top-niveau de toute la pièce, dans l'ordre
-        de l'arbre : fonctions et esquisses libres de chaque corps,
-        surfaces, réseaux de corps, suppressions de corps."""
+        de l'arbre : fonctions, esquisses libres et références de chaque
+        corps, surfaces, réseaux de corps, suppressions de corps."""
         doc = self._require_doc()
         consumed = self._consumed_sketches()
         lines = []
@@ -326,7 +330,7 @@ class TreeMixin:
                 if self._is_pattern_base(obj):
                     continue
                 role = self._history_role(obj, consumed)
-                if role in ("feature", "sketch"):
+                if role in ("feature", "sketch", "reference"):
                     lines.append(obj)
         for obj in doc.Objects:
             if (self._is_surface_obj(obj)
@@ -467,12 +471,14 @@ class TreeMixin:
 
     def set_tip(self, feature=None):
         """Déplace la barre de retour : l'historique se reconstruit
-        jusqu'à cette ligne (fonction, esquisse libre ou surface).
+        jusqu'à cette ligne (fonction, esquisse libre, surface ou
+        référence).
 
         Sans *feature* (ou nom vide), la barre se pose avant la première
         ligne — tout est reculé, comme un glisser tout en haut de
         l'arbre de création. ``body.Tip`` ne couvre que la chaîne PartDesign ;
-        les surfaces et esquisses libres portent ``FreeSolidRolledBack``.
+        les surfaces, esquisses libres et références portent
+        ``FreeSolidRolledBack``.
 
         *feature* peut aussi être l'esquisse rangée sous une fonction : la
         barre se pose entre les deux, l'esquisse sort de sa fonction
@@ -510,8 +516,8 @@ class TreeMixin:
         elif obj.Name not in {row["name"] for row in rows}:
             raise KernelError(
                 "« {} » n'est pas une ligne d'historique — la barre de "
-                "retour se pose sur une fonction, une esquisse libre ou "
-                "une surface".format(obj.Label))
+                "retour se pose sur une fonction, une esquisse libre, une "
+                "surface ou une référence".format(obj.Label))
         flags, tips = rollback_tips(rows, obj.Name)
         self._apply_tips(tips)
         self._apply_rollback_flags(flags)
@@ -536,14 +542,10 @@ class TreeMixin:
         names = [line.Name for line in history]
         obj = doc.getObject(str(feature))
         line = self._rank_line(obj, names)
-        if line is not None:
-            at = names.index(line.Name)
-            target = names[at - 1] if at else None
-        elif self._is_reference(obj):
-            # Une référence n'est pas une ligne : la pièce qui la précède.
-            target = self._reference_rank(obj, history)
-        else:
+        if line is None:
             raise KernelError("fonction inconnue : {}".format(feature))
+        at = names.index(line.Name)
+        target = names[at - 1] if at else None
         saved = self._bar_state()
         flags, tips = rollback_tips(self._history_rows(history), target)
         self._rank_view = saved
@@ -587,14 +589,9 @@ class TreeMixin:
         names = [line.Name for line in history]
         obj = doc.getObject(str(feature)) if feature else None
         line = self._rank_line(obj, names)
-        if line is not None:
-            target = line.Name
-        elif self._is_reference(obj):
-            # Une référence n'est pas une ligne : la barre reste où la vue
-            # au rang l'a posée, juste avant elle.
-            target = self._reference_rank(obj, history)
-        else:
+        if line is None:
             return
+        target = line.Name
         flags, tips = rollback_tips(self._history_rows(history), target)
         self._apply_tips(tips)
         self._apply_rollback_flags(flags)
@@ -728,8 +725,8 @@ class TreeMixin:
     def _rolled_back_objects(self):
         """Tout ce qui est sous la barre de retour, dans l'ordre de l'arbre :
         fonctions après le Tip et leurs esquisses (sauf celles sorties
-        au-dessus), esquisses libres, surfaces et réseaux de corps
-        reculés."""
+        au-dessus), esquisses libres, références, surfaces et réseaux de
+        corps reculés."""
         consumed = self._consumed_sketches()
         above = set(self._unabsorbed_sketches())
         rolled = self._features_after_tips()
@@ -756,6 +753,8 @@ class TreeMixin:
                             out.append(obj)
                     elif self._is_rolled_back(obj):
                         out.append(obj)
+                elif self._is_reference(obj) and self._is_rolled_back(obj):
+                    out.append(obj)
         for obj in self._doc.Objects:
             if (self._is_surface_obj(obj)
                     and not self._is_internal_tool(obj)
@@ -771,8 +770,8 @@ class TreeMixin:
 
     def delete_rolled_back(self):
         """Supprimer tout ce qui est sous la barre de retour, en une étape
-        d'annulation : fonctions, leurs esquisses, esquisses libres et
-        surfaces reculées. Une esquisse sortie au-dessus de la barre reste,
+        d'annulation : fonctions, leurs esquisses, esquisses libres,
+        références et surfaces reculées. Une esquisse sortie au-dessus de la barre reste,
         libre."""
         from engine.kernel import KernelError
         doc = self._require_doc()

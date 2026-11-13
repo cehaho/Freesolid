@@ -266,6 +266,72 @@ class SurfaceSolidMixin:
             steps.append((boolean, tools[0].BaseFeature if tools else None))
         return steps
 
+    def _frozen_owner(self, frozen):
+        """La fonction (suppression ou remplacement de face, chanfrein de
+        sommet) dont le booléen prend la forme figée ``frozen``, ou None."""
+        doc = self._require_doc()
+        for body in self._history_bodies():
+            for boolean in body.Group:
+                if boolean.TypeId != "PartDesign::Boolean":
+                    continue
+                if not any(getattr(tool, "BaseFeature", None) is frozen
+                           for tool in self._boolean_tools(boolean)):
+                    continue
+                owner = getattr(boolean, "FreeSolidThinOwner", "")
+                return doc.getObject(owner) if owner else boolean
+        return None
+
+    def _frozen_chain_base(self, frozen):
+        """La fonction juste avant la fonction figée de ``frozen`` dans son
+        corps — celle d'où sa forme part —, ou None."""
+        owner = self._frozen_owner(frozen)
+        if owner is None:
+            return None
+        return getattr(self._frozen_steps(owner)[0][0], "BaseFeature", None)
+
+    def _rebase_frozen(self, frozen, old, new):
+        """Une fonction s'est glissée avant la fonction figée (posée sous la
+        barre reculée, ou réordonnée) : sa forme part maintenant de
+        ``new``. Ses faces ou son sommet, numérotés sur ``old``, sont
+        retrouvés sur ``new`` par leur géométrie ; ce qui n'y est plus
+        garde son numéro (l'erreur se verra). Les tampons des formes
+        figées de la fonction et de la fonction elle-même suivent. Rend
+        ceux du calcul (``_frozen_result``)."""
+        from engine.vertexchamfer import format_spec, parse_spec
+        owner = self._frozen_owner(frozen)
+        before = getattr(old, "Shape", None)
+        after = new.Shape
+        if getattr(frozen, "FreeSolidVchamferbase", ""):
+            vertex, distances = parse_spec(frozen.FreeSolidVchamfer)
+            spec = format_spec(_same_vertex(before, after, vertex),
+                               distances)
+            stamps = {"vchamferbase": new.Name, "vchamfer": spec}
+            owned = {"vchamferspec": spec}
+            result = {"vchamfer": spec}
+        elif getattr(frozen, "FreeSolidDefeatbase", ""):
+            faces = ";".join(
+                str(_same_face(before, after, int(f)))
+                for f in str(frozen.FreeSolidDefeatfaces).split(";")
+                if f != "")
+            stamps = {"defeatbase": new.Name, "defeatfaces": faces}
+            owned = {"deletefaces": faces}
+            result = {"defeatfaces": faces}
+        else:
+            face = _same_face(before, after, int(frozen.FreeSolidReplaceface))
+            surface = frozen.FreeSolidReplacesurface
+            stamps = {"replacebase": new.Name, "replaceface": face,
+                      "replacesurface": surface}
+            owned = {"replacedface": face + 1, "replacedby": surface}
+            result = {"replaceface": face, "replacesurface": surface}
+        shapes = ([shape for _, shape in self._frozen_steps(owner)]
+                  if owner is not None else [frozen])
+        for shape in shapes:
+            if shape is not None:
+                self._stamp(shape, **stamps)
+        if owner is not None:
+            self._stamp(owner, **owned)
+        return result
+
     def _set_frozen_face_params(self, owner, values):
         """``set_params`` d'une suppression (``faces``) ou d'un
         remplacement de face (``face``, ``surface``) du solide, re-choisis
@@ -730,3 +796,31 @@ class SurfaceSolidMixin:
         if thick > 0:
             spec["thickness"] = thick
         return spec
+
+
+def _same_face(before, after, index):
+    """Le numéro sur ``after`` de la face ``index`` de ``before`` : même
+    aire, même centre ; ``index`` si elle n'y est plus."""
+    try:
+        face = before.Faces[index]
+    except (AttributeError, IndexError):
+        return index
+    tolerance = 1e-6 * max(face.Area, 1.0)
+    for i, other in enumerate(after.Faces):
+        if (abs(other.Area - face.Area) < tolerance
+                and (other.CenterOfMass - face.CenterOfMass).Length < 1e-6):
+            return i
+    return index
+
+
+def _same_vertex(before, after, index):
+    """Le numéro sur ``after`` du sommet ``index`` de ``before`` : même
+    point ; ``index`` s'il n'y est plus."""
+    try:
+        point = before.Vertexes[index].Point
+    except (AttributeError, IndexError):
+        return index
+    for i, other in enumerate(after.Vertexes):
+        if (other.Point - point).Length < 1e-6:
+            return i
+    return index

@@ -156,16 +156,6 @@ class RefGeomMixin:
         body = parent()
         return body is not None and body in self._history_bodies()
 
-    def _reference_rank(self, obj, history):
-        """La dernière ligne d'historique avant la référence ``obj`` (une
-        référence n'en est pas une) : la barre se pose juste après elle
-        pour montrer la pièce à son rang. None si rien ne la précède."""
-        order_of = self._tree_order()
-        mine = order_of.get(obj.Name, -1)
-        before = [line.Name for line in history
-                  if order_of.get(line.Name, -1) < mine]
-        return before[-1] if before else None
-
     def _reference_rank_base(self, obj):
         """La pièce au rang d'une référence : la dernière fonction de son
         corps qui la précède dans l'arbre, celle que montre la vue au rang.

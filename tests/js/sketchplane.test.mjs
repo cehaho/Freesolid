@@ -22,6 +22,21 @@ describe("plan d'une esquisse", () => {
     assert.deepEqual(sketchPlaneOptions(undefined), [["face", "Face du solide"]]);
   });
 
+  it("ne propose pas un plan de référence qui vient après l'esquisse", () => {
+    const later = {
+      planes: tree.planes,
+      features: [{ type_key: "datum_plane", name: "Avant", label: "P1", order: 2 },
+                 { type_key: "datum_plane", name: "Apres", label: "P2", order: 9 }],
+    };
+    const sketch = { name: "Sketch", order: 5, support: { plane: "XY" } };
+    assert.deepEqual(sketchPlaneOptions(later, sketch).map(([id]) => id),
+      ["XY", "XZ", "datum:Avant", "face"]);
+    // Son plan actuel reste, même venu après (un fichier d'avant).
+    const onLater = { ...sketch, support: { datum: "Apres" } };
+    assert.deepEqual(sketchPlaneOptions(later, onLater).map(([id]) => id),
+      ["XY", "XZ", "datum:Avant", "datum:Apres", "face"]);
+  });
+
   it("revient sur son plan actuel", () => {
     assert.equal(sketchPlaneChoice({ plane: "XZ" }), "XZ");
     assert.equal(sketchPlaneChoice({ datum: "DatumPlane" }), "datum:DatumPlane");

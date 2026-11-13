@@ -12,7 +12,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 - **Réédition : ce qui revient** : ce que le double-clic (ou « Modifier ») permet de changer.
 - **Ne revient pas** : ce qui a été choisi à la création et qu'on ne peut plus changer sans supprimer et refaire.
 - **Aperçu à la réédition** : le fantôme jaune pendant la réédition. « — » : rien à rééditer.
-- **Barre de retour** : la fonction se pose sur la barre et recule avec elle. « oui (drapeau) » : surface ou esquisse libre, qui se masque par drapeau au lieu de passer par le Tip du corps.
+- **Barre de retour** : la fonction se pose sur la barre et recule avec elle. « oui (drapeau) » : surface, esquisse libre ou référence, qui se masque par drapeau au lieu de passer par le Tip du corps.
 - **Selftest de réédition** : un test de bout en bout de `engine/selftest/` réédite la fonction. « non » : aucun trouvé.
 
 « Modifier » au menu n'est pas une colonne : depuis #151, il est proposé exactement quand le double-clic rouvre quelque chose (`app/editkind.js`), donc quand la colonne « Réédition » dit autre chose que « rien ». « Désactiver » et « Masquer » non plus : leurs écarts sont dans la section des écarts, car ils tiennent à des règles du menu et non à la fonction.
@@ -37,15 +37,15 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 |---|---|---|---|---|---|---|
 | Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui + bulle de rayon | oui | oui (rayon, arêtes) |
 | Chanfrein | oui | type, taille, taille 2, angle, sens ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui | oui | oui |
-| Chanfrein de sommet | oui | le panneau de la création : sommet, distances | — | oui | à vérifier (booléen, jusqu'à deux lignes) | oui |
+| Chanfrein de sommet | oui | le panneau de la création : sommet, distances | — | oui | oui (une ligne ; une fonction posée sous la barre avant lui entre dans sa forme) | oui |
 | Coque | oui | épaisseur, « vers l'extérieur » ; faces à ouvrir, re-choisies sur la pièce à son rang | — | oui | oui | oui (sens, refus d'une coque trop épaisse, faces) |
 | Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
 | Combiner | non, voulu | le panneau de la création, au rang (le corps outil y reparaît) : opération, corps outil (venu d'un module : l'opération seule) | — | non, voulu | oui | oui (opération, corps outil, refus) |
 | Supprimer des corps | non, voulu | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non, voulu | oui (drapeau) | oui |
-| Plan de référence | oui + fantôme | le panneau de la création, sur la pièce à son rang : face ou plan d'origine, décalage, angle | — | oui + fantôme | non : ne recule jamais (thème 8) | oui |
-| Axe de référence | oui | le panneau de la création, sur la pièce à son rang : axe d'origine ou arête droite ou circulaire | — | oui | non : ne recule jamais (thème 8) | oui |
-| Point de référence | oui | le panneau de la création, sur la pièce à son rang : sommet, centre d'une arête circulaire ou coordonnées | — | oui | non : ne recule jamais (thème 8) | oui |
-| Repère | oui | le panneau de la création, sur la pièce à son rang : sommet ou coordonnées | — | oui | non : ne recule jamais (thème 8) | oui |
+| Plan de référence | oui + fantôme | le panneau de la création, sur la pièce à son rang : face ou plan d'origine, décalage, angle | — | oui + fantôme | oui (drapeau) | oui |
+| Axe de référence | oui | le panneau de la création, sur la pièce à son rang : axe d'origine ou arête droite ou circulaire | — | oui | oui (drapeau) | oui |
+| Point de référence | oui | le panneau de la création, sur la pièce à son rang : sommet, centre d'une arête circulaire ou coordonnées | — | oui | oui (drapeau) | oui |
+| Repère | oui | le panneau de la création, sur la pièce à son rang : sommet ou coordonnées | — | oui | oui (drapeau) | oui |
 
 ## Répétitions et graphe
 
@@ -242,14 +242,14 @@ Où ça se décide : `app/features/surfaces.js`, `habillage.js`, `volumes.js` (p
 
 ### 8. Barre de retour : des lignes qui n'y entrent pas comme les autres
 
-- **Références** (Plan, Axe, Point, Repère) : ce ne sont pas des fonctions de l'historique. Vérifié à l'exécution (2026-11-13) : « poser la barre ici » sur une référence est refusé (« n'est pas une ligne d'historique »), et une référence ne recule jamais. La barre en tête, le plan et l'axe remontent au-dessus d'elle dans l'arbre et restent dessinés dans la vue, alors que la fonction qui les porte est reculée ; une esquisse peut encore s'y poser. Leur réédition montre quand même la pièce à leur rang : `rank_view` pose la barre juste après la ligne qui les précède.
-- **Chanfrein de sommet** : rangé comme un booléen (jusqu'à deux lignes, ajout puis intersection). Effet sur la barre : à vérifier.
+- **Références** (Plan, Axe, Point, Repère) : depuis le 2026-11-13, ce sont des lignes comme les autres. La barre se pose sous elles et elles reculent avec elle, par drapeau comme une esquisse libre. Reculées, la vue ne les dessine plus et une esquisse neuve ne se pose pas sur un plan reculé. « Changer de plan… » ne propose que les plans qui précèdent l'esquisse. Supprimer ce qui est sous la barre les emporte (p137).
+- **Chanfrein de sommet, Supprimer et Remplacer la face du solide** : une seule ligne chacun, qui recule comme une fonction. Leur forme figée partait de la fonction qui les précédait *à leur création*. Une fonction posée sous la barre reculée au-dessus d'elles n'y entrait donc pas : un bossage disparaissait, une poche se rebouchait. Depuis le 2026-11-13, la forme part de la fonction juste avant elles, et leurs faces ou leur sommet sont retrouvés sur cette forme par leur géométrie (p138).
 - **Épaissir** : classée avec les surfaces (barre par drapeau) alors que son résultat est un solide ; Couper avec une surface est une fonction de corps (barre par le Tip). Pas d'écart de comportement constaté.
-- **Cousue et Médiane** : si la barre recule au-dessus de leur base, le moteur saute la mise à jour sans le dire.
+- **Cousue et Médiane** : vérifié à l'exécution (2026-11-13). Rééditées sous la barre, leurs sources les entraînent et rien n'est sauté (p138 pour la couture). Un écart reste, sans lien avec la barre : quand le recalcul échoue (une face qui n'existe plus), la surface garde son ancienne forme sans le dire.
 - **Remplacer et Supprimer la face du solide** : seules opérations de leur famille dans la chaîne du corps ; elles ne se masquent pas.
 - **Ajustement mutuel** : deux lignes indépendantes, rééditer l'une ne touche pas l'autre.
 
-Où ça se décide : `engine/tree.py` (`_history_role`, `set_tip`) ; `engine/kernel.py` (`_ROLLBACK_ROLES`) ; `engine/surfacefeat/commun.py` (`_refresh_frozen_shapes`) ; `engine/surfacefeat/solide.py` ; `engine/surfacefeat/prolonger.py`.
+Où ça se décide : `engine/tree.py` (`_history_role`, `set_tip`, `_rolled_back_objects`) ; `engine/kernel.py` (`_ROLLBACK_ROLES`, `rollback_plan`) ; `engine/sketch.py` (`_datum_support`) ; `app/sketchplane.js` (`sketchPlaneOptions`) ; `engine/surfacefeat/commun.py` (`_refresh_frozen_shapes`) ; `engine/surfacefeat/solide.py` (`_frozen_chain_base`, `_rebase_frozen`) ; `engine/surfacefeat/prolonger.py`.
 
 ### 9. Le rejeu et la documentation
 
@@ -264,6 +264,6 @@ Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé
 
 L'aperçu à la création des surfaces, courbes et références est vérifié par p135 (chaque création montre quelque chose et laisse le document intact) ; les flèches du perçage et de l'hélice, par p136.
 
-Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
+La barre de retour est testée sur les références (p137), sur les formes figées du corps et sur une couture (p138). Aucun selftest ne vise encore la barre sur les autres surfaces et courbes, ni Masquer (testé seulement sur des corps). Désactiver n'est pas testé fonction par fonction.
 
 Où ça se décide : `engine/selftest/fonctions.py`, `document.py`, `surfaces.py`, `noeuds.py`, `esquisse.py` ; `tests/test_param_keys.py` ; `tests/js/` pour le côté interface.

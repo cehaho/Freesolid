@@ -126,12 +126,37 @@ class SketchMixin:
             raise KernelError("esquisse inconnue : {}".format(name))
         return obj
 
+    def _datum_support(self, datum, sketch=None):
+        """Le plan de référence ``datum``, où poser une esquisse : une
+        esquisse neuve naît à la barre, le plan doit être au-dessus d'elle ;
+        une esquisse qu'on déplace (``sketch``) ne s'appuie pas sur ce qui
+        vient après elle dans l'arbre."""
+        from engine.kernel import KernelError
+        target = self._require_doc().getObject(str(datum))
+        if target is None or target.TypeId != "PartDesign::Plane":
+            raise KernelError("plan de référence inconnu : {}".format(datum))
+        if sketch is None and self._is_rolled_back(target):
+            raise KernelError(
+                "« {} » est sous la barre de retour — avancez la barre ou "
+                "choisissez un plan au-dessus d'elle".format(target.Label))
+        if sketch is not None:
+            order_of = self._tree_order()
+            if (order_of.get(target.Name, -1)
+                    > order_of.get(sketch.Name, -1)):
+                raise KernelError(
+                    "« {} » vient après l'esquisse dans l'arbre — "
+                    "choisissez un plan qui la précède".format(target.Label))
+        return target
+
     def sketch_start(self, face=None, plane=None, datum=None):
         """Open a new empty sketch — XY by default, a picked face, a
         named origin plane (XY/XZ/YZ), or a datum plane by name."""
         from engine.kernel import KernelError
         body = self._require_body()
         doc = self._require_doc()
+        # Un plan de référence se vérifie avant que l'esquisse naisse.
+        support = (self._datum_support(datum)
+                   if face is None and datum is not None else None)
         # La transaction de sketch_start est ouverte, pas encore validée :
         # UndoCount est encore celui d'avant l'esquisse.
         mark = doc.UndoCount
@@ -141,12 +166,8 @@ class SketchMixin:
         sketch.Label = self._t("Esquisse")
         if face is not None:
             self._attach_to_face(sketch, face)
-        elif datum is not None:
-            target = doc.getObject(str(datum))
-            if target is None or target.TypeId != "PartDesign::Plane":
-                raise KernelError(
-                    "plan de référence inconnu : {}".format(datum))
-            self._attach_to_support(sketch, [(target, ("",))])
+        elif support is not None:
+            self._attach_to_support(sketch, [(support, ("",))])
         elif plane is not None:
             role = self._PLANE_ROLES.get(str(plane).upper())
             if role is None:
@@ -162,7 +183,6 @@ class SketchMixin:
         référence ou face du solide) ; ses entités gardent leurs
         coordonnées dans l'esquisse, les fonctions qui l'utilisent suivent."""
         from engine.kernel import KernelError
-        doc = self._require_doc()
         sk = self._get_sketch(sketch)
         if face is not None:
             # Une face de la pièce à son rang (la base de la fonction qui
@@ -179,11 +199,8 @@ class SketchMixin:
             self._attach_to_support(
                 sk, [(base, ("Face{}".format(face + 1),))])
         elif datum is not None:
-            target = doc.getObject(str(datum))
-            if target is None or target.TypeId != "PartDesign::Plane":
-                raise KernelError(
-                    "plan de référence inconnu : {}".format(datum))
-            self._attach_to_support(sk, [(target, ("",))])
+            self._attach_to_support(sk, [(self._datum_support(datum, sk),
+                                          ("",))])
         elif plane is not None:
             role = self._PLANE_ROLES.get(str(plane).upper())
             if role is None:
