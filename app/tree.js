@@ -27,7 +27,8 @@ import {
   vertexChamferPointValues, vertexChamferRow, vertexChamferRows,
   REMOVE_BODIES_NOTE, removeBodiesGroups, removeBodiesParams,
   patternEditGroups, patternEditValues, patternFeaturesPick,
-  patternFeaturesValues,
+  patternFeaturesValues, patternSourcesPick, patternSourcesValues,
+  BODY_PATTERN_TYPES, bodyZoneRow,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -2395,6 +2396,10 @@ export function installTree(ctx) {
     }
     const pattern = feature.pattern;
     const tree = ctx.lastTree;
+    // Une répétition de corps : ses corps, et le panneau de son genre.
+    const kind = feature.body_pattern;
+    const typeKey = kind ? BODY_PATTERN_TYPES[kind] ?? "linear_pattern"
+      : feature.type_key;
     // La deuxième direction a ses rangées : pas de doublon.
     const params = info.params.filter(
       (p) => p.key !== "count2" && p.key !== "length2");
@@ -2411,20 +2416,30 @@ export function installTree(ctx) {
       }
       return values;
     };
+    const zone = kind ? {
+      label: "Corps à répéter",
+      row: bodyZoneRow("sources", {
+        value: patternSourcesPick(pattern, tree),
+        allows: (pick) => (ctx.lastTree?.bodies ?? []).some(
+          (body) => body.name === pick.name && body.has_solid === true) }),
+      changed: (v) => patternSourcesValues(v.sources, pattern),
+      missing: "Choisissez au moins un corps à répéter",
+    } : {
+      label: "Fonctions à répéter",
+      row: { type: "selection", key: "features", accepts: ["feature"],
+             multiple: true, hint: "Cliquez les fonctions dans l'arbre",
+             value: patternFeaturesPick(pattern, tree) },
+      changed: (v) => patternFeaturesValues(v.features, pattern),
+      missing: "Cliquez les fonctions dans l'arbre",
+    };
     return editAtRank(feature, {
-      icon: TREE_ICONS[feature.type_key] ?? "body",
-      zone: {
-        label: "Fonctions à répéter",
-        row: { type: "selection", key: "features", accepts: ["feature"],
-               multiple: true, hint: "Cliquez les fonctions dans l'arbre",
-               value: patternFeaturesPick(pattern, tree) },
-        changed: (v) => patternFeaturesValues(v.features, pattern),
-        missing: "Cliquez les fonctions dans l'arbre",
-      },
-      groups: [...patternEditGroups(pattern, feature.type_key, dims),
+      icon: (kind ? BODY_PATTERN_ICONS[kind] : TREE_ICONS[feature.type_key])
+        ?? "body",
+      zone,
+      groups: [...patternEditGroups(pattern, typeKey, dims),
                ...bodyChoiceGroups(feature, tree)],
       values: (v) => {
-        const own = patternEditValues(v, pattern, feature.type_key);
+        const own = patternEditValues(v, pattern, typeKey);
         return own && withBodyChoices({ ...changedDims(v), ...own }, v,
                                       feature, tree);
       },
@@ -2492,7 +2507,8 @@ export function installTree(ctx) {
     // répétition qui les porte.
     edits: (feature) => editFeature({ name: feature.edits,
       type_key: feature.edits_type, label: feature.label,
-      kind: feature.kind, has_params: feature.edits_has_params }),
+      kind: feature.kind, has_params: feature.edits_has_params,
+      pattern: feature.edits_pattern, body_pattern: feature.body_pattern }),
     graph: (feature) => enterGraphFeature(feature),
     sketch: (feature) => {
       closeGraph();

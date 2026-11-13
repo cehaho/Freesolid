@@ -1061,6 +1061,13 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
                 return self._bodies_mesh([
                     o for o in doc.Objects if o.TypeId == "PartDesign::Body"
                     and o.Name not in bodies and not self._is_internal_tool(o)])
+            edited = (doc.getObject(str(params.get("feature") or ""))
+                      if op == "set_params" else None)
+            if "FreeSolidBodyPattern" in getattr(edited, "PropertiesList", ()):
+                # Réédition d'un réseau de corps : ses copies, telles
+                # qu'elles deviennent.
+                return self._bodies_mesh(
+                    list(self._body_pattern_copies(edited).values()))
             return self.tessellate()
         finally:
             self._previewing = False

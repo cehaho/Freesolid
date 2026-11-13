@@ -20,7 +20,10 @@ const params = (item) => (item.has_params === false && !item.cut
 export function featureEditor(item) {
   if (!item?.type_key || typeof item.active === "boolean") return null;
   // La répétition qui porte la ligne, si elle a de quoi se rééditer.
-  if (item.edits) return item.edits_has_params === false ? null : "edits";
+  if (item.edits) {
+    return item.edits_has_params === false && !item.edits_pattern
+      ? null : "edits";
+  }
   if (isGraphFeature(item) || isRepeatFeature(item)) return "graph";
   if (item.type_key === "sketch") return "sketch";
   if (item.vertex_chamfer) return "vertex_chamfer";
@@ -38,7 +41,8 @@ export function featureEditor(item) {
   if (item.type_key === "draft" && item.draft) return "draft";
   if (item.type_key === "hole" && item.hole) return "hole";
   if (item.type_key === "remove_bodies") return "remove_bodies";
-  // Répétition de fonctions : ses fonctions, sa direction, son plan.
+  // Répétition de fonctions ou de corps : ce qu'elle répète, sa
+  // direction, son plan.
   if (item.pattern) return "pattern";
   return params(item);
 }

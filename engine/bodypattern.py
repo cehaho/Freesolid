@@ -131,6 +131,25 @@ def body_pattern_offsets(kind, count, length, spacing,
     return out
 
 
+def _direction_words(suffix, axis, edge, reversed):
+    """Une direction dans les mots de la création, pour la réédition :
+    l'axe d'origine ou le numéro d'arête, et le sens."""
+    return {"axis" + suffix: None if edge is not None else str(axis).upper(),
+            "edge" + suffix: int(edge) if edge is not None else None,
+            "reversed" + suffix: bool(reversed)}
+
+
+def rekey_copy(key, two):
+    """Repère d'occurrence quand la deuxième direction apparaît (``two``)
+    ou disparaît : « 2 » devient « 2,0 », et l'inverse. None si le repère
+    est déjà au bon format, ou n'a pas d'équivalent."""
+    if two and "," not in key:
+        return key + ",0"
+    if not two and key.endswith(",0"):
+        return key[:-2]
+    return None
+
+
 def _number(obj, prop, default=0.0):
     """Valeur d'une cote FreeCAD (quantité ou nombre), ``default`` sans
     elle."""
@@ -177,7 +196,8 @@ class BodyPatternMixin:
             if not float(angle or 0):
                 raise KernelError("réseau : angle invalide")
             base, direction = self._global_line(axis or "Z", edge, reversed)
-            spec.update(base=base, dir=direction)
+            spec.update(base=base, dir=direction,
+                        **_direction_words("", axis or "Z", edge, reversed))
             numbers = {"Occurrences": occurrences, "Angle": float(angle)}
         else:
             occurrences = int(count or 0)
@@ -186,13 +206,16 @@ class BodyPatternMixin:
             if length is None or float(length) <= 0:
                 raise KernelError("réseau : distance invalide")
             _, direction = self._global_line(axis or "X", edge, reversed)
-            spec.update(dir=direction, spacing=bool(spacing))
+            spec.update(dir=direction, spacing=bool(spacing),
+                        **_direction_words("", axis or "X", edge, reversed))
             numbers = {"Length": float(length), "Occurrences": occurrences}
             if count2 is not None and int(count2) > 1:
                 if length2 is None or float(length2) <= 0:
                     raise KernelError("indiquez la distance de la direction 2")
                 _, second = self._global_line(axis2 or "Y", edge2, reversed2)
                 spec["dir2"] = second
+                spec.update(_direction_words("2", axis2 or "Y", edge2,
+                                             reversed2))
                 numbers.update(Length2=float(length2),
                                Occurrences2=int(count2))
         doc = self._require_doc()
@@ -318,6 +341,216 @@ class BodyPatternMixin:
             return None
         return spec if isinstance(spec, dict) else None
 
+    #: Ce qu'une répétition de corps re-choisit (``set_params``) : ses
+    #: corps (``sources`` : ``bodies`` y désigne les corps concernés), sa
+    #: direction, son sens, son plan, son mode, sa deuxième direction.
+    _BODY_PATTERN_PICKS = ("sources", "axis", "edge", "reversed", "plane",
+                           "mode", "dir2", "axis2", "edge2", "reversed2")
+
+    def _body_pattern_state(self, host):
+        """Ce qu'une répétition de corps re-choisit, dans les mots de sa
+        création : ses corps, sa direction (axe d'origine ou arête du corps
+        actif) et son sens, ou son plan ; le mode et la deuxième direction
+        d'un réseau linéaire."""
+        spec = self._body_pattern_spec(host)
+        if spec is None:
+            return None
+        kind = spec.get("kind", "linear")
+        state = {"sources": list(spec.get("sources") or ())}
+        if kind == "mirror":
+            state["plane"] = spec.get("plane")
+            return state
+        state.update(self._body_direction_state(spec, "", kind == "polar"))
+        if kind != "linear":
+            return state
+        state["mode"] = "spacing" if spec.get("spacing") else "extent"
+        count2 = int(_number(host, "Occurrences2", 1))
+        state["dir2"] = count2 > 1
+        if count2 > 1:
+            second = self._body_direction_state(spec, "2", False)
+            state.update(axis2=second["axis"], edge2=second["edge"],
+                         reversed2=second["reversed"], count2=count2,
+                         length2=_number(host, "Length2"))
+        return state
+
+    def _body_direction_state(self, spec, suffix, through_origin):
+        """Axe ou arête, et sens, d'une direction de ``spec`` (``dir`` ou
+        ``dir2``). Une spec d'avant n'a que le vecteur : il se lit sur les
+        axes d'origine du corps actif ; une arête ne s'y retrouve pas."""
+        import FreeCAD as App
+        if "axis" + suffix in spec or "edge" + suffix in spec:
+            edge = spec.get("edge" + suffix)
+            return {"axis": None if edge is not None
+                    else spec.get("axis" + suffix),
+                    "edge": edge,
+                    "reversed": bool(spec.get("reversed" + suffix))}
+        direction = App.Vector(*(spec.get("dir" + suffix)
+                                 or ((0, 1, 0) if suffix else (1, 0, 0))))
+        outer = self._require_body().getGlobalPlacement()
+        base = App.Vector(*(spec.get("base") or (0, 0, 0)))
+        for name, unit in (("X", (1, 0, 0)), ("Y", (0, 1, 0)),
+                           ("Z", (0, 0, 1))):
+            axis = outer.Rotation.multVec(App.Vector(*unit))
+            if direction.cross(axis).Length > 1e-7:
+                continue
+            if through_origin and (base - outer.Base).cross(
+                    axis).Length > 1e-7:
+                continue
+            return {"axis": name, "edge": None,
+                    "reversed": direction.dot(axis) < 0}
+        return {"axis": None, "edge": None, "reversed": False}
+
+    def _body_line_at(self, host, axis, edge):
+        """(point, direction) d'une direction re-choisie, dans le repère
+        de la pièce : un axe d'origine du corps actif, ou une arête droite
+        du corps actif tel qu'il est au rang de la répétition."""
+        from engine.kernel import KernelError
+        body = self._require_body()
+        if edge is not None:
+            tip = self._pattern_source_at(host, body)
+            edges = tip.Shape.Edges if tip is not body else []
+            if type(edge) is not int or not 0 <= edge < len(edges):
+                raise KernelError("arête inconnue : {}".format(edge))
+            obj, sub = tip, "Edge{}".format(edge + 1)
+        else:
+            obj, sub = self._origin_axis(axis, body), ""
+        base, direction = self._link_line(obj, sub)
+        outer = body.getGlobalPlacement()
+        return (list(outer.multVec(base)),
+                list(outer.Rotation.multVec(direction)))
+
+    def _set_body_pattern_picks(self, host, picks, values, previous):
+        """Ce qu'une répétition de corps re-choisit
+        (``_BODY_PATTERN_PICKS``). La spec et les cotes changées entrent
+        dans ``previous``, pour le refus ; les copies suivent à la
+        reconstruction (``_sync_body_pattern``)."""
+        from engine.kernel import KernelError
+        spec = self._body_pattern_spec(host) or {}
+        kind = spec.get("kind", "linear")
+        state = self._body_pattern_state(host) or {}
+
+        def flag(key):
+            value = picks[key]
+            if not isinstance(value, bool):
+                raise KernelError("{} : booléen attendu".format(key))
+            return value
+
+        def refuse(keys):
+            wrong = [key for key in keys if key in picks]
+            if wrong:
+                raise KernelError(
+                    "propriété non éditable : {}".format(wrong[0]))
+
+        if "sources" in picks:
+            sources = self._pattern_source_bodies(picks["sources"])
+            for body in sources:
+                key = parse_copy_key(getattr(body, "FreeSolidPatternCopy",
+                                             ""))
+                if key and key[0] == host.Name:
+                    raise KernelError("{} est une copie de {}".format(
+                        body.Label, host.Label))
+                if self._pattern_source_at(host, body) is body:
+                    raise KernelError(
+                        "{} vient après la répétition".format(body.Label))
+            names = [body.Name for body in sources]
+            spec["sources"] = names
+            # Une copie sautée d'un corps retiré n'a plus de sens.
+            spec["skip"] = [entry for entry in spec.get("skip") or ()
+                            if entry.rpartition("#")[0] in names]
+        if kind == "mirror":
+            refuse(("axis", "edge", "reversed", "mode", "dir2", "axis2",
+                    "edge2", "reversed2"))
+            if "plane" in picks:
+                base, normal = self._global_plane(picks["plane"])
+                spec.update(base=base, normal=normal,
+                            plane=str(picks["plane"]).upper())
+        else:
+            refuse(("plane",))
+            self._set_body_direction(host, spec, picks, state, "", flag)
+        if kind != "linear":
+            refuse(("mode", "dir2", "axis2", "edge2", "reversed2"))
+        else:
+            if "mode" in picks:
+                if picks["mode"] not in ("spacing", "extent"):
+                    raise KernelError(
+                        "mode inconnu « {} » — attendu : {}".format(
+                            picks["mode"], "spacing, extent"))
+                spec["spacing"] = picks["mode"] == "spacing"
+            self._set_body_second(host, spec, picks, values, state, flag,
+                                  previous)
+        previous.append(("FreeSolidBodyPattern", None,
+                         host.FreeSolidBodyPattern))
+        host.FreeSolidBodyPattern = json.dumps(spec)
+
+    def _set_body_direction(self, host, spec, picks, state, suffix, flag):
+        """Direction ``suffix`` (« » ou « 2 ») re-choisie : un axe ou une
+        arête, et le sens. Le sens seul retourne le vecteur gardé."""
+        axis_key, edge_key = "axis" + suffix, "edge" + suffix
+        reversed_key = "reversed" + suffix
+        before = bool(state.get(reversed_key))
+        flipped = flag(reversed_key) if reversed_key in picks else before
+        if axis_key in picks or edge_key in picks:
+            base, direction = self._body_line_at(
+                host, picks.get(axis_key) or ("Y" if suffix else "X"),
+                picks.get(edge_key))
+            if flipped:
+                direction = [-c for c in direction]
+            spec["dir" + suffix] = direction
+            if not suffix and spec.get("kind") == "polar":
+                spec["base"] = base
+            spec.update(_direction_words(
+                suffix, picks.get(axis_key) or ("Y" if suffix else "X"),
+                picks.get(edge_key), flipped))
+        elif flipped != before:
+            spec["dir" + suffix] = [-c for c in (
+                spec.get("dir" + suffix)
+                or ((0, 1, 0) if suffix else (1, 0, 0)))]
+            spec[reversed_key] = flipped
+
+    def _set_body_second(self, host, spec, picks, values, state, flag,
+                         previous):
+        """Deuxième direction d'un réseau de corps : l'activer (``dir2``,
+        avec ``count2`` et ``length2`` dans ``values``), la retirer, changer
+        son axe ou son sens. Ses cotes sont celles de l'hôte."""
+        from engine.kernel import KernelError
+        two = bool(state.get("dir2"))
+        want = flag("dir2") if "dir2" in picks else two
+        if not want:
+            if two:
+                previous.append(("Occurrences2", None, host.Occurrences2))
+                host.Occurrences2 = 1
+                return
+            # Sans deuxième direction, ni activée : rien de la sienne.
+            for key in ("axis2", "edge2", "reversed2"):
+                if key in picks:
+                    raise KernelError(
+                        "propriété non éditable : {}".format(key))
+            return
+        opening = not two
+        if opening:
+            try:
+                count = int(float(values.get("Occurrences2", 0)))
+            except (TypeError, ValueError):
+                count = 0
+            if count < 2:
+                raise KernelError("au moins 2 occurrences")
+            try:
+                extent = float(values.get("Length2", 0))
+            except (TypeError, ValueError):
+                extent = 0
+            if extent <= 0:
+                raise KernelError("indiquez la distance de la direction 2")
+            for prop, kind, neutral in (
+                    ("Length2", "App::PropertyDistance", 0.0),
+                    ("Occurrences2", "App::PropertyInteger", 1)):
+                if prop not in host.PropertiesList:
+                    host.addProperty(kind, prop, "FreeSolid",
+                                     "Cote du réseau de corps")
+                    setattr(host, prop, neutral)
+            if not any(key in picks for key in ("axis2", "edge2")):
+                picks = {**picks, "axis2": "Y"}
+        self._set_body_direction(host, spec, picks, state, "2", flag)
+
     def _body_pattern_hosts(self):
         return [o for o in self._require_doc().Objects
                 if "FreeSolidBodyPattern" in o.PropertiesList]
@@ -400,6 +633,7 @@ class BodyPatternMixin:
         doc = self._require_doc()
         if any(doc.getObject(n) is None for n in spec.get("sources") or ()):
             return False  # source disparue : on ne touche à rien
+        self._rekey_copies(host, spec)
         wanted = self._body_pattern_wanted(host, spec)
         existing = self._body_pattern_copies(host)
         changed = False
@@ -441,6 +675,29 @@ class BodyPatternMixin:
                 inner.Support = [(read, ("",))]
                 changed = True
         return changed
+
+    def _rekey_copies(self, host, spec):
+        """La deuxième direction apparaît ou part : les copies de la
+        première rangée changent de repère (« 2 » ↔ « 2,0 ») au lieu de
+        partir et de revenir, et gardent ce qu'elles portent. Les copies
+        sautées suivent."""
+        if spec.get("kind") != "linear":
+            return
+        two = int(_number(host, "Occurrences2", 1)) > 1
+        for (source, key), body in self._body_pattern_copies(host).items():
+            new = rekey_copy(key, two)
+            if new is not None:
+                body.FreeSolidPatternCopy = copy_key(host.Name, source, new)
+        skip = list(spec.get("skip") or ())
+        moved = []
+        for entry in skip:
+            source, _, key = entry.rpartition("#")
+            new = rekey_copy(key, two)
+            moved.append(entry if new is None
+                         else "{}#{}".format(source, new))
+        if moved != skip:
+            spec["skip"] = moved
+            host.FreeSolidBodyPattern = json.dumps(spec)
 
     def _confirm_dropped_copies(self, host, doomed):
         """Moins de copies : celles qui portent quelque chose ne partent
@@ -635,10 +892,18 @@ class BodyPatternMixin:
             item["edits"] = host.Name
             item["edits_type"] = type_key_for(host.TypeId)
             item["body_pattern"] = spec.get("kind", "linear")
+            # Ce que la répétition re-choisit : le double-clic d'une copie
+            # rouvre son panneau.
+            state = self._body_pattern_state(host)
+            if state is not None:
+                item["edits_pattern"] = state
         pattern = doc.getObject(getattr(obj, "FreeSolidScopeOf", "") or "")
         if pattern is not None:
             item["edits"] = pattern.Name
             item["edits_type"] = type_key_for(pattern.TypeId)
+            state = self._pattern_state(pattern)
+            if state is not None:
+                item["edits_pattern"] = state
         if "edits" in item:
             # Une symétrie n'a pas de cote : « Modifier » se tait sur ses
             # copies comme sur elle. Une ligne dérivée se désactive par sa
@@ -667,6 +932,8 @@ class BodyPatternMixin:
             item["kind"] = self._t(BODY_PATTERN_LABELS.get(
                 kind, BODY_PATTERN_LABELS["linear"]))
             item["body_pattern"] = kind
+            # Ce qu'elle re-choisit au rang : ses corps, sa direction…
+            item["pattern"] = self._body_pattern_state(host)
             item["copies"] = [self._body_title(copy) for copy in copies]
             item["rolled_back"] = self._body_pattern_rolled_back(host)
             if any("Invalid" in (copy.State or ()) for copy in copies):

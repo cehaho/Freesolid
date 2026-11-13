@@ -5091,3 +5091,129 @@ def p119_repetition_rechoisit_au_rang(self, mark, report, etat):
         and call("set_params", feature=mirror.Name,
                  values={"axis": "X"}).get("ok") is False
         and all(r.get("ok") is False for r in refused) and clean())
+
+
+def p120_repetition_de_corps_rechoisit(self, mark, report, etat):
+    mark("p120: une répétition de corps re-choisit ses corps et sa direction")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def copies(host_name):
+        """(volume, centre) des copies d'un réseau, triés."""
+        out = []
+        for o in self._doc.Objects:
+            if str(getattr(o, "FreeSolidPatternCopy", "")).startswith(
+                    host_name + "|"):
+                bb = o.Shape.BoundBox
+                out.append((round(o.Shape.Volume),
+                            round((bb.XMin + bb.XMax) / 2, 6),
+                            round((bb.YMin + bb.YMax) / 2, 6),
+                            round((bb.ZMin + bb.ZMax) / 2, 6)))
+        return sorted(out)
+
+    def state(name):
+        tree = self.get_tree()
+        rows = tree["features"] + tree.get("other_features", [])
+        return next((f.get("pattern") for f in rows
+                     if f.get("name") == name), None) or {}
+
+    # Un bloc A (10 × 10 × 8) et une tige B (4 × 4 × 20) ; A répété
+    # trois fois selon X, au pas de 20.
+    self.new_part("Corps répétés rééditée")
+    self.add_rect_sketch(10, 10)
+    self.add_pad(8)
+    a = self._require_body()
+    self.add_body()
+    self.add_rect_sketch(4, 4)
+    self.add_pad(20)
+    b = self._require_body()
+    self.set_active_body(a.Name)
+    self.add_body_pattern("linear", [a.Name], length=20, count=3, axis="X",
+                          spacing=True)
+    host = self._body_pattern_hosts()[0]
+
+    def edit(**values):
+        return call("set_params", feature=host.Name, values=values)
+
+    listed = state(host.Name)
+    both = edit(sources=[a.Name, b.Name], axis="Y", reversed=True)
+    moved = copies(host.Name) == [(320, 0, -40, 10), (320, 0, -20, 10),
+                                  (800, 0, -40, 4), (800, 0, -20, 4)]
+    extent = edit(mode="extent", length=60)
+    spread = copies(host.Name) == [(320, 0, -60, 10), (320, 0, -30, 10),
+                                   (800, 0, -60, 4), (800, 0, -30, 4)]
+    call("undo")
+    call("undo")
+    # Une arête de A, verticale, sur A au rang du réseau.
+    tip = self._pattern_source_at(host, a)
+    edge = next(i for i, e in enumerate(tip.Shape.Edges)
+                if e.Curve.TypeId == "Part::GeomLine"
+                and abs(abs(e.Curve.Direction.z) - 1) < 1e-9)
+    along = edit(edge=edge)
+    lifted = copies(host.Name) == [(800, 0, 0, 24), (800, 0, 0, 44)]
+    on_edge = state(host.Name).get("edge") == edge
+    call("undo")
+    report["p120_corps_et_direction"] = (
+        listed == {"sources": [a.Name], "axis": "X", "edge": None,
+                   "reversed": False, "mode": "spacing", "dir2": False}
+        and both.get("ok") is True and moved
+        and extent.get("ok") is True and spread
+        and along.get("ok") is True and lifted and on_edge
+        and state(host.Name) == listed and clean())
+
+    # Une esquisse sur la première copie : la deuxième direction s'active
+    # et se retire sans la faire partir ; retirer A la ferait partir, le
+    # moteur le demande d'abord. Refus.
+    first = next(o for o in self._doc.Objects
+                 if getattr(o, "FreeSolidPatternCopy", "")
+                 == "{}|{}|1".format(host.Name, a.Name))
+    self.set_active_body(first.Name)
+    top = next(i for i, f in enumerate(first.Shape.Faces)
+               if abs(f.CenterOfMass.z - 8) < 1e-6)
+    self.add_rect_sketch(2, 2, face=top)
+    self.set_active_body(a.Name)
+    carried = len(first.Group)
+    opened = edit(dir2=True, axis2="Y", length2=15, count2=2)
+    grid = len(copies(host.Name)) == 5
+    kept = (self._doc.getObject(first.Name) is not None
+            and len(first.Group) == carried)
+    closed = edit(dir2=False)
+    back = (len(copies(host.Name)) == 2
+            and self._doc.getObject(first.Name) is not None
+            and len(first.Group) == carried)
+    asked = edit(sources=[b.Name])
+    refused = [edit(**values) for values in (
+        {"sources": []}, {"sources": [first.Name]}, {"plane": "XY"},
+        {"mode": "pas"}, {"axis2": "Z"}, {"edge": 999})]
+    report["p120_deuxieme_direction_et_refus"] = (
+        opened.get("ok") is True and grid and kept
+        and closed.get("ok") is True and back
+        and asked.get("ok") is False and bool(asked.get("confirm"))
+        and all(r.get("ok") is False for r in refused) and clean())
+
+    # Une symétrie change de plan ; une répétition circulaire, d'axe.
+    self.add_body_pattern("mirror", [first.Name], plane="YZ")
+    mirror = self._body_pattern_hosts()[-1]
+    across = copies(mirror.Name) == [(800, -20, 0, 4)]
+    flipped = call("set_params", feature=mirror.Name,
+                   values={"plane": "XY"})
+    below = copies(mirror.Name) == [(800, 20, 0, -4)]
+    self.add_body_pattern("polar", [b.Name], count=2, angle=180, axis="Z")
+    polar = self._body_pattern_hosts()[-1]
+    turned = call("set_params", feature=polar.Name, values={"axis": "X"})
+    report["p120_symetrie_et_circulaire"] = (
+        across and flipped.get("ok") is True and below
+        and state(mirror.Name).get("plane") == "XY"
+        and turned.get("ok") is True
+        and state(polar.Name).get("axis") == "X"
+        and copies(polar.Name) == [(320, 0, 0, -10)]
+        and call("set_params", feature=mirror.Name,
+                 values={"axis": "X"}).get("ok") is False
+        and call("set_params", feature=polar.Name,
+                 values={"mode": "extent"}).get("ok") is False
+        and clean())

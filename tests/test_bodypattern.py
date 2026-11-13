@@ -6,6 +6,7 @@ from engine.bodypattern import (
     linear_steps,
     parse_copy_key,
     polar_angles,
+    rekey_copy,
 )
 
 
@@ -57,3 +58,13 @@ def test_cle_de_copie_aller_retour():
     for bad in ("", None, "a|b", "a||c", "a|b|c|d"):
         assert parse_copy_key(bad) is None
 
+
+
+def test_rekey_copy_follows_second_direction():
+    # La deuxième direction apparaît : la première rangée prend « ,0 ».
+    assert rekey_copy("2", True) == "2,0"
+    assert rekey_copy("2,1", True) is None
+    # Elle part : « 2,0 » redevient « 2 » ; « 2,1 » n'a pas d'équivalent.
+    assert rekey_copy("2,0", False) == "2"
+    assert rekey_copy("2,1", False) is None
+    assert rekey_copy("2", False) is None

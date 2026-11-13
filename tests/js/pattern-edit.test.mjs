@@ -5,8 +5,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  patternEditGroups, patternEditValues, patternFeaturesPick,
-  patternFeaturesValues,
+  BODY_PATTERN_TYPES, patternEditGroups, patternEditValues,
+  patternFeaturesPick, patternFeaturesValues, patternSourcesPick,
+  patternSourcesValues,
 } from "../../app/features.js";
 import { featureEditor } from "../../app/editkind.js";
 
@@ -142,5 +143,44 @@ describe("symétrie rééditée", () => {
     assert.deepEqual(patternEditValues(v, pattern, "mirror"), {});
     assert.deepEqual(patternEditValues({ plane: "XY" }, pattern, "mirror"),
                      { plane: "XY" });
+  });
+});
+
+describe("répétition de corps rééditée", () => {
+  const tree = { bodies: [{ name: "Body", label: "Plaque" },
+                          { name: "Body001", label: "Tige" }] };
+  const pattern = { sources: ["Body"], axis: "X", edge: null,
+                    reversed: false, mode: "spacing", dir2: false };
+
+  it("revient avec ses corps, sous leur nom du dossier", () => {
+    const zone = patternSourcesPick(pattern, tree);
+    assert.equal(zone.kind, "body");
+    assert.deepEqual(zone.items.map((i) => [i.name, i.label]),
+                     [["Body", "Plaque"]]);
+  });
+
+  it("n'envoie que les corps changés", () => {
+    const zone = (names) => ({ items: names.map((name) => ({ name })) });
+    assert.deepEqual(patternSourcesValues(zone(["Body"]), pattern), {});
+    assert.deepEqual(patternSourcesValues(zone(["Body001", "Body"]),
+                                          pattern),
+                     { sources: ["Body001", "Body"] });
+    assert.equal(patternSourcesValues(zone([]), pattern), null);
+  });
+
+  it("rouvre le panneau de son genre", () => {
+    assert.equal(BODY_PATTERN_TYPES.polar, "polar_pattern");
+    assert.equal(featureEditor({ type_key: "body_pattern",
+                                 body_pattern: "mirror", has_params: false,
+                                 pattern: { sources: ["Body"] } }),
+                 "pattern");
+    // Une ligne qui renvoie à une symétrie, sans cote : elle se rouvre
+    // pour ce que la symétrie re-choisit.
+    assert.equal(featureEditor({ type_key: "pocket", edits: "Mirrored",
+                                 edits_has_params: false,
+                                 edits_pattern: { features: ["Pocket"] } }),
+                 "edits");
+    assert.equal(featureEditor({ type_key: "pocket", edits: "Mirrored",
+                                 edits_has_params: false }), null);
   });
 });

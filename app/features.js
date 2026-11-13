@@ -17,6 +17,7 @@ import { NOEUDS } from "./features/noeuds.js";
 
 export {
   availableSketches,
+  bodyZoneRow,
   dressup,
   hasSelection,
   NO_SKETCH_AVAILABLE,
@@ -81,6 +82,7 @@ export {
   vertexChamferRows,
 } from "./features/habillage.js";
 export {
+  BODY_PATTERN_TYPES,
   linearSecondDirection,
   patternDirectionParams,
   patternDirectionRows,
@@ -90,6 +92,8 @@ export {
   patternFeaturesParams,
   patternFeaturesPick,
   patternFeaturesValues,
+  patternSourcesPick,
+  patternSourcesValues,
 } from "./features/repetitions.js";
 export {
   REMOVE_BODIES_NOTE, removalCandidates, removalItem, removalMatch,
