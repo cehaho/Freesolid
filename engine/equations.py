@@ -62,6 +62,9 @@ class EquationsMixin:
             raise KernelError("fonction inconnue : {}".format(feature))
         if not isinstance(values, dict):
             raise KernelError("values doit être un objet JSON")
+        if "FreeSolidTextString" in obj.PropertiesList:
+            # Un texte : ses mots de création, et sa face d'appui.
+            return self._set_text_params(obj, dict(values))
         # Les corps qu'un volume fond, ou qu'un enlèvement — ou une
         # répétition — creuse : pas une cote, ses objets cachés.
         # « Fusionner » d'un volume : après les cotes, qui décident s'il

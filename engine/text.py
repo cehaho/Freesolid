@@ -86,6 +86,42 @@ class TextMixin:
             text_solid = text_solid.fuse(solid)
         return text_solid
 
+    def _text_placement(self, face):
+        """Le repère du texte sur une face : son centre, sa normale."""
+        App = self._app()
+        u0, u1, v0, v1 = face.ParameterRange
+        normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2).normalize()
+        return App.Placement(face.CenterOfMass,
+                             App.Rotation(App.Vector(0, 0, 1), normal))
+
+    def _text_face(self, obj):
+        """La face d'appui d'un texte, en id sur sa base (la pièce à son
+        rang) : celle dont le plan porte son repère, face à face, la plus
+        proche de son centre. None si aucune ne le porte plus."""
+        App = self._app()
+        shape = getattr(getattr(obj, "BaseFeature", None), "Shape", None)
+        if shape is None or shape.isNull():
+            return None
+        place = obj.FreeSolidTextPlacement
+        normal = place.Rotation.multVec(App.Vector(0, 0, 1))
+        tolerance = 1e-6 * max(1.0, shape.BoundBox.DiagonalLength)
+        best = None
+        for index, face in enumerate(shape.Faces):
+            try:
+                u0, u1, v0, v1 = face.ParameterRange
+                along = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+                center = face.CenterOfMass
+            except Exception:  # noqa: BLE001
+                continue
+            if along.dot(normal) < 1 - 1e-6:
+                continue
+            if abs((place.Base - center).dot(normal)) > tolerance:
+                continue
+            gap = (place.Base - center).Length
+            if best is None or gap < best[0]:
+                best = (gap, index)
+        return best[1] if best else None
+
     def _mark_text_tool(self, obj):
         """Artefact interne d'une gravure : caché de l'arbre et du viewport."""
         if "FreeSolidTextTool" not in obj.PropertiesList:
@@ -108,12 +144,7 @@ class TextMixin:
         index = int(face)
         if index < 0 or index >= len(faces):
             raise KernelError("face inconnue : {}".format(face))
-        target = faces[index]
-        u0, u1, v0, v1 = target.ParameterRange
-        normal = target.normalAt((u0 + u1) / 2, (v0 + v1) / 2).normalize()
-        center = target.CenterOfMass
-        base = App.Placement(center, App.Rotation(App.Vector(0, 0, 1),
-                                                  normal))
+        base = self._text_placement(faces[index])
         text_solid = self._build_text_solid(text, base, size, depth,
                                             emboss, x, y, font)
         shape_feature = doc.addObject("Part::Feature", "TextShape")
@@ -154,9 +185,36 @@ class TextMixin:
             tip.FreeSolidTextPlacement = base
         return self.get_tree()
 
+    #: Ce que ``set_params`` change d'un texte : les mots de sa création.
+    _TEXT_KEYS = ("text", "size", "depth", "x", "y", "face")
+
+    def _set_text_params(self, obj, values):
+        """``set_params`` d'un texte : ses cotes, et sa face d'appui
+        re-choisie sur la pièce à son rang (``face``, id sur sa base)."""
+        from engine.kernel import KernelError, parse_user_number
+        for key in values:
+            if key not in self._TEXT_KEYS:
+                raise KernelError(
+                    "propriété non éditable : {}".format(key))
+        numbers = {}
+        for key in ("size", "depth", "x", "y"):
+            if key not in values:
+                continue
+            value = values[key]
+            number = (None if isinstance(value, bool)
+                      else parse_user_number(value))
+            if number is None:
+                raise KernelError("valeur invalide pour {} : {}".format(
+                    key, value))
+            numbers[key] = number
+        return self.edit_text(
+            obj.Name, text=values.get("text"), face=values.get("face"),
+            **numbers)
+
     def edit_text(self, feature, text=None, size=None, depth=None,
-                  x=None, y=None):
-        """Rééditer une gravure : texte, taille, profondeur, position.
+                  x=None, y=None, face=None):
+        """Rééditer une gravure : texte, taille, profondeur, position, et
+        sa face d'appui (``face``, id sur sa base : la pièce à son rang).
 
         La forme des glyphes est reconstruite d'abord (géométrie pure) —
         si elle échoue, la pièce n'est pas modifiée. Les gravures créées
@@ -190,6 +248,12 @@ class TextMixin:
                 "taille et profondeur doivent être positives")
         emboss = bool(obj.FreeSolidTextEmboss)
         base = obj.FreeSolidTextPlacement
+        if face is not None:
+            shape = getattr(getattr(obj, "BaseFeature", None), "Shape", None)
+            faces = shape.Faces if shape is not None else []
+            if type(face) is not int or not 0 <= face < len(faces):
+                raise KernelError("face inconnue : {}".format(face))
+            base = self._text_placement(faces[face])
         text_solid = self._build_text_solid(
             new_text, base, new_size, new_depth, emboss, new_x, new_y,
             obj.FreeSolidTextFont or None)
@@ -210,6 +274,7 @@ class TextMixin:
         obj.FreeSolidTextDepth = new_depth
         obj.FreeSolidTextX = new_x
         obj.FreeSolidTextY = new_y
+        obj.FreeSolidTextPlacement = base
         obj.Label = self._t("{} « {} »").format(
             "Texte en relief" if emboss else "Gravure", new_text[:15])
         return self.get_tree()

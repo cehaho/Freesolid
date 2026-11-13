@@ -66,6 +66,43 @@ export function holePositionValues(sel, before) {
   return same ? {} : { positions: chosen };
 }
 
+/** Rangées d'un texte : le texte, sa hauteur, sa profondeur, son
+ *  décalage sur la face. `text` : celles d'un texte réédité (`text` de
+ *  l'arbre) ; le relief ne se choisit qu'à la création. */
+export function textRows(text = null) {
+  const rows = [
+    { type: "text", key: "content", label: "Texte", value: text?.text ?? "",
+      placeholder: "REF-001" },
+    { type: "number", key: "size", label: "Hauteur", value: text?.size ?? 8,
+      unit: "mm", min: 0.1 },
+    { type: "number", key: "depth", label: "Profondeur",
+      value: text?.depth ?? 1, unit: "mm", min: 0.01 },
+    { type: "check", key: "emboss", label: "En relief (bossage)",
+      value: false },
+    { type: "number", key: "x", label: "Décalage X", value: text?.x ?? 0,
+      unit: "mm" },
+    { type: "number", key: "y", label: "Décalage Y", value: text?.y ?? 0,
+      unit: "mm" },
+  ];
+  return text ? rows.filter((row) => row.key !== "emboss") : rows;
+}
+
+/** Valeurs `set_params` d'un texte réédité : seulement ce qui change ;
+ *  null si le texte est vide ou une cote invalide. */
+export function textEditValues(v, text) {
+  const content = String(v.content ?? "").trim();
+  const numbers = { size: num(v.size), depth: num(v.depth),
+                    x: num(v.x), y: num(v.y) };
+  if (!content || !(numbers.size > 0) || !(numbers.depth > 0)
+      || numbers.x === null || numbers.y === null) return null;
+  const values = {};
+  if (content !== String(text.text ?? "").trim()) values.text = content;
+  for (const [key, value] of Object.entries(numbers)) {
+    if (!(Math.abs(value - text[key]) < 1e-9)) values[key] = value;
+  }
+  return values;
+}
+
 /** Libellé d'un contour : son numéro et sa taille. */
 export function contourLabel(index, size) {
   const [w, h] = size ?? [0, 0];
@@ -1069,20 +1106,7 @@ export const VOLUMES = [
     icon: "nodes_text", title: "Texte",
     selectionLabel: "Face d'appui",
     group: "Texte",
-    rows: [
-      { type: "text", key: "content", label: "Texte", value: "",
-        placeholder: "REF-001" },
-      { type: "number", key: "size", label: "Hauteur", value: 8,
-        unit: "mm", min: 0.1 },
-      { type: "number", key: "depth", label: "Profondeur", value: 1,
-        unit: "mm", min: 0.01 },
-      { type: "check", key: "emboss", label: "En relief (bossage)",
-        value: false },
-      { type: "number", key: "x", label: "Décalage X", value: 0,
-        unit: "mm" },
-      { type: "number", key: "y", label: "Décalage Y", value: 0,
-        unit: "mm" },
-    ],
+    rows: textRows(),
     build: (v) => {
       const content = (v.content ?? "").trim();
       const size = num(v.size);

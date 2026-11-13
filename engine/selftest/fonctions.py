@@ -4763,3 +4763,70 @@ def p115_percage_rechoisit_ses_positions(self, mark, report, etat):
         and len((entry(self.get_tree(), hole.Name).get("positions") or {})
                 .get("points") or ()) == 3
         and clean())
+
+
+def p116_texte_rechoisit_sa_face(self, mark, report, etat):
+    mark("p116: un texte re-choisit sa face d'appui au rang")
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def entry(tree, name):
+        return next((f for f in tree.get("features", ())
+                     if f.get("name") == name), {})
+
+    def face_at(shape, axis, value):
+        return next(i for i, f in enumerate(shape.Faces)
+                    if abs((f.CenterOfMass.x, f.CenterOfMass.y,
+                            f.CenterOfMass.z)[axis] - value) < 1e-6)
+
+    def tool_of(text):
+        tool = next(o for o in text.Group if o.TypeId == "PartDesign::Body")
+        return tool.BaseFeature.Shape.BoundBox
+
+    # Gravure sur le dessus, puis une extrusion par-dessus : la gravure
+    # passe sur le flanc y = -10, plus petite ; annuler la ramène.
+    self.new_part("Texte réédité")
+    self.add_rect_sketch(60, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    pad = body.Tip
+    top = face_at(pad.Shape, 2, 10)
+    side = face_at(pad.Shape, 1, -10)
+    self.add_text("AB", top, size=6, depth=1)
+    text = body.Tip
+    self.add_rect_sketch(6, 6)
+    self.add_pad(20)
+    listed = (entry(self.get_tree(), text.Name).get("text") or {}).get("face")
+    call("rank_view", feature=text.Name)
+    shown = call("preview", op="set_params", params={
+        "feature": text.Name, "values": {"face": side}})
+    at_rank = (shown.get("ok") is True and self._rank_view is not None
+               and body.Tip is pad)
+    done = call("set_params", feature=text.Name,
+                values={"face": side, "size": 5})
+    after = entry(done.get("result") or {}, text.Name).get("text") or {}
+    box = tool_of(text)
+    moved = (done.get("ok") is True and self._rank_view is None
+             and after.get("face") == side and after.get("size") == 5
+             and box.YMax < -8.9 and box.ZMax < 10 and clean())
+    call("undo")
+    back = entry(self.get_tree(), text.Name).get("text") or {}
+    report["p116_texte_rechoisit_sa_face"] = (
+        listed == top and at_rank and moved
+        and back.get("face") == top and back.get("size") == 6
+        and tool_of(text).ZMax > 10 and clean())
+
+    # Refus : une clé de la création qui ne se change pas (le relief), une
+    # cote qui n'est pas un nombre, une face inconnue, un texte vide.
+    refused = [call("set_params", feature=text.Name, values=values)
+               for values in ({"emboss": True}, {"size": "abc"},
+                              {"face": 999}, {"text": " "})]
+    report["p116_texte_refus"] = (
+        all(r.get("ok") is False for r in refused)
+        and (entry(self.get_tree(), text.Name).get("text") or {})
+        .get("face") == top and clean())

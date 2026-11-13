@@ -1325,6 +1325,8 @@ class TreeMixin:
                     "depth": float(obj.FreeSolidTextDepth),
                     "x": float(obj.FreeSolidTextX),
                     "y": float(obj.FreeSolidTextY),
+                    # Sa face d'appui, sur la pièce à son rang.
+                    "face": self._text_face(obj),
                 }
             vchamfer = getattr(obj, "FreeSolidVchamferspec", "")
             if vchamfer:

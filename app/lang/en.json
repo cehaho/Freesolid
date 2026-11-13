@@ -575,6 +575,7 @@
  "Petit rayon : {v} mm": "Minor radius: {v} mm",
  "Nombre de points : {n}": "Number of points: {n}",
  "Profondeur invalide": "Invalid depth",
+ "Valeurs du texte invalides": "Invalid text values",
  "Valeurs du perçage invalides": "Invalid hole values",
  "Lissage : au moins deux profils": "Loft: at least two profiles",
  "Balayage : un profil puis une trajectoire (différents)": "Sweep: a profile then a path (different)",
