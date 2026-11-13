@@ -7006,3 +7006,70 @@ def p140_desactiver_emporte_les_enfants(self, mark, report, etat):
         and seen["offset"] == ([False, True], 1)
         and seen["flat"] == ([True, True], 0)
         and seen["flat_back"] == ([False, False], 2))
+
+
+def p141_desactiver_reseau_et_suppression(self, mark, report, etat):
+    mark("p141: réseau de corps et Supprimer des corps se désactivent")
+    from engine.kernel import dispatch
+    seen = etat.p141 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def bodies():
+        return sorted(b["name"] for b in self.get_tree()["bodies"])
+
+    def row(type_key):
+        return next(f for f in self.get_tree()["features"]
+                    if f["type_key"] == type_key)
+
+    # Réseau de corps : ses copies disparaissent, puis reviennent.
+    self.new_part("Désactiver un réseau de corps")
+    self.add_rect_sketch(10, 10)
+    self.add_pad(8)
+    source = self._require_body().Name
+    self.add_body_pattern("linear", [source], length=20, count=3,
+                          axis="X", spacing=True)
+    host = self._body_pattern_hosts()[0].Name
+    full = bodies()
+    off = call("set_suppressed", features=[host], suppressed=True)
+    seen["pattern_off"] = (off.get("ok"), row("body_pattern").get(
+        "suppressible"), bool(row("body_pattern").get("suppressed")),
+        bodies(), self.rebuild_errors()["errors"])
+    call("set_suppressed", features=[host], suppressed=False)
+    seen["pattern_on"] = (bodies() == full, not row("body_pattern").get(
+        "suppressed"), sorted(round(v, 6) for v in _volumes(self).values()),
+        self.rebuild_errors()["errors"])
+    # Supprimer des corps : le solide ôté et le corps ôté reviennent.
+    self.new_part("Désactiver une suppression")
+    state = self.sketch_start(plane="XY")
+    self.sketch_add_rectangle(state["sketch"], 0, 0, 10, 10)
+    self.sketch_add_rectangle(state["sketch"], 20, 0, 30, 10)
+    self.sketch_finish(state["sketch"])
+    self.add_pad(5, sketch=state["sketch"])
+    first = self._require_body().Name
+    self.add_body()
+    second = self._require_body().Name
+    state = self.sketch_start(plane="XY")
+    self.sketch_add_circle(state["sketch"], 50, 5, 4)
+    self.sketch_finish(state["sketch"])
+    self.add_pad(8, sketch=state["sketch"])
+    body = self._doc.getObject(first)
+    right = 0 if body.Shape.Solids[0].CenterOfMass.x > 15 else 1
+    self.add_remove_bodies([{"name": first, "solid": right},
+                            {"name": second}])
+    removal = row("remove_bodies")["name"]
+    seen["removed"] = (len(body.Shape.Solids), second in bodies())
+    call("set_suppressed", features=[removal], suppressed=True)
+    seen["removal_off"] = (len(body.Shape.Solids), second in bodies(),
+                           bool(row("remove_bodies").get("suppressed")),
+                           self.rebuild_errors()["errors"])
+    call("set_suppressed", features=[removal], suppressed=False)
+    seen["removal_on"] = (len(body.Shape.Solids), second in bodies(),
+                          self.rebuild_errors()["errors"])
+    report["p141_desactiver_reseau_et_suppression"] = (
+        seen["pattern_off"] == (True, True, True, [source], [])
+        and seen["pattern_on"] == (True, True, [800.0, 800.0, 800.0], [])
+        and seen["removed"] == (1, False)
+        and seen["removal_off"] == (2, True, True, [])
+        and seen["removal_on"] == (1, False, []))

@@ -19,6 +19,10 @@ et ``clean_meta`` sont testées en CI.
 _DISABLED_PROP = "FreeSolidSuppressed"
 #: La ligne désactivée par l'utilisateur qui a emporté celle-ci.
 _DISABLED_BY_PROP = "FreeSolidSuppressedBy"
+#: Marques de l'hôte d'une suppression de corps et d'un réseau de corps
+#: (``engine/removebodies.py``, ``engine/bodypattern.py``).
+_REMOVAL_PROP = "FreeSolidRemoveBodies"
+_PATTERN_PROP = "FreeSolidBodyPattern"
 
 #: Préfixe des transactions ouvertes par ``dispatch`` (kernel.py).
 _PREFIX = "freesolid-"
@@ -214,14 +218,27 @@ class DocPropsMixin:
             return False
         if "Suppressed" in getattr(obj, "PropertiesList", ()):
             return True
+        props = getattr(obj, "PropertiesList", ())
+        if _REMOVAL_PROP in props or _PATTERN_PROP in props:
+            # Supprimer des corps, réseau de corps : leurs étapes cachées
+            # se désactivent avec leur ligne (``_hidden_steps``).
+            return True
         if self._is_internal_tool(obj):
             return False
-        if not (self._is_surface_obj(obj) or self._is_reference(obj)):
-            return False
-        # Réseau de corps, suppression de corps : leurs étapes cachées
-        # sont des fonctions de corps, pas encore désactivées avec eux.
-        return not any(obj is host for host in self._removal_hosts()) \
-            and not any(obj is host for host in self._body_pattern_hosts())
+        return bool(self._is_surface_obj(obj) or self._is_reference(obj))
+
+    def _hidden_steps(self, obj):
+        """Les fonctions de corps cachées qu'une ligne pilote : les étapes
+        d'une suppression de corps (les solides qu'elle ôte), la base de
+        chaque copie d'un réseau de corps."""
+        props = getattr(obj, "PropertiesList", ())
+        if _REMOVAL_PROP in props:
+            return list(self._removal_parts(obj))
+        if _PATTERN_PROP in props:
+            return [child for copy in self._body_pattern_copies(obj).values()
+                    for child in copy.Group
+                    if getattr(child, "FreeSolidPatternOf", "") == obj.Name]
+        return []
 
     def _is_disabled(self, obj):
         """Désactivée : ``Suppressed`` d'une fonction de corps, ou le
@@ -238,8 +255,8 @@ class DocPropsMixin:
         une — comme dans les modeleurs courants, la pièce est vide."""
         if getattr(obj, "TypeId", "") != "PartDesign::Body":
             return False
-        if getattr(obj, "BaseFeature", None) is not None:
-            return False
+        # Une base (import, copie de réseau) passe par sa FeatureBase, une
+        # fonction comme les autres : désactivée, le corps est vide aussi.
         features = [o for o in obj.Group
                     if o.isDerivedFrom("PartDesign::Feature")]
         return bool(features) and all(
@@ -366,6 +383,10 @@ class DocPropsMixin:
         broken_before = self._broken_names(doc)
         for obj, root in self._disable_closure(targets).values():
             self._set_disabled(obj, True, root)
+            # Ses étapes cachées partent avec elle et reviendront avec
+            # elle (rattachées à la même racine).
+            for step in self._hidden_steps(obj):
+                self._set_disabled(step, True, root)
             # Ses objets cachés la suivent : la cavité d'une paroi mince,
             # le combiner qui fond d'autres corps (les corps reviennent).
             if obj.isDerivedFrom("PartDesign::Feature"):
