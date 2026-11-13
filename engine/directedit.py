@@ -11,6 +11,7 @@ Les imports FreeCAD restent dans les méthodes ; ``drag_factor`` et
 """
 
 _EXTRUDES = ("PartDesign::Pad", "PartDesign::Pocket")
+_HELICES = ("PartDesign::AdditiveHelix", "PartDesign::SubtractiveHelix")
 
 
 def drag_factor(face_normal_dot_sketch, cap_offset, kind, midplane=False):
@@ -54,7 +55,7 @@ def _symmetric(obj):
 
 
 class DirectEditMixin:
-    """Ops : sketch_frame, face_drag_info, feature_drag_info."""
+    """Ops : sketch_frame, face_frame, face_drag_info, feature_drag_info."""
 
     def sketch_frame(self, sketch):
         """Centre (milieu de l'encombrement) et normale d'une esquisse :
@@ -66,6 +67,26 @@ class DirectEditMixin:
         center = (shape.BoundBox.Center if shape is not None
                   and not shape.isNull() and shape.Edges
                   else sk.Placement.Base)
+        vaxis = sk.Placement.Rotation.multVec(App.Vector(0, 1, 0))
+        return {"center": [center.x, center.y, center.z],
+                "normal": [normal.x, normal.y, normal.z],
+                "vaxis": [vaxis.x, vaxis.y, vaxis.z]}
+
+    def face_frame(self, face):
+        """Centre et normale extérieure d'une face plane du corps actif :
+        d'où part la flèche de profondeur d'un perçage qu'on crée."""
+        from engine.kernel import KernelError
+        body = self._require_body()
+        shape = getattr(body, "Shape", None)
+        index = int(face)
+        if shape is None or not 0 <= index < len(shape.Faces):
+            raise KernelError("face inconnue : {}".format(face))
+        target = shape.Faces[index]
+        if target.Surface.TypeId != "Part::GeomPlane":
+            return {"center": None, "normal": None}
+        u0, u1, v0, v1 = target.ParameterRange
+        normal = target.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+        center = target.CenterOfMass
         return {"center": [center.x, center.y, center.z],
                 "normal": [normal.x, normal.y, normal.z]}
 
@@ -125,6 +146,12 @@ class DirectEditMixin:
         obj = self._require_doc().getObject(str(feature))
         if obj is None:
             raise KernelError("fonction inconnue : {}".format(feature))
+        if obj.TypeId == "Part::Extrusion":
+            return {"drag": self._surface_extrude_drag(obj)}
+        if obj.TypeId == "PartDesign::Hole":
+            return {"drag": self._hole_drag(obj)}
+        if obj.TypeId in _HELICES:
+            return {"drag": self._helix_drag(obj)}
         # L'axe caché qui suit la normale de l'esquisse (profil par un
         # liant) ne change pas la direction : la flèche reste juste.
         axis = getattr(obj, "ReferenceAxis", None)
@@ -150,3 +177,96 @@ class DirectEditMixin:
             "value": length, "point": point, "normal": direction,
             "factor": factor,
         }}
+
+    def _surface_extrude_drag(self, obj):
+        """La flèche d'une surface extrudée : au bout de son esquisse, le
+        long de sa direction, comme à la création. None si elle n'est pas
+        d'un seul côté, si sa longueur suit une équation ou si son profil
+        n'est pas une esquisse."""
+        from engine.vocab import param_key_for
+
+        def number(value):
+            return float(getattr(value, "Value", value))
+
+        base = getattr(obj, "Base", None)
+        direction = getattr(obj, "Dir", None)
+        if (base is None or base.TypeId != "Sketcher::SketchObject"
+                or direction is None or direction.Length < 1e-9
+                or bool(getattr(obj, "Symmetric", False))
+                or bool(getattr(obj, "Reversed", False))
+                or abs(number(getattr(obj, "LengthRev", 0))) > 1e-9
+                or abs(number(getattr(obj, "TaperAngle", 0))) > 1e-9
+                or "LengthFwd" in dict(obj.ExpressionEngine or [])):
+            return None
+        frame = self.sketch_frame(base.Name)
+        unit = direction.normalize()
+        length = number(obj.LengthFwd)
+        normal = [unit.x, unit.y, unit.z]
+        return {
+            "feature": obj.Name, "label": obj.Label,
+            "key": param_key_for("surface_extrude", "LengthFwd"),
+            "value": length,
+            "point": [c + d * length for c, d in zip(frame["center"], normal)],
+            "normal": normal, "factor": 1.0,
+        }
+
+    def _hole_drag(self, obj):
+        """La flèche d'un perçage borgne : au fond du premier trou, dans
+        le sens du perçage (contre la normale de l'esquisse, sauf
+        ``Reversed``). None pour un perçage traversant ou dont la
+        profondeur suit une équation."""
+        from engine.vocab import param_key_for, type_key_for
+        profile = getattr(obj, "Profile", None)
+        sketch = profile[0] if profile else None
+        if (sketch is None or sketch.TypeId != "Sketcher::SketchObject"
+                or str(getattr(obj, "DepthType", "")) != "Dimension"
+                or "Depth" in dict(obj.ExpressionEngine or [])):
+            return None
+        place = sketch.getGlobalPlacement()
+        center = next((g.Center for i, g in enumerate(sketch.Geometry)
+                       if g.TypeId == "Part::GeomCircle"
+                       and not sketch.getConstruction(i)), None)
+        if center is None:
+            return None
+        origin = place.multVec(center)
+        normal = place.Rotation.multVec(self._app().Vector(0, 0, 1))
+        sign = 1 if getattr(obj, "Reversed", False) else -1
+        direction = [c * sign for c in (normal.x, normal.y, normal.z)]
+        depth = float(obj.Depth.Value)
+        return {
+            "feature": obj.Name, "label": obj.Label,
+            "key": param_key_for(type_key_for(obj.TypeId), "Depth"),
+            "value": depth,
+            "point": [o + d * depth for o, d in
+                      zip((origin.x, origin.y, origin.z), direction)],
+            "normal": direction, "factor": 1.0,
+        }
+
+    def _helix_drag(self, obj):
+        """La flèche d'une hélice volume : au bout de sa hauteur, le long
+        de l'axe vertical de son esquisse (``Reversed`` l'inverse). None
+        si le mode ne règle pas la hauteur, si elle suit une équation ou
+        si l'axe n'est pas celui de l'esquisse."""
+        from engine.vocab import param_key_for, type_key_for
+        profile = getattr(obj, "Profile", None)
+        sketch = profile[0] if profile else None
+        axis = getattr(obj, "ReferenceAxis", None)
+        mode = str(getattr(obj, "Mode", "")).lower()
+        if (sketch is None or sketch.TypeId != "Sketcher::SketchObject"
+                or axis is None or axis[0] is not sketch
+                or list(axis[1]) != ["V_Axis"]
+                or "height" not in mode
+                or "Height" in dict(obj.ExpressionEngine or [])):
+            return None
+        frame = self.sketch_frame(sketch.Name)
+        sign = -1 if getattr(obj, "Reversed", False) else 1
+        direction = [c * sign for c in frame["vaxis"]]
+        height = float(obj.Height.Value)
+        return {
+            "feature": obj.Name, "label": obj.Label,
+            "key": param_key_for(type_key_for(obj.TypeId), "Height"),
+            "value": height,
+            "point": [c + d * height for c, d in
+                      zip(frame["center"], direction)],
+            "normal": direction, "factor": 1.0,
+        }

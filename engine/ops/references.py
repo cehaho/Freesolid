@@ -12,11 +12,13 @@ OPS = (
        no_replay="AttachmentSupport, pas une cote"),
                                        # optional: base (XY|XZ|YZ) | face, offset, angle
     Op("add_datum_axis", Req(optional={"axis": str, "edge": int}), undo=True,
+       preview=True,
        no_replay="AttachmentSupport ou Placement, pas une cote"),
     Op("add_datum_point", Req(optional={"point": list, "vertex": list,
                                         "edge": int}), undo=True,
+       preview=True,
        no_replay="AttachmentSupport ou Placement, pas une cote"),
     Op("add_datum_cs", Req(optional={"point": list, "vertex": list}),
-       undo=True,
+       undo=True, preview=True,
        no_replay="AttachmentSupport ou Placement, pas une cote"),
 )

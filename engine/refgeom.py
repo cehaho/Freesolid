@@ -140,6 +140,12 @@ class RefGeomMixin:
         return self._new_datum("PartDesign::CoordinateSystem", "LocalCS",
                                "Repère", None, None, at=point)
 
+    def _reference_ghost(self, obj):
+        """Le fantôme d'une référence : son genre et son placement, que
+        le client dessine comme dans la vue (``referenceObject``)."""
+        return {"shape": _REFERENCE_KIND[obj.TypeId],
+                "placement": [float(v) for v in obj.Placement.Matrix.A]}
+
     # -- réédition : ce qui porte la référence, re-choisi au rang ---------
 
     def _is_reference(self, obj):

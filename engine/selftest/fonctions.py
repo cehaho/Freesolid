@@ -6544,3 +6544,158 @@ def p134_references_rechoisissent(self, mark, report, etat):
                        {"kind": "cs", "vertex": [-20.0, -20.0, 0.0]}),
         seen["clean"],
     ))
+
+
+def p135_apercu_des_surfaces_a_la_creation(self, mark, report, etat):
+    mark("p135: surfaces, courbes et références ont leur aperçu à la création")
+    from engine.kernel import dispatch
+    seen = etat.p135 = {}
+
+    def last(tree):
+        return tree["surfaces"][-1]["name"]
+
+    def sketch(fill, plane="XY", datum=None):
+        name = (self.sketch_start(datum=datum) if datum
+                else self.sketch_start(plane=plane))["sketch"]
+        fill(name)
+        self.sketch_finish(name)
+        return name
+
+    def line(x1, y1, x2, y2, **where):
+        return sketch(lambda s: self.sketch_add_line(s, x1, y1, x2, y2),
+                      **where)
+
+    def circle(cx, cy, r, **where):
+        return sketch(lambda s: self.sketch_add_circle(s, cx, cy, r), **where)
+
+    def square(x, half, **where):
+        return sketch(lambda s: self.sketch_add_rectangle(
+            s, x - half, -half, x + half, half), **where)
+
+    def preview(op, **params):
+        """(accepté, quelque chose à montrer, pièce inchangée)."""
+        doc = self._doc
+        count, undo = len(doc.Objects), doc.UndoCount
+        answer = dispatch(self, "preview", {"op": op, "params": params})
+        result = answer.get("result") or {}
+        shown = (bool(result.get("indices"))
+                 or bool((result.get("lines") or {}).get("positions"))
+                 or "reference" in result)
+        seen[op] = (answer.get("ok"), shown, len(doc.Objects) == count
+                    and doc.UndoCount == undo, answer.get("error"))
+
+    self.new_part("Aperçus à la création")
+    high = [f for f in self.add_datum_plane(base="XY", offset=20)["features"]
+            if f["type"] == "PartDesign::Plane"][-1]["name"]
+    low_plane = [f for f in self.add_datum_plane(base="XY", offset=-5)[
+        "features"] if f["type"] == "PartDesign::Plane"][-1]["name"]
+    plate = last(self.surface_planar(sketch=square(0, 20)))
+    band = last(self.surface_extrude(10, sketch=line(
+        0, -30, 0, 30, datum=low_plane)))
+    preview("surface_extrude", length=10, sketch=line(-20, 30, 20, 30))
+    preview("surface_revolve", angle=180, sketch=line(105, 0, 105, 10))
+    preview("surface_loft", sketches=[circle(200, 0, 10),
+                                      circle(200, 0, 6, datum=high)])
+    outline = square(300, 10)
+    preview("surface_planar", sketch=outline)
+    preview("surface_radiate", boundary=[{"name": outline}], distance=5)
+    spine = line(400, 0, 400, 20, plane="XZ")
+    preview("surface_sweep", profile=circle(400, 0, 2), spine=spine)
+    preview("surface_offset", surface=plate, distance=3)
+    preview("surface_thicken", surface=plate, thickness=2)
+    preview("surface_fill", boundary=[{"name": circle(500, 0, 8)}])
+    lower, upper = line(600, 0, 610, 0), line(600, 0, 610, 0, datum=high)
+    preview("surface_ruled", boundary=[{"name": lower}, {"name": upper}])
+    preview("surface_boundary", boundary=[{"name": lower}, {"name": upper}])
+    chain = sketch(lambda s: (self.sketch_add_line(s, 700, 0, 710, 0),
+                              self.sketch_add_line(s, 710, 0, 710, 10)))
+    preview("curve_composite", boundary=[{"name": chain, "edge": 0},
+                                         {"name": chain, "edge": 1}])
+    preview("surface_split", surface=plate, tool=line(0, -30, 0, 30))
+    preview("surface_untrim", surface=plate)
+    preview("surface_extend", surface=plate, distance=5)
+    preview("surface_trim", surface=plate, tool=band, point=[10, 0, 0])
+    preview("surface_flatten", surface=plate)
+    preview("surface_freeform", surface=plate, radius=15, point=[0, 0, 0],
+            height=5)
+    preview("curve_intersection", first=plate, second=band)
+    preview("curve_project", sketch=circle(0, 0, 5, datum=high),
+            surface=plate)
+    preview("curve_helix", pitch=5, height=20, radius=10)
+    # Couture de deux bandes en équerre, puis son congé et ses faces.
+    left = last(self.surface_extrude(10, sketch=line(800, 0, 810, 0)))
+    right = last(self.surface_extrude(10, sketch=line(810, 0, 810, 10)))
+    preview("surface_sew", surfaces=[left, right])
+    sewn = last(self.surface_sew([left, right]))
+    shape = self._doc.getObject(sewn).Shape
+    shared = [i for i, edge in enumerate(shape.Edges)
+              if sum(any(e.isSame(edge) for e in face.Edges)
+                     for face in shape.Faces) == 2]
+    preview("surface_fillet", surface=sewn, edges=shared[:1], radius=2)
+    preview("surface_delete_faces", surface=sewn, faces=[0])
+    # Axe, point, repère : où ils se posent.
+    preview("add_datum_axis", axis="X")
+    preview("add_datum_point", point=[1, 2, 3])
+    preview("add_datum_cs", point=[1, 2, 3])
+    failed = {op: value for op, value in seen.items()
+              if value[:3] != (True, True, True)}
+    seen["failed"] = failed
+    # La flèche d'une surface extrudée qu'on réédite : au bout de la bande
+    # (esquisse à −5, longueur 10), le long de la normale de l'esquisse.
+    drag = self.feature_drag_info(band)["drag"] or {}
+    seen["drag"] = (drag.get("key"), drag.get("value"),
+                    [round(c, 6) for c in drag.get("normal", [])],
+                    round(drag.get("point", [0, 0, 0])[2], 6))
+    report["p135_apercu_des_surfaces_a_la_creation"] = (
+        len(seen) == 29 and not failed
+        and seen["drag"] == ("length", 10.0, [0.0, 0.0, 1.0], 5.0))
+
+
+def p136_fleches_percage_helice(self, mark, report, etat):
+    mark("p136: flèches de profondeur du perçage et de l'hélice volume")
+    seen = etat.p136 = {}
+
+    def rounded(values):
+        return [round(c, 6) for c in values]
+
+    self.new_part("Flèches perçage et hélice")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    top = next(i for i, f in enumerate(body.Shape.Faces)
+               if abs(f.CenterOfMass.z - 10) < 1e-6)
+    frame = self.face_frame(top)
+    seen["face"] = (rounded(frame["normal"]), round(frame["center"][2], 6))
+    tree = self.add_hole(6, depth=5, face=top, points=[[5, 5, 10]])
+    hole = next(f["name"] for f in tree["features"]
+                if f["type"] == "PartDesign::Hole")
+    drag = self.feature_drag_info(hole)["drag"] or {}
+    seen["hole"] = (drag.get("key"), drag.get("value"),
+                    rounded(drag.get("normal", [])),
+                    rounded(drag.get("point", [0, 0, 0])), drag.get("factor"))
+    # Traversant : pas de flèche.
+    through = self.add_hole(3, through=True, face=top, points=[[-5, -5, 10]])
+    thru = [f["name"] for f in through["features"]
+            if f["type"] == "PartDesign::Hole"][-1]
+    seen["through"] = self.feature_drag_info(thru)["drag"]
+    # Hélice : l'axe vertical de l'esquisse (XZ → Z).
+    self.new_part("Flèche hélice")
+    sk = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_circle(sk, 15, 0, 2)
+    self.sketch_finish(sk)
+    seen["frame"] = rounded(self.sketch_frame(sk)["vaxis"])
+    tree = self.add_helix(pitch=8, height=40, sketch=sk)
+    helix = next(f["name"] for f in tree["features"]
+                 if f["type"] == "PartDesign::AdditiveHelix")
+    drag = self.feature_drag_info(helix)["drag"] or {}
+    top_z = self._doc.getObject(helix).Shape.BoundBox.ZMax
+    seen["helix"] = (drag.get("key"), drag.get("value"),
+                     rounded(drag.get("normal", [])),
+                     round(drag.get("point", [0, 0, 0])[2], 6),
+                     top_z > 35)
+    report["p136_fleches_percage_helice"] = (
+        seen["face"] == ([0.0, 0.0, 1.0], 10.0)
+        and seen["hole"] == ("depth", 5.0, [0.0, 0.0, -1.0],
+                             [5.0, 5.0, 5.0], 1.0)
+        and seen["through"] is None
+        and seen["helix"] == ("height", 40.0, [0.0, 0.0, 1.0], 40.0, True))

@@ -178,6 +178,41 @@ export function referenceBuild(kind, v) {
   return point.every(Number.isFinite) ? { op, params: { point } } : null;
 }
 
+/** Le dessin d'un axe, d'un point ou d'un repère (`shape`) à son
+ *  `placement` (matrice 4 × 4 par lignes) : dans la vue comme en aperçu.
+ *  `reach` : la demi-longueur d'un axe ; `color` : celle d'un axe, d'un
+ *  point. */
+export function referenceObject(THREE, { shape, placement }, { reach, color }) {
+  const line = (points, tint, dashed = false) => {
+    const geometry = new THREE.BufferGeometry().setFromPoints(
+      points.map((p) => new THREE.Vector3(...p)));
+    const material = dashed
+      ? new THREE.LineDashedMaterial({ color: tint, dashSize: 3, gapSize: 2 })
+      : new THREE.LineBasicMaterial({ color: tint });
+    const segment = new THREE.Line(geometry, material);
+    if (dashed) segment.computeLineDistances();
+    return segment;
+  };
+  const holder = new THREE.Group();
+  holder.matrixAutoUpdate = false;
+  holder.matrix.set(...placement);
+  if (shape === "axis") {
+    // Un axe court le long de son Z local.
+    holder.add(line([[0, 0, -reach], [0, 0, reach]], color, true));
+  } else if (shape === "point") {
+    const geometry = new THREE.BufferGeometry().setFromPoints(
+      [new THREE.Vector3()]);
+    holder.add(new THREE.Points(geometry, new THREE.PointsMaterial(
+      { color, size: 9, sizeAttenuation: false })));
+  } else {
+    const size = reach / 3;
+    holder.add(line([[0, 0, 0], [size, 0, 0]], 0xd9534f),
+      line([[0, 0, 0], [0, size, 0]], 0x5cb85c),
+      line([[0, 0, 0], [0, 0, size]], 0x4a90d9));
+  }
+  return holder;
+}
+
 export function installRefGeometry(ctx) {
   const { THREE, scene, sceneTheme } = ctx;
   let group = null;
@@ -192,17 +227,6 @@ export function installRefGeometry(ctx) {
     group = null;
   }
 
-  function line(points, color, dashed = false) {
-    const geometry = new THREE.BufferGeometry().setFromPoints(
-      points.map((p) => new THREE.Vector3(...p)));
-    const material = dashed
-      ? new THREE.LineDashedMaterial({ color, dashSize: 3, gapSize: 2 })
-      : new THREE.LineBasicMaterial({ color });
-    const segment = new THREE.Line(geometry, material);
-    if (dashed) segment.computeLineDistances();
-    return segment;
-  }
-
   /** Redessine les axes, points et repères de l'arbre. */
   function draw(tree) {
     clear();
@@ -215,24 +239,8 @@ export function installRefGeometry(ctx) {
     group = new THREE.Group();
     group.name = "reference-geometry";
     for (const item of items) {
-      const holder = new THREE.Group();
-      holder.matrixAutoUpdate = false;
-      holder.matrix.set(...item.placement);
-      if (item.shape === "axis") {
-        // Un axe court le long de son Z local.
-        holder.add(line([[0, 0, -reach], [0, 0, reach]], sceneTheme.accent, true));
-      } else if (item.shape === "point") {
-        const geometry = new THREE.BufferGeometry().setFromPoints(
-          [new THREE.Vector3()]);
-        holder.add(new THREE.Points(geometry, new THREE.PointsMaterial(
-          { color: sceneTheme.accent, size: 9, sizeAttenuation: false })));
-      } else {
-        const size = reach / 3;
-        holder.add(line([[0, 0, 0], [size, 0, 0]], 0xd9534f),
-          line([[0, 0, 0], [0, size, 0]], 0x5cb85c),
-          line([[0, 0, 0], [0, 0, size]], 0x4a90d9));
-      }
-      group.add(holder);
+      group.add(referenceObject(THREE, item,
+        { reach, color: sceneTheme.accent }));
     }
     scene.add(group);
   }
@@ -245,7 +253,12 @@ export function installRefGeometry(ctx) {
       icon: REFERENCE_ICONS[kind],
       title: t(titles[kind]),
       groups: referenceGroups(kind, { edge: edges }),
+      // Aperçu : l'élément se dessine là où il se posera.
+      onChange: (v) => ctx.schedulePreview(referenceBuild(kind, v)),
+      onPreview: (on, v) => ctx.schedulePreview(
+        on ? referenceBuild(kind, v) : null),
       onApply: (v) => {
+        ctx.clearGhost();
         const built = referenceBuild(kind, v);
         if (!built) {
           ctx.say(t("Choisissez d'abord ce qui porte l'élément"), true);
