@@ -756,18 +756,22 @@ def p60_liste_erreurs(self, mark, report, etat):
     errors = self.rebuild_errors()["errors"]
     self._require_doc().getObject(fillet).Radius = 1
     self._require_doc().recompute()
-    # Désactiver la fonction d'appui : le congé passe en erreur,
-    # la désactivation est gardée.
+    # Désactiver la fonction d'appui : le congé, qui perd ses arêtes,
+    # est désactivé avec elle, comme dans les modeleurs courants.
     pad = self.get_tree()["features"][0]["name"]
     self.set_suppressed([pad])
     orphan = [e["name"] for e in self.rebuild_errors()["errors"]]
-    kept = self.get_tree()["features"][0].get("suppressed") is True
+    rows = {f["name"]: f for f in self.get_tree()["features"]}
+    kept = (rows[pad].get("suppressed") is True
+            and rows[fillet].get("suppressed") is True)
     self.set_suppressed([pad], suppressed=False)
     report["p60_erreurs"] = (
         clean == [] and [e["name"] for e in errors] == [fillet]
         and bool(errors[0]["message"])
-        and orphan == [fillet] and kept
-        and self.rebuild_errors()["errors"] == [])
+        and orphan == [] and kept
+        and self.rebuild_errors()["errors"] == []
+        and not any(f.get("suppressed")
+                    for f in self.get_tree()["features"]))
 
 
 def p62_copier_coller_fonction(self, mark, report, etat):

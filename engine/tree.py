@@ -167,7 +167,7 @@ class TreeMixin:
                             "FreeSolid", "Reculé par la barre de retour")
         setattr(obj, _ROLLED_BACK_PROP, rolled)
         if hasattr(obj, "Visibility"):
-            obj.Visibility = not rolled
+            obj.Visibility = not (rolled or self._is_disabled(obj))
 
     def _history_role(self, obj, consumed):
         """Rôle dans l'historique : ``feature`` / ``sketch`` / ``surface``
@@ -450,7 +450,8 @@ class TreeMixin:
         return [o for o in body.Group
                 if o.TypeId == "Sketcher::SketchObject"
                 and o.Name not in used
-                and not self._is_rolled_back(o)]
+                and not self._is_rolled_back(o)
+                and not self._is_disabled(o)]
 
     def _latest_sketch(self):
         """The newest sketch not yet consumed by a feature.
@@ -1250,7 +1251,9 @@ class TreeMixin:
                 "has_params": self._has_params(obj),
                 "suppressible": self._is_suppressible(obj),
             }
-            if item["suppressible"] and obj.Suppressed:
+            if self._is_disabled(obj):
+                # Une esquisse emportée par une désactivation le dit
+                # aussi, sans se désactiver seule.
                 item["suppressed"] = True
             if self._merge_editable(obj):
                 # « Fusionner » : la réédition le montre coché ou non ; la
@@ -1676,6 +1679,7 @@ class TreeMixin:
             if not self._is_surface_obj(obj):
                 continue
             if (self._is_rolled_back(obj) or self._is_internal_tool(obj)
+                    or self._is_disabled(obj)
                     or obj.Name in consumed or self._is_hidden(obj)
                     or obj.Name in removed):
                 continue
@@ -1722,6 +1726,7 @@ class TreeMixin:
         absorbed = {sk.Name for obj in self._doc.Objects
                     if self._is_surface_obj(obj)
                     and not self._is_rolled_back(obj)
+                    and not self._is_disabled(obj)
                     for sk in self._surface_sketch_objects(obj)}
         # Une esquisse sortie de sa fonction par la barre se dessine, comme
         # une libre : on l'a sortie pour la voir et la modifier.

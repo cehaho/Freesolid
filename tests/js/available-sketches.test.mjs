@@ -13,8 +13,11 @@ describe("availableSketches", () => {
           rolled_back: true },
         { name: "Sketch002", type_key: "sketch",
           rolled_back: false },
+        { name: "Sketch003", type_key: "sketch",
+          suppressed: true },
       ],
     };
+    // Sketch003 : emportée par la désactivation de son plan.
     assert.deepEqual(
       availableSketches(tree).map((item) => item.name),
       ["Sketch", "Sketch002"],

@@ -256,6 +256,7 @@ def _etapes():
         fonctions.p137_barre_et_references,
         fonctions.p138_formes_figees_et_barre,
         document.p139_fichier_atelier_part,
+        fonctions.p140_desactiver_emporte_les_enfants,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

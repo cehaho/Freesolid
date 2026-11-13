@@ -451,6 +451,7 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         broken = [o for o in doc.Objects
                   if "Invalid" in (o.State or ())
                   and not self._is_internal_tool(o)
+                  and not self._emptied_by_suppression(o)
                   and not self._plugins.run_tolerates_invalid(self, o)]
         if broken:
             raise KernelError(" ; ".join(

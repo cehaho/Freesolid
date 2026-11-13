@@ -18,6 +18,7 @@ describe("géométrie de référence", () => {
     const m = Array(16).fill(0);
     const items = referenceItems({ features: [
       { name: "A", type_key: "datum_axis", placement: m },
+      { name: "D", type_key: "datum_axis", placement: m, suppressed: true },
       { name: "B", type_key: "datum_point", placement: m, rolled_back: true },
       { name: "P", type_key: "datum_plane", placement: m },
       { name: "Pad", type_key: "pad",

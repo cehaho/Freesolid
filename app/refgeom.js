@@ -21,7 +21,8 @@ export function referenceItems(tree) {
   const out = [];
   const visit = (items) => {
     for (const item of items ?? []) {
-      if (KINDS[item.type_key] && item.placement && !item.rolled_back) {
+      if (KINDS[item.type_key] && item.placement && !item.rolled_back
+          && !item.suppressed) {
         out.push({ ...item, shape: KINDS[item.type_key] });
       }
       visit(item.children);

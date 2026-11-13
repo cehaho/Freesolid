@@ -139,6 +139,10 @@ class SketchMixin:
             raise KernelError(
                 "« {} » est sous la barre de retour — avancez la barre ou "
                 "choisissez un plan au-dessus d'elle".format(target.Label))
+        if self._is_disabled(target):
+            raise KernelError(
+                "« {} » est désactivé — réactivez-le ou choisissez un "
+                "autre plan".format(target.Label))
         if sketch is not None:
             order_of = self._tree_order()
             if (order_of.get(target.Name, -1)
