@@ -165,13 +165,19 @@ class SketchMixin:
         doc = self._require_doc()
         sk = self._get_sketch(sketch)
         if face is not None:
-            tip = getattr(self._require_body(), "Tip", None)
-            if tip is not None and (tip is sk
-                                    or sk in tip.OutListRecursive):
+            # Une face de la pièce à son rang (la base de la fonction qui
+            # l'utilise) : celle que montre la vue au rang.
+            base = self._sketch_rank_base(sk)
+            shape = getattr(base, "Shape", None)
+            if (base is None or shape is None or not shape.Faces
+                    or base is sk or sk in base.OutListRecursive):
                 raise KernelError(
                     "cette face dépend de l'esquisse elle-même — choisissez "
                     "un plan ou la face d'une fonction antérieure")
-            self._attach_to_face(sk, face)
+            if type(face) is not int or not 0 <= face < len(shape.Faces):
+                raise KernelError("face inconnue : {}".format(face))
+            self._attach_to_support(
+                sk, [(base, ("Face{}".format(face + 1),))])
         elif datum is not None:
             target = doc.getObject(str(datum))
             if target is None or target.TypeId != "PartDesign::Plane":
@@ -188,6 +194,72 @@ class SketchMixin:
             raise KernelError("choisissez le nouveau plan de l'esquisse")
         self._recompute()
         return self._current_tree()
+
+    #: Les plans d'origine, par rôle FreeCAD.
+    _PLANE_OF_ROLE = {"XY_Plane": "XY", "XZ_Plane": "XZ", "YZ_Plane": "YZ"}
+
+    def _sketch_rank_base(self, sk):
+        """La pièce au rang d'une esquisse : la base de la fonction qui
+        l'utilise, sinon la dernière fonction solide qui la précède dans
+        son corps. None si rien de solide ne la précède."""
+        doc = self._require_doc()
+        parent = doc.getObject(self._consumed_sketches().get(sk.Name, ""))
+        if parent is not None and hasattr(parent, "BaseFeature"):
+            return parent.BaseFeature
+        body = sk.getParentGeoFeatureGroup()
+        group = list(getattr(body, "Group", None) or ())
+        if sk not in group:
+            return None
+        for obj in reversed(group[:group.index(sk)]):
+            shape = getattr(obj, "Shape", None)
+            if (obj.TypeId.startswith("PartDesign::")
+                    and hasattr(obj, "BaseFeature")
+                    and shape is not None and shape.Solids):
+                return obj
+        return None
+
+    def _sketch_support_pick(self, sk):
+        """Le plan d'une esquisse, dans les mots de ``sketch_set_plane`` :
+        ``{"plane": "XY"}``, ``{"datum": nom}``, ``{"face": id}`` (une face
+        de la pièce à son rang, None si elle n'y est plus) ; None sans
+        appui."""
+        support = (getattr(sk, "AttachmentSupport", None)
+                   or getattr(sk, "Support", None) or [])
+        try:
+            target, subs = list(support)[0]
+        except (IndexError, TypeError, ValueError):
+            return None
+        if target is None:
+            return None
+        role = self._PLANE_OF_ROLE.get(getattr(target, "Role", ""))
+        if role:
+            return {"plane": role}
+        if target.TypeId == "PartDesign::Plane":
+            return {"datum": target.Name}
+        subs = list(subs) if isinstance(subs, (list, tuple)) else [subs]
+        name = str(subs[0]) if subs else ""
+        if not (name.startswith("Face") and name[4:].isdigit()):
+            return None
+        index = int(name[4:]) - 1
+        base = self._sketch_rank_base(sk)
+        if target is base:
+            return {"face": index}
+        try:
+            face = target.Shape.Faces[index]
+            found = next((i for i, other in enumerate(base.Shape.Faces)
+                          if other.isSame(face)), None)
+        except Exception:  # noqa: BLE001
+            found = None
+        return {"face": found}
+
+    def _set_sketch_plane_params(self, sk, values):
+        """``set_params`` d'une esquisse : son plan (``plane``, ``datum``
+        ou ``face``, une face de la pièce à son rang)."""
+        from engine.kernel import KernelError
+        if len(values) != 1:
+            raise KernelError("choisissez le nouveau plan de l'esquisse")
+        self.sketch_set_plane(sk.Name, **values)
+        return self.get_tree()
 
     def sketch_edit(self, feature):
         """Re-enter an existing sketch."""

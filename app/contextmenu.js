@@ -70,7 +70,7 @@ export function installContextMenu(ctx) {
   const {
     call, refresh, refreshAny, refreshAssembly,
     hexColor, sceneTheme, confirm,
-    onSketchRowDblClick, editSurface, editFeature,
+    onSketchRowDblClick, editSurface, editFeature, editSketchPlane,
     treeRowFor, beginInlineRename,
     findFeatureInTree,
     frameView, openOrientBox, toggleOrigin, viewNormalTo,
@@ -262,44 +262,10 @@ export function installContextMenu(ctx) {
   });
 
   // Changer de plan : un plan d'origine, un plan de référence ou une
-  // face cliquée dans la vue.
+  // face de la pièce à son rang (tree.js, editSketchPlane).
   document.getElementById("ctx-sketch-plane").addEventListener("click", () => {
     if (!menuFeature || menuFeature.type_key !== "sketch") return;
-    const sketch = menuFeature;
-    const tree = ctx.lastTree ?? {};
-    const datums = (tree.features ?? [])
-      .filter((f) => f.type_key === "datum_plane");
-    panel.open({
-      icon: "Sketcher_Sketch",
-      title: t("Plan de l'esquisse — {s}", { s: sketch.label }),
-      groups: [{ label: t("Nouveau plan"), rows: [
-        { type: "select", key: "support", value: "XY", options: [
-          ...(tree.planes ?? []).map((p) => [p.id, p.label]),
-          ...datums.map((d) => [`datum:${d.name}`, d.label]),
-          ["face", t("Face du solide")],
-        ] },
-        { type: "selection", key: "face", accepts: ["face"],
-          label: t("Face d'accueil"), hint: t("Cliquez la face d'accueil"),
-          showIf: (v) => v.support === "face" },
-      ] }],
-      note: t("Les entités gardent leurs coordonnées dans l'esquisse ; "
-        + "les fonctions qui l'utilisent suivent le nouveau plan."),
-      onApply: (v) => {
-        const params = { sketch: sketch.name };
-        if (v.support === "face") {
-          if (v.face?.face == null) {
-            ctx.say(t("Cliquez la face d'accueil"), true);
-            return;
-          }
-          params.face = v.face.face;
-        } else if (String(v.support).startsWith("datum:")) {
-          params.datum = String(v.support).slice(6);
-        } else {
-          params.plane = v.support;
-        }
-        refresh(call("sketch_set_plane", params));
-      },
-    });
+    editSketchPlane(menuFeature);
   });
 
   document.getElementById("ctx-suppress").addEventListener("click", () => {

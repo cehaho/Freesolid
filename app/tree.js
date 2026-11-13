@@ -28,6 +28,9 @@ import {
   REMOVE_BODIES_NOTE, removeBodiesGroups, removeBodiesParams,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
+import {
+  sketchFaceValues, sketchPlaneChoice, sketchPlaneOptions, sketchPlaneValues,
+} from "./sketchplane.js";
 import { featureEditor, isFrozen, surfaceEditor } from "./editkind.js";
 import { solidParam } from "./contextmenu.js";
 import { readScene } from "./theme.js";
@@ -2141,8 +2144,8 @@ export function installTree(ctx) {
    *  `zone` : `{ label, row, changed(v), missing, select?() }` — `changed`
    *  rend `{}` (inchangée), les valeurs `set_params` du re-choix, ou null
    *  (vide) ; `select` donne à la vue ce que la zone contient. */
-  async function editAtRank(feature, { icon, zone, groups, values,
-    problem }) {
+  async function editAtRank(feature, { icon, title, note, zone, groups,
+    values, problem }) {
     const atRank = zone
       ? await call("rank_view", { feature: feature.name }).catch(() => null)
       : null;
@@ -2158,13 +2161,16 @@ export function installTree(ctx) {
       ? (typeof pick.missing === "function" ? pick.missing(v) : pick.missing)
       : problem(v));
     let applied = false;
+    // La zone vient d'abord, ou après les autres groupes (`after`) ; elle
+    // peut ne se montrer que selon eux (`showIf`).
+    const zoneGroups = pick ? [{ label: pick.label, rows: [pick.row],
+      ...(pick.showIf ? { showIf: pick.showIf } : {}) }] : [];
     panel.open({
       icon,
-      title: feature.label,
-      groups: [
-        ...(pick ? [{ label: pick.label, rows: [pick.row] }] : []),
-        ...groups,
-      ],
+      title: title ?? feature.label,
+      ...(note ? { note } : {}),
+      groups: pick?.after ? [...groups, ...zoneGroups]
+        : [...zoneGroups, ...groups],
       hint: (v) => (build(v) ? null : missing(v)),
       onChange: (v, how) => {
         const changed = build(v);
@@ -2295,6 +2301,37 @@ export function installTree(ctx) {
           say(error.message, true);
         });
       },
+    });
+  }
+
+  /** Plan d'une esquisse (menu « Changer de plan… ») : un plan d'origine,
+   *  un plan de référence ou une face de la pièce à son rang, avec
+   *  l'aperçu des fonctions qui la prennent. */
+  function editSketchPlane(sketch) {
+    const support = sketch.support ?? null;
+    const face = Number.isInteger(support?.face) ? support.face : null;
+    return editAtRank(sketch, {
+      icon: "Sketcher_Sketch",
+      title: t("Plan de l'esquisse — {s}", { s: sketch.label }),
+      note: "Les entités gardent leurs coordonnées dans l'esquisse ; "
+        + "les fonctions qui l'utilisent suivent le nouveau plan.",
+      zone: {
+        label: "Face d'accueil",
+        after: true,
+        showIf: (v) => v.support === "face",
+        row: { type: "selection", key: "face", accepts: ["face"],
+               hint: "Cliquez la face d'accueil",
+               value: face === null ? null : { kind: "face", face } },
+        changed: (v) => sketchFaceValues(v, support),
+        missing: "Cliquez la face d'accueil",
+        select: () => (face === null ? null : ctx.selectFaceId?.(face)),
+      },
+      groups: [{ label: "Nouveau plan", rows: [
+        { type: "select", key: "support", value: sketchPlaneChoice(support),
+          options: sketchPlaneOptions(ctx.lastTree) },
+      ] }],
+      values: (v) => sketchPlaneValues(v, support),
+      problem: () => "Cliquez la face d'accueil",
     });
   }
 
@@ -2439,7 +2476,7 @@ export function installTree(ctx) {
     cancelPendingSurfaceClick, onSurfaceClick, onSurfaceDblClick,
     clearSurfaceSelection, selectSketch, onPlaneRow,
     beginInlineRename, treeRowFor, beginRenameSelected,
-    renderTree, editSurface, editFeature,
+    renderTree, editSurface, editFeature, editSketchPlane,
     moveBar, stepBar, barToPrevious, barCommands, isAfterBar, handleBarKey,
     setFlatTree, isFlatTree,
   };

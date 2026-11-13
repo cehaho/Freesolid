@@ -534,8 +534,8 @@ class TreeMixin:
         doc = self._require_doc()
         history = self._history_lines()
         names = [line.Name for line in history]
-        obj = doc.getObject(str(feature))
-        if obj is None or obj.Name not in names:
+        obj = self._rank_line(doc.getObject(str(feature)), names)
+        if obj is None:
             raise KernelError("fonction inconnue : {}".format(feature))
         at = names.index(obj.Name)
         saved = self._bar_state()
@@ -552,6 +552,20 @@ class TreeMixin:
             raise
         return self.get_tree()
 
+    def _rank_line(self, obj, names):
+        """La ligne d'historique au rang de ``obj`` : elle-même, ou pour
+        une esquisse prise par une fonction, cette fonction. None hors
+        de l'historique."""
+        if obj is None:
+            return None
+        if obj.Name in names:
+            return obj
+        if obj.TypeId == "Sketcher::SketchObject":
+            parent = self._consumed_sketches().get(obj.Name)
+            if parent in names:
+                return self._require_doc().getObject(parent)
+        return None
+
     def rank_view_end(self):
         """Fin de ``rank_view`` : la barre revient où elle était."""
         self._end_rank_view()
@@ -566,8 +580,9 @@ class TreeMixin:
         doc = self._require_doc()
         history = self._history_lines()
         names = [line.Name for line in history]
-        obj = doc.getObject(str(feature)) if feature else None
-        if obj is None or obj.Name not in names:
+        obj = self._rank_line(
+            doc.getObject(str(feature)) if feature else None, names)
+        if obj is None:
             return
         flags, tips = rollback_tips(self._history_rows(history), obj.Name)
         self._apply_tips(tips)
@@ -1260,6 +1275,8 @@ class TreeMixin:
             if obj.TypeId == "Sketcher::SketchObject":
                 item["rolled_back"] = self._is_rolled_back(obj)
                 item["definition"] = self._sketch_definition(obj)
+                # Son plan, ou sa face sur la pièce à son rang.
+                item["support"] = self._sketch_support_pick(obj)
                 try:
                     wires = self._sketch_wires(obj)
                 except Exception:  # noqa: BLE001
