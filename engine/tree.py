@@ -1345,6 +1345,10 @@ class TreeMixin:
                     # Sa face d'appui, sur la pièce à son rang.
                     "face": self._text_face(obj),
                 }
+            pattern = self._pattern_state(obj)
+            if pattern is not None:
+                # Répétition de fonctions : ce qu'elle re-choisit au rang.
+                item["pattern"] = pattern
             vchamfer = getattr(obj, "FreeSolidVchamferspec", "")
             if vchamfer:
                 from engine.vertexchamfer import parse_spec

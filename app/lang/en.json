@@ -578,6 +578,7 @@
  "Nombre de points : {n}": "Number of points: {n}",
  "Profondeur invalide": "Invalid depth",
  "Valeurs du texte invalides": "Invalid text values",
+ "Cliquez les fonctions dans l'arbre": "Click the features in the tree",
  "Valeurs du perçage invalides": "Invalid hole values",
  "Lissage : au moins deux profils": "Loft: at least two profiles",
  "Balayage : un profil puis une trajectoire (différents)": "Sweep: a profile then a path (different)",

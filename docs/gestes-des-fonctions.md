@@ -21,15 +21,15 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Extrusion | oui + flèche | le panneau de la création : condition de fin (sauf passer à « jusqu'à la face » ; borgne seulement pour le premier volume d'un corps), décalage, inverser, dépouille, direction 2 (condition, profondeur, dépouille), épaisseurs et côté de la paroi mince, contours, « Fusionner », corps fondus et corps de la fonction (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | face d'arrivée, activer la paroi mince ou en changer le genre, esquisse | oui + flèche (la flèche s'efface quand le sens ou la condition change) | oui | oui (conditions, direction 2, paroi mince, extrémités fermées, « Fusionner », corps fondus, corps de la fonction) |
+| Extrusion | oui + flèche | le panneau de la création : condition de fin (sauf passer à « jusqu'à la face » ; borgne seulement pour le premier volume d'un corps), décalage, inverser, dépouille, direction 2 (condition, profondeur, dépouille), épaisseurs et côté de la paroi mince, contours, « Fusionner », corps fondus et corps de la fonction (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | face d'arrivée, activer la paroi mince ou en changer le genre (le plan de l'esquisse se re-choisit au rang : clic droit, « Changer de plan… ») | oui + flèche (la flèche s'efface quand le sens ou la condition change) | oui | oui (conditions, direction 2, paroi mince, extrémités fermées, « Fusionner », corps fondus, corps de la fonction) |
 | Enlèvement extrudé | oui + flèche | comme l'Extrusion, les corps creusés au lieu des corps fondus (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | comme l'Extrusion | oui + flèche | oui | oui (à travers tout, borgne, refus de « jusqu'à la face », corps creusés qui suivent la cote, corps creusés ajoutés ou retirés) |
-| Révolution | oui | angle, axe, inverser, plan médian, contours, « Fusionner », corps fondus et corps de la fonction | esquisse | oui | oui | oui (axe, plan médian, « Fusionner », corps fondus) |
+| Révolution | oui | angle, axe, inverser, plan médian, contours, « Fusionner », corps fondus et corps de la fonction ; plan de l'esquisse (« Changer de plan… ») | — | oui | oui | oui (axe, plan médian, « Fusionner », corps fondus) |
 | Enlèvement de révolution | oui | comme la Révolution, les corps creusés au lieu des corps fondus | comme la Révolution | oui | oui | non (seule la Révolution est testée) |
-| Perçage | oui | le panneau de la création sans les positions : type (simple, lamage, fraisage), cotes du type, angle du fraisage, à travers ou borgne, profondeur, corps creusés (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | positions et face | oui | oui | oui (type, condition de fin, corps creusés) |
+| Perçage | oui | le panneau de la création : positions et face (posé par des clics), type (simple, lamage, fraisage), cotes du type, angle du fraisage, à travers ou borgne, profondeur, corps creusés (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | — | oui | oui | oui (type, condition de fin, corps creusés, positions) |
 | Lissage | oui | « Fusionner » (décochée, il sort de son corps ; ses profils y entrent par des liants) ; quand la pièce a d'autres corps, les corps fondus, ou creusés pour l'enlèvement lissé (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | profils et ordre, soustractif, lissage droit, boucle fermée | oui | oui | oui (« Fusionner » décochée puis recochée, zone d'action, corps fondus ajoutés puis retirés) |
 | Balayage | oui | comme le Lissage : « Fusionner » (profil d'un seul tenant pour sortir de son corps), les corps fondus, ou creusés pour l'enlèvement balayé | profil, trajectoire, soustractif | oui | oui | oui (« Fusionner » décochée sur une esquisse et sur une courbe 3D, profil en deux morceaux refusé, corps creusés ajoutés, Ctrl+Z et Ctrl+Y) |
-| Hélice | oui | pas, hauteur, angle | esquisse profil | oui | oui | non |
-| Texte | oui | texte, taille, profondeur, position | face d'appui, relief ou gravure, police | non | oui | oui |
+| Hélice | oui | pas, hauteur, angle ; plan de l'esquisse (« Changer de plan… ») | — | oui | oui | non |
+| Texte | oui | le panneau de la création : texte, hauteur, profondeur, décalage, face d'appui | relief ou gravure, police | oui | oui | oui |
 
 ## Habillage, Combiner et références
 
@@ -37,7 +37,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 |---|---|---|---|---|---|---|
 | Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui, sans la bulle | oui | oui (rayon, arêtes) |
 | Chanfrein | oui | type, taille, taille 2, angle, sens ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui | oui | oui |
-| Chanfrein de sommet | oui | distances | le sommet | non | à vérifier (booléen, jusqu'à deux lignes) | oui |
+| Chanfrein de sommet | oui | le panneau de la création : sommet, distances | — | oui | à vérifier (booléen, jusqu'à deux lignes) | oui |
 | Coque | oui | épaisseur, « vers l'extérieur » ; faces à ouvrir, re-choisies sur la pièce à son rang | — | oui | oui | oui (sens, refus d'une coque trop épaisse, faces) |
 | Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
 | Combiner | non, voulu | rien | opération, corps outil | — | oui | non |
@@ -51,11 +51,11 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Répétition linéaire, des fonctions | oui | distance, nombre, nombre en direction 2 (si déjà > 1) ; corps creusés, quand elle répète un enlèvement | fonctions répétées, direction, inverser, pas ou longueur totale, activer la direction 2, distance en direction 2 | oui, sans la flèche | oui | oui (nombre, corps creusés) |
+| Répétition linéaire, des fonctions | oui | le panneau de la création : fonctions répétées, direction (axe ou arête), inverser, pas ou longueur totale, distance, nombre, direction 2 (l'activer, la retirer, son axe, son sens, sa distance, son nombre) ; corps creusés, quand elle répète un enlèvement | — | oui, sans la flèche | oui | oui (nombre, corps creusés, fonctions, direction, pas ou longueur totale, direction 2) |
 | Répétition linéaire, des corps | oui | distance, nombre, direction 2 (distance et nombre, si déjà créée) | corps répétés, direction, inverser, pas ou longueur totale, ajouter la direction 2, copies sautées | oui | oui | oui (nombre, distance) |
-| Répétition circulaire, des fonctions | oui | angle total, nombre ; corps creusés, quand elle répète un enlèvement | fonctions répétées, axe, inverser | oui | oui | non |
+| Répétition circulaire, des fonctions | oui | le panneau de la création : fonctions répétées, axe (d'origine ou arête), inverser, angle total, nombre ; corps creusés, quand elle répète un enlèvement | — | oui | oui | non |
 | Répétition circulaire, des corps | oui | angle total, nombre | corps répétés, axe, inverser | oui | oui | non |
-| Symétrie, des fonctions | oui | corps creusés, quand elle répète un enlèvement | plan, fonctions | oui | oui | oui (corps creusés) |
+| Symétrie, des fonctions | oui | fonctions, plan ; corps creusés, quand elle répète un enlèvement | — | oui | oui | oui (corps creusés, plan) |
 | Symétrie, des corps | oui | rien | tout : plan, corps | — | oui | non |
 | Fonction graphe, solide (ajout, enlèvement) | non | le graphe, dans l'éditeur de graphe | ajout ou enlèvement, nature solide ou courbe | non | oui | oui |
 | Fonction graphe, courbe ou surface | non | le graphe, dans l'éditeur de graphe | nature courbe ou surface | non | oui (drapeau) | oui |
@@ -65,8 +65,8 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Surface extrudée | non | longueur | esquisse, sens | à vérifier | oui (drapeau) | oui |
-| Surface de révolution | non | angle | esquisse, axe, sens | à vérifier | oui (drapeau) | non |
+| Surface extrudée | non | longueur ; plan de l'esquisse (« Changer de plan… ») | sens | à vérifier | oui (drapeau) | oui |
+| Surface de révolution | non | angle ; plan de l'esquisse (« Changer de plan… ») | axe, sens | à vérifier | oui (drapeau) | non |
 | Surface lissée | non | rien | tout : profils et ordre | — | oui (drapeau) | non |
 | Surface cousue | non | rien (forme figée) | tout : liste des surfaces | — | oui (drapeau) | non |
 | Épaissir | non | épaisseur (signée) | surface source | à vérifier | oui (drapeau) | non |
@@ -162,13 +162,14 @@ Corrigé aussi pour le Texte : son double-clic rouvre le panneau de la création
 
 Corrigé aussi pour le Chanfrein de sommet : sa zone « Sommet » revient remplie de son coin, sur la pièce à son rang, avec l'aperçu ; un clic près d'un autre coin le remplace. `set_params` prend `distances` et `point` (le clic, aimanté au sommet le plus proche, comme à la création).
 
-Profils et esquisses : comme dans les modeleurs courants, une fonction garde son esquisse ; c'est le plan de l'esquisse qui se re-choisit. Le clic droit d'une esquisse, « Changer de plan… », rouvre la pièce au rang de la fonction qui la prend, la liste sur son plan actuel (plan d'origine, plan de référence ou « Face du solide » avec sa face), avec l'aperçu. Une face se clique sur la pièce à ce rang, celle d'une fonction antérieure : avant, seule la face de la pièce d'aujourd'hui se proposait, refusée dès que la fonction était au milieu de l'historique. `set_params` d'une esquisse prend `plane`, `datum` ou `face` ; `rank_view` d'une esquisse prise par une fonction montre le rang de cette fonction. Cela vaut pour toutes les fonctions qui prennent une esquisse : Extrusion, Enlèvement, Révolution, Hélice, surfaces. La Surface extrudée et la Surface de révolution ont maintenant une zone « Profil » à la création, préremplie comme celles des autres surfaces (la sélection de l'arbre, sinon la dernière esquisse libre). Selftest p113 à p118.
+Profils et esquisses : comme dans les modeleurs courants, une fonction garde son esquisse ; c'est le plan de l'esquisse qui se re-choisit. Le clic droit d'une esquisse, « Changer de plan… », rouvre la pièce au rang de la fonction qui la prend, la liste sur son plan actuel (plan d'origine, plan de référence ou « Face du solide » avec sa face), avec l'aperçu. Une face se clique sur la pièce à ce rang, celle d'une fonction antérieure : avant, seule la face de la pièce d'aujourd'hui se proposait, refusée dès que la fonction était au milieu de l'historique. `set_params` d'une esquisse prend `plane`, `datum` ou `face` ; `rank_view` d'une esquisse prise par une fonction montre le rang de cette fonction. Cela vaut pour toutes les fonctions qui prennent une esquisse : Extrusion, Enlèvement, Révolution, Hélice, surfaces. La Surface extrudée et la Surface de révolution ont maintenant une zone « Profil » à la création, préremplie comme celles des autres surfaces (la sélection de l'arbre, sinon la dernière esquisse libre).
+
+Répétitions de fonctions (linéaire, circulaire, symétrie) : le double-clic rouvre le panneau de la création, au rang. La zone « Fonctions à répéter » revient remplie ; un clic dans l'arbre en ajoute ou en retire une, qui doit venir avant la répétition. La direction revient sur son axe d'origine ou son arête (une arête droite de la pièce à son rang), avec son sens ; la symétrie, sur son plan. La deuxième direction d'un réseau linéaire s'active, se règle (axe, sens, distance, nombre) et se retire ; sa distance est le pas si le réseau compte en pas, comme à la création. Le réseau linéaire revient aussi sur son mode, pas entre occurrences ou longueur totale, et la distance est celle de ce mode : en pas, FreeCAD ignore la longueur totale, et le panneau la montrait, si bien qu'une distance rééditée ne changeait rien ; elle vise maintenant le pas. Changer de mode emporte la distance telle qu'elle est écrite. `set_params` prend `features`, `axis` ou `edge`, `reversed`, `plane`, `mode`, `dir2`, `axis2`, `edge2`, `reversed2`, `length2` et `count2`. Selftest p113 à p119.
 
 Reste :
 
 - **Profils et esquisses** : le contour de la Surface plane (une esquisse) ne se re-choisit pas à la réédition.
-- **Corps et fonctions répétés** : fonctions répétées, corps répétés, corps concernés (écart n° 22, « Restent… »).
-- **Direction** : axe, arête, inversion, pour les trois répétitions. Pas ou longueur totale, activation de la direction 2 : la deuxième direction n'apparaît à la réédition que si elle existe déjà.
+- **Corps répétés** : les corps d'une répétition de corps, sa direction et son sens (écart n° 22, « Restent… »).
 - **Outils** : le corps outil de Combiner, la surface outil de Couper avec une surface, les deux surfaces de la Courbe d'intersection, l'esquisse source de Projeter.
 - **Surfaces d'origine** : Surface décalée, Épaissir, Surface radiée, Forme libre, Pôles, Prolonger (bord), Ajuster (outil, point cliqué), Congé de surfaces (arêtes, un seul rayon pour toutes).
 - **Indices de face ou d'arête** : si la source change de topologie, la fonction peut pointer sur autre chose. Aucun test de décalage d'indice trouvé (comportement à vérifier).

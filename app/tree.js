@@ -26,6 +26,8 @@ import {
   checkedContours, contourRows, vertexChamferEditValues, vertexChamferPick,
   vertexChamferPointValues, vertexChamferRow, vertexChamferRows,
   REMOVE_BODIES_NOTE, removeBodiesGroups, removeBodiesParams,
+  patternEditGroups, patternEditValues, patternFeaturesPick,
+  patternFeaturesValues,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -2380,6 +2382,56 @@ export function installTree(ctx) {
     });
   }
 
+  /** Répétition de fonctions : le panneau de sa création, au rang — ses
+   *  fonctions (zone), sa direction et son sens, son plan, sa deuxième
+   *  direction, ses cotes, les corps qu'elle creuse. */
+  async function editPattern(feature) {
+    let info;
+    try {
+      info = await call("get_params", { feature: feature.name });
+    } catch (error) {
+      say(error.message, true);
+      return;
+    }
+    const pattern = feature.pattern;
+    const tree = ctx.lastTree;
+    // La deuxième direction a ses rangées : pas de doublon.
+    const params = info.params.filter(
+      (p) => p.key !== "count2" && p.key !== "length2");
+    const dims = params.map((p) => {
+      const [label, unit] = paramLabel(feature.type_key, p.key);
+      return { type: "text", key: p.key, label: (p.expr ? "Σ " : "") + label,
+               unit, value: String(p.expr ?? p.value) };
+    });
+    const changedDims = (v) => {
+      const values = {};
+      for (const p of params) {
+        const raw = String(v[p.key] ?? "").trim();
+        if (raw && raw !== String(p.expr ?? p.value)) values[p.key] = raw;
+      }
+      return values;
+    };
+    return editAtRank(feature, {
+      icon: TREE_ICONS[feature.type_key] ?? "body",
+      zone: {
+        label: "Fonctions à répéter",
+        row: { type: "selection", key: "features", accepts: ["feature"],
+               multiple: true, hint: "Cliquez les fonctions dans l'arbre",
+               value: patternFeaturesPick(pattern, tree) },
+        changed: (v) => patternFeaturesValues(v.features, pattern),
+        missing: "Cliquez les fonctions dans l'arbre",
+      },
+      groups: [...patternEditGroups(pattern, feature.type_key, dims),
+               ...bodyChoiceGroups(feature, tree)],
+      values: (v) => {
+        const own = patternEditValues(v, pattern, feature.type_key);
+        return own && withBodyChoices({ ...changedDims(v), ...own }, v,
+                                      feature, tree);
+      },
+      problem: () => "Valeurs invalides",
+    });
+  }
+
   /** Les cotes de get_params, avec l'aperçu jaune et la flèche ; les
    *  corps creusés d'une répétition d'enlèvements. */
   async function editParams(feature) {
@@ -2458,6 +2510,7 @@ export function installTree(ctx) {
     draft: (feature) => editDraft(feature),
     hole: (feature) => editHole(feature),
     remove_bodies: (feature) => editRemoveBodies(feature),
+    pattern: (feature) => editPattern(feature),
     params: editParams,
   };
 
