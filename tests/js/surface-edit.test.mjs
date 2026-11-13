@@ -5,8 +5,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
-  planarEditValues, planarSketchPick, signedEditValues, sourceEditValues,
+  cutOptionValues, intersectionEditValues, projectEditValues,
+  projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
+  planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
 } from "../../app/features.js";
 import { surfaceEditor } from "../../app/editkind.js";
@@ -43,7 +44,7 @@ describe("surface plane rééditée", () => {
                     children: [{ name: "Sketch", label: "Contour" }] };
 
   it("revient avec son esquisse", () => {
-    assert.deepEqual(planarSketchPick(surface),
+    assert.deepEqual(ownSketchPick(surface),
                      { kind: "sketch", name: "Sketch", label: "Contour" });
   });
 
@@ -104,4 +105,93 @@ describe("congé de surface réédité", () => {
     spec), null);
     assert.equal(filletEdgesValues(zone("Surface", []), spec), null);
   });
+});
+
+describe("coupe par surface rééditée", () => {
+  const side = { surface: "Surface", flip: false };
+  const band = { surface: "Surface", flip: true, thickness: 3 };
+
+  it("envoie sa surface outil sous la clé de la création", () => {
+    assert.deepEqual(sourceEditValues({ name: "Surface001" }, "Surface",
+                                      "surface"), { surface: "Surface001" });
+  });
+
+  it("n'envoie que le côté ou la bande qui changent", () => {
+    assert.deepEqual(cutOptionValues({ flip: false, thick: false }, side), {});
+    assert.deepEqual(cutOptionValues({ flip: true, thick: false }, side),
+                     { flip: true });
+    assert.deepEqual(cutOptionValues({ flip: true, thick: true,
+                                       thickness: "3" }, band), {});
+    assert.deepEqual(cutOptionValues({ flip: true, thick: true,
+                                       thickness: "5" }, band),
+                     { thickness: 5 });
+  });
+
+  it("passe d'un côté entier à une bande, et retour", () => {
+    assert.deepEqual(cutOptionValues({ flip: false, thick: true,
+                                       thickness: "2" }, side),
+                     { thickness: 2 });
+    assert.deepEqual(cutOptionValues({ flip: true, thick: false }, band),
+                     { thickness: null });
+    assert.equal(cutOptionValues({ flip: false, thick: true,
+                                   thickness: "0" }, side), null);
+  });
+});
+
+describe("courbe d'intersection rééditée", () => {
+  const spec = { kind: "intersection", first: "Surface", second: "Surface001",
+                 body: false };
+  const pick = (name) => ({ kind: "surface", name });
+
+  it("n'envoie que la surface ou le solide qui changent", () => {
+    assert.deepEqual(intersectionEditValues(
+      { first: pick("Surface"), second: pick("Surface001") }, spec), {});
+    assert.deepEqual(intersectionEditValues(
+      { first: pick("Surface"), second: pick("Surface002") }, spec),
+    { second: "Surface002" });
+    assert.deepEqual(intersectionEditValues(
+      { first: pick("Surface002"), body: true }, spec),
+    { first: "Surface002", body: true });
+  });
+
+  it("refuse une seule surface, ou deux fois la même", () => {
+    assert.equal(intersectionEditValues({ first: pick("Surface") }, spec),
+                 null);
+    assert.equal(intersectionEditValues(
+      { first: pick("Surface"), second: pick("Surface") }, spec), null);
+  });
+
+  it("se rouvre, comme la courbe projetée", () => {
+    assert.equal(surfaceEditor({ surface: spec }), "intersection");
+    assert.equal(surfaceEditor({ surface: { kind: "project" } }), "project");
+  });
+});
+
+describe("courbe projetée rééditée", () => {
+  const spec = { kind: "project", sketch: "Sketch", surface: "Surface",
+                 face: 0 };
+  const sketch = (name) => ({ kind: "sketch", name });
+  const face = (name, n) => ({ kind: "surfface", name, face: n });
+
+  it("revient sur sa face", () => {
+    assert.deepEqual(projectTargetPick(tree, spec),
+                     { kind: "surfface", name: "Surface", label: "Plane",
+                       face: 0 });
+  });
+
+  it("n'envoie que l'esquisse, la surface ou la face qui changent", () => {
+    assert.deepEqual(projectEditValues(
+      { sketch: sketch("Sketch"), target: face("Surface", 0) }, spec), {});
+    assert.deepEqual(projectEditValues(
+      { sketch: sketch("Sketch001"), target: face("Surface", 2) }, spec),
+    { sketch: "Sketch001", face: 2 });
+    assert.deepEqual(projectEditValues(
+      { sketch: sketch("Sketch"), target: pick("Surface001") }, spec),
+    { surface: "Surface001", face: 0 });
+    assert.equal(projectEditValues({ sketch: sketch("Sketch") }, spec), null);
+  });
+
+  function pick(name) {
+    return { kind: "surface", name };
+  }
 });

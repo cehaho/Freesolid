@@ -29,8 +29,10 @@ import {
   patternEditGroups, patternEditValues, patternFeaturesPick,
   patternFeaturesValues, patternSourcesPick, patternSourcesValues,
   BODY_PATTERN_TYPES, bodyZoneRow,
-  extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
-  planarEditValues, planarSketchPick, signedEditValues, sourceEditValues,
+  cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
+  filletEdgesValues,
+  intersectionEditValues, ownSketchPick, planarEditValues,
+  projectEditValues, projectTargetPick, signedEditValues, sourceEditValues,
   surfacePick,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
@@ -1731,6 +1733,8 @@ export function installTree(ctx) {
     trim: (surface) => editTrim(surface),
     offset: (surface) => editOffset(surface),
     planar: (surface) => editPlanar(surface),
+    intersection: (surface) => editIntersection(surface),
+    project: (surface) => editProject(surface),
     thicken: (surface) => editThicken(surface),
     radiate: (surface) => editRadiate(surface),
     surface_fillet: (surface) => editSurfaceFillet(surface),
@@ -1790,13 +1794,65 @@ export function installTree(ctx) {
         label: "Contour",
         row: { type: "selection", key: "profile", accepts: ["sketch"],
                hint: "Cliquez l'esquisse du contour fermé",
-               value: planarSketchPick(surface) },
+               value: ownSketchPick(surface) },
         changed: (v) => planarEditValues(v.profile, spec),
         missing: "Surface plane : une esquisse au contour fermé",
       },
       groups: [],
       values: () => ({}),
       problem: () => "Surface plane : une esquisse au contour fermé",
+    });
+  }
+
+  // Courbe d'intersection : ses deux surfaces, ou une surface et le
+  // solide, comme à la création, sur la pièce à son rang.
+  function editIntersection(surface) {
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "curve_intersection",
+      zone: {
+        label: "Surfaces",
+        rows: [
+          { type: "selection", key: "first", accepts: ["surface"],
+            hint: "Cliquez une surface",
+            value: surfacePick(ctx.lastTree, spec.first) },
+          { type: "selection", key: "second", accepts: ["surface"],
+            hint: "Puis la seconde surface",
+            value: surfacePick(ctx.lastTree, spec.second),
+            showIf: (v) => !v.body },
+        ],
+        changed: (v) => intersectionEditValues(v, spec),
+        missing: "Intersection : deux surfaces, ou une surface et le solide",
+      },
+      groups: [{ label: "Options", rows: [
+        { type: "check", key: "body", label: "Avec le solide",
+          value: !!spec.body }] }],
+      values: () => ({}),
+      problem: () => "Intersection : deux surfaces, ou une surface et le solide",
+    });
+  }
+
+  // Courbe projetée : son esquisse et la face où elle se pose, comme à la
+  // création, sur la pièce à son rang.
+  function editProject(surface) {
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "curve_project",
+      note: "Les traits se projettent selon la normale de l'esquisse.",
+      zone: {
+        label: "Esquisse",
+        row: { type: "selection", key: "sketch", accepts: ["sketch"],
+               hint: "Cliquez l'esquisse à projeter",
+               value: ownSketchPick(surface) },
+        changed: (v) => projectEditValues(v, spec),
+        missing: "Projeter : une esquisse puis une face de surface",
+      },
+      groups: [{ label: "Face cible", rows: [
+        { type: "selection", key: "target", accepts: ["surfface", "surface"],
+          hint: "Puis la face de surface où projeter",
+          value: projectTargetPick(ctx.lastTree, spec) }] }],
+      values: () => ({}),
+      problem: () => "Projeter : une esquisse puis une face de surface",
     });
   }
 
@@ -1827,31 +1883,34 @@ export function installTree(ctx) {
     });
   }
 
-  // Coupe par surface : garder l'autre côté, avec l'aperçu.
+  // Coupe par surface : sa surface outil, son côté, tout un côté ou une
+  // bande épaisse, comme à la création, sur la pièce à son rang.
   function editSurfaceCut(feature) {
     const spec = feature.surface_cut;
-    panel.open({
+    return editAtRank(feature, {
       icon: "surface_cut",
-      title: feature.label,
-      groups: [{
-        label: t("Options"),
-        rows: [
-          { type: "check", key: "flip", label: t("Inverser le côté"),
-            value: spec.flip },
-          ...(spec.thickness ? [{ type: "number", key: "thickness",
-            label: t("Épaisseur"), value: spec.thickness, unit: "mm",
-            min: 0.01 }] : []),
-        ],
-      }],
-      onApply: (v) => {
-        const thickness = spec.thickness ? num(v.thickness) : null;
-        if (!!v.flip === spec.flip && thickness === (spec.thickness ?? null)) {
-          return;
-        }
-        if (spec.thickness && !(thickness > 0)) return;
-        refresh(call("edit_surface_cut", { feature: feature.name,
-          flip: !!v.flip, ...(thickness ? { thickness } : {}) }));
+      note: "L'aperçu montre ce qui reste. La surface doit traverser le "
+        + "solide de part en part ; en bande épaisse, seule la matière "
+        + "qu'elle occupe part.",
+      zone: {
+        label: "Surface",
+        row: { type: "selection", key: "surface", accepts: ["surface"],
+               hint: "Cliquez la surface qui traverse le solide",
+               value: surfacePick(ctx.lastTree, spec.surface) },
+        changed: (v) => sourceEditValues(v.surface, spec.surface, "surface"),
+        missing: "Couper : cliquez une surface",
       },
+      groups: [{ label: "Options", rows: [
+        { type: "check", key: "flip", label: "Inverser le côté",
+          value: spec.flip },
+        { type: "check", key: "thick", label: "Enlever une bande épaisse",
+          value: !!spec.thickness },
+        { type: "number", key: "thickness", label: "Épaisseur",
+          value: spec.thickness ?? 2, unit: "mm", min: 0.01,
+          showIf: (v) => v.thick },
+      ] }],
+      values: (v) => cutOptionValues(v, spec),
+      problem: () => "Couper : une épaisseur positive",
     });
   }
 
@@ -2247,7 +2306,8 @@ export function installTree(ctx) {
     let applied = false;
     // La zone vient d'abord, ou après les autres groupes (`after`) ; elle
     // peut ne se montrer que selon eux (`showIf`).
-    const zoneGroups = pick ? [{ label: pick.label, rows: [pick.row],
+    const zoneGroups = pick ? [{ label: pick.label,
+      rows: pick.rows ?? [pick.row],
       ...(pick.showIf ? { showIf: pick.showIf } : {}) }] : [];
     panel.open({
       icon,

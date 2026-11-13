@@ -5323,3 +5323,137 @@ def p121_surface_rechoisit_sa_source(self, mark, report, etat):
         and fillet.Shape.BoundBox.XMin > 49
         and edit(fillet, edges=[lone]).get("ok") is False
         and clean())
+
+
+def p122_outil_rechoisi(self, mark, report, etat):
+    mark("p122: coupe, intersection et projection re-choisissent leurs "
+         "formes")
+    import math
+
+    import FreeCAD as App
+    from engine.kernel import dispatch
+
+    def call(name, **params):
+        return dispatch(self, name, params)
+
+    def edit(obj, **values):
+        return call("set_params", feature=obj.Name, values=values)
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def wall(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_line(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        self._doc.getObject(name).AttachmentOffset = App.Placement(
+            App.Vector(0, 0, -10), App.Rotation())
+        self._recompute()
+        return self.surface_extrude(40, sketch=name)["surfaces"][-1]["name"]
+
+    def volume():
+        return self._require_body().Shape.Volume
+
+    def cut_spec(cut):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == cut.Name).get("surface_cut")
+
+    # Un bloc 40 × 40 × 20 coupé par sa diagonale ; un mur à x = 10, un
+    # autre hors du bloc.
+    self.new_part("Coupe re-choisie")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(20)
+    diagonal = wall(-40, -40, 40, 40)
+    side = wall(10, -40, 10, 40)
+    far = wall(100, -40, 100, 40)
+    self.add_surface_cut(diagonal)
+    cut = self._require_body().Tip
+    moved = edit(cut, surface=side)
+    on_side = volume()
+    banded = edit(cut, thickness=4, flip=True)
+    in_band = volume()
+    band_spec = cut_spec(cut)
+    whole = edit(cut, thickness=None, flip=False)
+    refused = edit(cut, surface=far)
+    later = wall(-10, -40, -10, 40)
+    report["p122_coupe_rechoisit_sa_surface"] = (
+        moved.get("ok") is True and abs(on_side - 8000) < 1e-3
+        and banded.get("ok") is True and abs(in_band - 28800) < 1e-3
+        and band_spec == {"surface": side, "flip": True, "thickness": 4.0}
+        and whole.get("ok") is True and abs(volume() - 8000) < 1e-3
+        and refused.get("ok") is False and abs(volume() - 8000) < 1e-3
+        and cut_spec(cut) == {"surface": side, "flip": False}
+        and "vient après" in (edit(cut, surface=later).get("error") or "")
+        and clean())
+
+    # Courbe d'intersection : un plancher à z = 5, coupé par un tube de
+    # rayon 5 puis par un de rayon 8, puis le tube et le solide.
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def circle(x, y, r, z):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_circle(name, x, y, r)
+        self.sketch_finish(name)
+        self._doc.getObject(name).AttachmentOffset = App.Placement(
+            App.Vector(0, 0, z), App.Rotation())
+        self._recompute()
+        return name
+
+    def square(z):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, -30, -30, 30, 30)
+        self.sketch_finish(name)
+        self._doc.getObject(name).AttachmentOffset = App.Placement(
+            App.Vector(0, 0, z), App.Rotation())
+        self._recompute()
+        return last(self.surface_planar(sketch=name))
+
+    def curve_spec(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name).get("surface")
+
+    self.new_part("Courbes re-choisies")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    floor, high = square(5), square(20)
+    tube = last(self.surface_extrude(30, sketch=circle(0, 0, 5, -5)))
+    wide = last(self.surface_extrude(30, sketch=circle(0, 0, 8, -5)))
+    section = last(self.curve_intersection(floor.Name, tube.Name))
+    listed = curve_spec(section) == {"kind": "intersection",
+                                     "first": floor.Name,
+                                     "second": tube.Name, "body": False}
+    wider = edit(section, second=wide.Name)
+    wide_length = section.Shape.Length
+    solid = edit(section, first=tube.Name, body=True)
+    report["p122_intersection_rechoisit_ses_formes"] = (
+        listed and wider.get("ok") is True
+        and abs(wide_length - 2 * math.pi * 8) < 1e-3
+        and solid.get("ok") is True
+        and abs(section.Shape.Length - 4 * math.pi * 5) < 1e-3
+        and curve_spec(section)["body"] is True
+        and edit(section, body=False).get("ok") is False
+        and edit(section, body=False, first=high.Name,
+                 second=floor.Name).get("ok") is False
+        and abs(section.Shape.Length - 4 * math.pi * 5) < 1e-3
+        and clean())
+
+    # Courbe projetée : un cercle projeté sur le plancher, puis un autre
+    # cercle, puis sur la surface haute.
+    first, other = circle(0, 0, 4, 40), circle(5, 5, 2, 40)
+    projected = last(self.curve_project(first, floor.Name))
+    listed = curve_spec(projected) == {"kind": "project", "sketch": first,
+                                       "surface": floor.Name, "face": 0}
+    swapped = edit(projected, sketch=other)
+    small = projected.Shape.Length
+    raised = edit(projected, surface=high.Name)
+    later = circle(0, 0, 1, 40)
+    report["p122_projetee_rechoisit_esquisse_et_face"] = (
+        listed and swapped.get("ok") is True
+        and abs(small - 2 * math.pi * 2) < 1e-3
+        and raised.get("ok") is True
+        and abs(projected.Shape.BoundBox.ZMin - 20) < 1e-3
+        and edit(projected, face=3).get("ok") is False
+        and "vient après" in (edit(projected, sketch=later).get("error")
+                              or "")
+        and clean())

@@ -114,14 +114,68 @@ export function surfacePick(tree, name) {
 }
 
 /** La zone d'une surface re-choisie : `{}` si c'est la même, `{ source }`
- *  sinon, null si elle est vide. */
-export function sourceEditValues(sel, before) {
+ *  sinon (ou sous `key`), null si elle est vide. */
+export function sourceEditValues(sel, before, key = "source") {
   if (!sel?.name) return null;
-  return sel.name === before ? {} : { source: sel.name };
+  return sel.name === before ? {} : { [key]: sel.name };
 }
 
-/** L'esquisse du contour d'une surface plane, prise parmi ses enfants. */
-export function planarSketchPick(surface) {
+/** Courbe d'intersection rééditée : ses deux surfaces, ou une surface et
+ *  le solide ; seulement ce qui change, null s'il en manque une. */
+export function intersectionEditValues(v, spec) {
+  if (!v.first?.name) return null;
+  const out = {};
+  if (v.first.name !== spec.first) out.first = v.first.name;
+  if (!!v.body !== !!spec.body) out.body = !!v.body;
+  if (!v.body) {
+    if (!v.second?.name || v.second.name === v.first.name) return null;
+    if (v.second.name !== spec.second) out.second = v.second.name;
+  }
+  return out;
+}
+
+/** La face où une courbe projetée se pose, comme la zone la montre. */
+export function projectTargetPick(tree, spec) {
+  if (!spec?.surface) return null;
+  return { ...surfacePick(tree, spec.surface), kind: "surfface",
+           face: spec.face ?? 0 };
+}
+
+/** Courbe projetée rééditée : son esquisse, sa surface et sa face, si
+ *  elles changent ; null s'il en manque une. */
+export function projectEditValues(v, spec) {
+  if (!v.sketch?.name || !v.target?.name) return null;
+  const out = {};
+  if (v.sketch.name !== spec.sketch) out.sketch = v.sketch.name;
+  const face = v.target.face ?? 0;
+  if (v.target.name !== spec.surface) {
+    Object.assign(out, { surface: v.target.name, face });
+  } else if (face !== (spec.face ?? 0)) {
+    out.face = face;
+  }
+  return out;
+}
+
+/** Coupe par surface rééditée : le côté et la bande, seulement ce qui
+ *  change ; `thickness: null` la repasse à tout un côté. */
+export function cutOptionValues(v, spec) {
+  const out = {};
+  if (!!v.flip !== !!spec.flip) out.flip = !!v.flip;
+  if (v.thick) {
+    const thickness = num(v.thickness);
+    if (!(thickness > 0)) return null;
+    if (Math.abs(thickness - (spec.thickness ?? 0)) > 1e-9) {
+      out.thickness = thickness;
+    }
+  } else if (spec.thickness) {
+    out.thickness = null;
+  }
+  return out;
+}
+
+/** L'esquisse qu'une surface prend (contour d'une surface plane, traits
+ *  d'une courbe projetée), prise parmi ses enfants. */
+export function ownSketchPick(surface) {
   const name = surface?.surface?.sketch;
   if (!name) return null;
   const child = (surface.children ?? []).find((c) => c.name === name);

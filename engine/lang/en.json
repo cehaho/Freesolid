@@ -477,6 +477,7 @@
  "les deux formes ne se coupent pas": "the two shapes do not intersect",
  "projeter demande une surface, pas une courbe": "projecting needs a surface, not a curve",
  "la projection ne touche pas la face": "the projection does not touch the face",
+ "cliquez l'esquisse à projeter": "click the sketch to project",
  "aucune arête retenue": "no edge kept",
  "les arêtes ne se suivent pas bout à bout": "the edges do not follow end to end",
  "congé de surface inconnu : {}": "unknown surface fillet: {}",
