@@ -253,6 +253,161 @@ class SurfaceSolidMixin:
             helper.FreeSolidThinOwner = owner.Name
         return self.get_tree()
 
+    def _frozen_steps(self, owner):
+        """``[(booléen, forme figée), …]`` d'une suppression ou d'un
+        remplacement de face : l'ajout auxiliaire d'un cas mixte d'abord,
+        la fonction elle-même ensuite."""
+        body = owner.getParentGeoFeatureGroup()
+        helpers = [o for o in body.Group
+                   if getattr(o, "FreeSolidThinOwner", "") == owner.Name]
+        steps = []
+        for boolean in helpers + [owner]:
+            tools = self._boolean_tools(boolean)
+            steps.append((boolean, tools[0].BaseFeature if tools else None))
+        return steps
+
+    def _set_frozen_face_params(self, owner, values):
+        """``set_params`` d'une suppression (``faces``) ou d'un
+        remplacement de face (``face``, ``surface``) du solide, re-choisis
+        sur la pièce à son rang. La forme se recalcule sur la fonction
+        d'avant ; le booléen suit : un ajout, une intersection, ou les deux
+        à la suite quand elle fait les deux. Tout ou rien."""
+        from engine.kernel import KernelError, _explain
+        deleting = bool(getattr(owner, "FreeSolidDeletefaces", ""))
+        allowed = ("faces",) if deleting else ("face", "surface")
+        for key in values:
+            if key not in allowed:
+                raise KernelError("propriété non éditable : {}".format(key))
+        doc = self._require_doc()
+        steps = self._frozen_steps(owner)
+        frozen = steps[-1][1]
+        base = doc.getObject(frozen.FreeSolidDefeatbase if deleting
+                             else frozen.FreeSolidReplacebase)
+        if deleting:
+            indices = sorted({int(f) for f in values.get("faces") or ()})
+            if not indices:
+                raise KernelError("cliquez les faces à supprimer")
+            stamps = {"defeatbase": base.Name,
+                      "defeatfaces": ";".join(str(i) for i in indices)}
+            owned = {"deletefaces": stamps["defeatfaces"]}
+        else:
+            face = int(values.get("face", frozen.FreeSolidReplaceface))
+            surface = frozen.FreeSolidReplacesurface
+            if "surface" in values:
+                src = self._get_surface(str(values["surface"]))
+                self._refuse_later_source(owner, src)
+                surface = src.Name
+            stamps = {"replacebase": base.Name, "replaceface": face,
+                      "replacesurface": surface}
+            owned = {"replacedface": face + 1, "replacedby": surface}
+        result = self._frozen_result(stamps, base.Shape)
+        before = base.Shape
+        tolerance = 1e-6 * max(before.Volume, 1.0)
+        mixed = (before.cut(result).Volume >= tolerance
+                 and result.cut(before).Volume >= tolerance)
+        kind = ("Fuse" if before.cut(result).Volume < tolerance
+                else "Common")
+        saved = [(owner, "Type", owner.Type)] + [
+            (owner, "FreeSolid" + key.capitalize(),
+             getattr(owner, "FreeSolid" + key.capitalize()))
+            for key in owned]
+        for _, shape in steps:
+            saved.append((shape, "Shape", shape.Shape.copy()))
+            saved += [(shape, "FreeSolid" + key.capitalize(),
+                       getattr(shape, "FreeSolid" + key.capitalize()))
+                      for key in stamps]
+        made = []
+        try:
+            if len(steps) == 1 and mixed:
+                # Elle ajoute et retire de la matière : un ajout auxiliaire
+                # se pose avant elle, qui devient l'intersection.
+                made = self._insert_frozen_fuse(
+                    owner, result, stamps,
+                    "Supprimer la face" if deleting else "Remplacer la face")
+                steps.insert(0, (made[0], made[2]))
+                owner.Type = "Common"
+            elif len(steps) == 1:
+                owner.Type = kind
+            for _, shape in steps:
+                shape.Shape = result
+                self._stamp(shape, **stamps)
+            self._stamp(owner, **owned)
+            self._recompute()
+            if abs(owner.Shape.Volume - result.Volume) > tolerance:
+                raise KernelError("le modeleur n'a pas pu ranger cette "
+                                  "forme dans l'historique")
+        except Exception as exc:  # noqa: BLE001
+            body = owner.getParentGeoFeatureGroup()
+            if made:
+                tip = body.Tip
+                body.removeObject(made[0])
+                for obj in made:
+                    try:
+                        doc.removeObject(obj.Name)
+                    except Exception:  # noqa: BLE001
+                        pass
+                body.Tip = tip
+            for obj, prop, value in saved:
+                if obj not in made:
+                    setattr(obj, prop, value)
+            try:
+                self._recompute()
+            except KernelError:
+                pass
+            message = (str(exc) if isinstance(exc, KernelError)
+                       else _explain(exc))
+            raise KernelError(
+                "{} — la pièce n'a pas été modifiée".format(message))
+        return self.get_tree()
+
+    def _insert_frozen_fuse(self, owner, result, stamps, label):
+        """L'ajout auxiliaire d'une forme figée, posé juste avant
+        ``owner`` : ``[booléen, corps outil, forme]``."""
+        doc = self._require_doc()
+        body = owner.getParentGeoFeatureGroup()
+        frozen = doc.addObject("Part::Feature", "FrozenShape")
+        self._mark_internal(frozen)
+        frozen.Shape = result
+        self._stamp(frozen, **stamps)
+        tool_body = doc.addObject("PartDesign::Body", "FrozenBody")
+        self._mark_internal(tool_body)
+        tool_body.BaseFeature = frozen
+        helper = doc.addObject("PartDesign::Boolean", "Boolean")
+        tip = body.Tip
+        body.insertObject(helper, owner, False)
+        body.Tip = tip
+        helper.Type = "Fuse"
+        self._set_boolean_tools(helper, [tool_body])
+        helper.Label = self._t(label + " — ajout")
+        helper.addProperty("App::PropertyBool", self._THIN_HELPER,
+                           "FreeSolid", "Objet auxiliaire")
+        setattr(helper, self._THIN_HELPER, True)
+        helper.addProperty("App::PropertyString", "FreeSolidThinOwner",
+                           "FreeSolid", "Fonction propriétaire")
+        helper.FreeSolidThinOwner = owner.Name
+        return [helper, tool_body, frozen]
+
+    def _set_mid_params(self, obj, values):
+        """Surface médiane : ses deux faces en vis-à-vis (``faces``, base
+        0), ou toutes les parois plus minces que ``thickness``."""
+        from engine.kernel import KernelError
+        base = self._require_doc().getObject(obj.FreeSolidMidbase)
+        if "faces" in values:
+            pair = [int(f) for f in values["faces"] or ()]
+            if len(pair) != 2 or pair[0] == pair[1]:
+                raise KernelError("cliquez les deux faces en vis-à-vis de "
+                                  "la paroi")
+            spec = "%d;%d" % tuple(pair)
+        elif "thickness" in values:
+            thickness = values["thickness"]
+            if thickness is None or float(thickness) <= 0:
+                raise KernelError("indiquez l'épaisseur de paroi maximale")
+            spec = "auto:%.9g" % float(thickness)
+        else:
+            return
+        obj.Shape = self._mid_from_spec(base.Shape, spec)
+        self._stamp(obj, midfaces=spec)
+
     def surface_mid(self, faces=None, thickness=None):
         """Surface médiane d'une paroi. Deux faces cliquées en vis-à-vis :
         planes parallèles et cylindres concentriques exacts, faces

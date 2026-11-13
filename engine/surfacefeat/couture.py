@@ -24,6 +24,23 @@ class SurfaceSewMixin:
         self._stamp(sewn, sources=";".join(str(n) for n in surfaces))
         return self.get_tree()
 
+    def _set_sew_params(self, obj, values):
+        """Couture : ses surfaces (``surfaces``), re-choisies comme à la
+        création. Un nom donné reste ; celui par défaut suit la peau
+        (fermée : un solide)."""
+        from engine.kernel import KernelError
+        names = list(dict.fromkeys(str(n) for n in values["surfaces"] or ()))
+        if len(names) < 2:
+            raise KernelError("coudre demande au moins deux surfaces")
+        shape = self._sew_shape([self._picked_surface(obj, name).Shape
+                                 for name in names])
+        defaults = {self._t("Solide cousu"), self._t("Surface cousue")}
+        obj.Shape = shape
+        self._stamp(obj, sources=";".join(names))
+        if obj.Label in defaults:
+            obj.Label = self._t("Solide cousu" if shape.Solids
+                                else "Surface cousue")
+
     @staticmethod
     def _sew_shape(shapes):
         """Peau cousue des faces de ``shapes`` ; solide si elle est

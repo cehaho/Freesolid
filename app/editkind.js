@@ -29,6 +29,9 @@ export function featureEditor(item) {
   if (item.vertex_chamfer) return "vertex_chamfer";
   if (item.text) return "text";
   if (item.surface_cut) return "surface_cut";
+  // Supprimer ou remplacer une face du solide : ses faces, sa surface.
+  if (item.delete_face) return "delete_face";
+  if (item.replace_face) return "replace_face";
   // Combiner : son opération et son corps outil.
   if (item.combine) return "combine";
   if (item.type_key === "chamfer" && item.chamfer) return "chamfer";
@@ -80,6 +83,8 @@ export function surfaceEditor(item) {
   if (kind === "split") return "split";
   if (kind === "untrim") return "untrim";
   if (kind === "deleteface") return "surface_delete_face";
+  // Couture et médiane : des formes figées, recalculées sur leurs sources.
+  if (kind === "sew" || kind === "mid") return kind;
   if (isFrozen(item)) return null;
   // Radiée : distance et sens, comme à la création.
   if (item.type_key === "surface_radiate") return params(item) && "radiate";
