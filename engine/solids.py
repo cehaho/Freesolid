@@ -2126,6 +2126,88 @@ class SolidsMixin:
             raise
         return self.get_tree()
 
+    def _hole_positions(self, hole):
+        """Positions d'un perçage posé par « face, clics » : ``{"face": id,
+        "points": [[x, y, z]…]}`` — la face de sa base où son esquisse est
+        posée, et les centres de ses cercles (monde). None si l'esquisse
+        porte autre chose que des cercles, n'est pas posée sur une face de
+        sa base, ou sert aussi à une autre fonction : ses positions ne se
+        re-choisissent pas, l'esquisse se réédite."""
+        profile = getattr(hole, "Profile", None)
+        sketch = profile[0] if profile else None
+        base = getattr(hole, "BaseFeature", None)
+        if (sketch is None or base is None
+                or sketch.TypeId != "Sketcher::SketchObject"):
+            return None
+        support = (getattr(sketch, "AttachmentSupport", None)
+                   or getattr(sketch, "Support", None) or [])
+        if len(support) != 1:
+            return None
+        target, subs = support[0]
+        subs = list(subs) if isinstance(subs, (list, tuple)) else [subs]
+        name = str(subs[0]) if len(subs) == 1 else ""
+        if (target is not base or not name.startswith("Face")
+                or not name[4:].isdigit()):
+            return None
+        if any(user is not hole and user.TypeId.startswith("PartDesign::")
+               and user.TypeId != "PartDesign::Body"
+               for user in sketch.InList):
+            return None
+        place = sketch.getGlobalPlacement()
+        points = []
+        for index, geometry in enumerate(sketch.Geometry):
+            if sketch.getConstruction(index):
+                continue
+            if geometry.TypeId != "Part::GeomCircle":
+                return None
+            center = place.multVec(geometry.Center)
+            points.append([round(center.x, 9), round(center.y, 9),
+                           round(center.z, 9)])
+        if not points:
+            return None
+        return {"face": int(name[4:]) - 1, "points": points}
+
+    def _set_hole_positions(self, hole, positions):
+        """Positions re-choisies d'un perçage : son esquisse se repose sur
+        la face (de sa base) et ne garde qu'un cercle par point, comme à la
+        création. Le transactionnel de ``set_params`` défait tout sur
+        refus."""
+        from engine.kernel import KernelError
+        import Part
+        if self._hole_positions(hole) is None:
+            raise KernelError(
+                "propriété non éditable : {}".format("positions"))
+        if not isinstance(positions, dict):
+            raise KernelError("perçage : la face des positions manque")
+        face, points = positions.get("face"), positions.get("points")
+        base = hole.BaseFeature
+        if type(face) is not int:
+            raise KernelError("perçage : la face des positions manque")
+        if not 0 <= face < len(base.Shape.Faces):
+            raise KernelError("face inconnue : {}".format(face))
+        if not isinstance(points, (list, tuple)) or not points:
+            raise KernelError("perçage : cliquez au moins une position")
+        coords = []
+        for point in points:
+            if not isinstance(point, (list, tuple)) or len(point) != 3:
+                raise KernelError("perçage : une position est [x, y, z]")
+            try:
+                coords.append([float(c) for c in point])
+            except (TypeError, ValueError):
+                raise KernelError("perçage : une position est [x, y, z]")
+        sketch = hole.Profile[0]
+        self._attach_to_support(
+            sketch, [(base, ("Face{}".format(face + 1),))])
+        sketch.recompute()
+        V = self._app().Vector
+        to_local = sketch.getGlobalPlacement().inverse()
+        radius = self._prop_float(hole, "Diameter") / 2
+        sketch.deleteAllGeometry()
+        for point in coords:
+            local = to_local.multVec(V(*point))
+            sketch.addGeometry(Part.Circle(
+                V(local.x, local.y, 0), V(0, 0, 1), radius), False)
+
     def _hole_positions_sketch(self, face, points, diameter):
         """Esquisse sur ``face`` avec un cercle par point (monde → plan)."""
         from engine.kernel import KernelError

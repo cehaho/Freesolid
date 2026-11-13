@@ -231,6 +231,7 @@ def _etapes():
         fonctions.p112_reseau_reduit_confirme,
         fonctions.p113_habillage_reedite_ses_aretes,
         fonctions.p114_coque_depouille_rechoisissent,
+        fonctions.p115_percage_rechoisit_ses_positions,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,
