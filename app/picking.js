@@ -317,6 +317,19 @@ export function installPicking(ctx) {
     panel.notifyPick("edges", { kind: "edges", edges: [...ctx.selectedEdges] });
   }
 
+  /** Sélectionne cette face, comme un clic (sans la barre d'actions). */
+  function selectFaceId(id) {
+    ctx.selectedFaceId = id;
+    ctx.selectedEdges = new Set();
+    ctx.cancelPendingSurfaceClick();
+    ctx.clearSketchSelection({ quiet: true });
+    ctx.clearSurfaceSelection({ quiet: true });
+    repaintEdges();
+    repaintGroups();
+    if (ctx.lastTree) ctx.renderTree(ctx.lastTree);
+    panel.notifyPick("face", { kind: "face", face: id });
+  }
+
   /** Sommet du solide le plus proche du clic, à l'écran (30 px au plus). */
   function nearestVertex(event) {
     let best = null;
@@ -1080,6 +1093,6 @@ export function installPicking(ctx) {
   return {
     raycaster, pointer, setPointerFromEvent,
     repaintGroups, repaintSurfaces, findFeatureInTree, clearFeatureDims,
-    selectEdgeIds, repaintOtherBodies,
+    selectEdgeIds, selectFaceId, repaintOtherBodies,
   };
 }

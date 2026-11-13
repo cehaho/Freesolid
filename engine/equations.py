@@ -69,6 +69,15 @@ class EquationsMixin:
         chosen = "bodies" in values
         bodies = values.pop("bodies", None)
         merge = values.pop("merge", None)
+        # Arêtes (ou face) d'un congé ou d'un chanfrein, re-choisies sur la
+        # pièce à son rang : des éléments de sa base, pas une cote.
+        targets = None
+        if "edges" in values or "face" in values:
+            if obj.TypeId not in self._DRESSUP_PICKS:
+                raise KernelError("propriété non éditable : {}".format(
+                    "edges" if "edges" in values else "face"))
+            targets = self._dressup_subs(obj, values.pop("edges", None),
+                                         values.pop("face", None))
         values, asked = self._props_from_keys(obj, values)
         if merge is not None and not self._merge_editable(obj):
             raise KernelError("« Fusionner » ne se change que sur un "
@@ -84,6 +93,14 @@ class EquationsMixin:
         # null »). On mémorise l'état pour tout restaurer sur refus.
         exprs_before = dict(obj.ExpressionEngine or [])
         previous = []  # (prop, ancienne expression ou None, ancienne valeur)
+        if targets is not None:
+            previous.append(("Base", None, obj.Base))
+            try:
+                obj.Base = (obj.Base[0] if obj.Base else obj.BaseFeature,
+                            targets)
+            except Exception as exc:  # noqa: BLE001
+                self._restore_props(obj, previous)
+                raise KernelError(_explain(exc))
         editable = (() if obj.TypeId in self._NO_DIMENSIONS
                     else self._EDITABLE_PROPS)
         thin = self._thin_spec(obj) is not None

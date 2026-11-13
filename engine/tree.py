@@ -557,6 +557,23 @@ class TreeMixin:
         self._end_rank_view()
         return self.get_tree()
 
+    def _rank_preview_bar(self, feature):
+        """Aperçu d'une réédition sur la vue au rang (``rank_view``) : la
+        barre juste sous la fonction, pour que le fantôme la montre
+        rééditée. Appelé dans la transaction de l'aperçu, que l'aperçu
+        annule : la vue reste au rang."""
+        from engine.kernel import rollback_tips
+        doc = self._require_doc()
+        history = self._history_lines()
+        names = [line.Name for line in history]
+        obj = doc.getObject(str(feature)) if feature else None
+        if obj is None or obj.Name not in names:
+            return
+        flags, tips = rollback_tips(self._history_rows(history), obj.Name)
+        self._apply_tips(tips)
+        self._apply_rollback_flags(flags)
+        self._set_bar_sketches()
+
     def _bar_state(self):
         """Où passe la barre : la pointe de chaque corps, les objets
         marqués reculés, l'esquisse sortie de sa fonction."""
@@ -1256,6 +1273,12 @@ class TreeMixin:
                     item["lines"] = lines
             if obj.TypeId == "PartDesign::Chamfer":
                 item["chamfer"] = self._chamfer_state(obj)
+            if obj.TypeId in self._DRESSUP_PICKS:
+                # Ses arêtes (ou sa face) : la réédition les re-choisit sur
+                # la pièce à son rang.
+                targets = self._dressup_targets(obj)
+                if targets is not None:
+                    item["dressup"] = targets
             thin = self._thin_spec(obj)
             if thin is not None:
                 item["thin"] = thin

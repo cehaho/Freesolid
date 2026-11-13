@@ -1042,6 +1042,11 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         bodies = {o.Name for o in doc.Objects
                   if o.TypeId == "PartDesign::Body"}
         try:
+            if (op == "set_params"
+                    and getattr(self, "_rank_view", None) is not None):
+                # Réédition au rang : la fonction se montre rééditée, la
+                # pièce d'après non ; l'annulation rend la vue au rang.
+                self._rank_preview_bar(params.get("feature"))
             getattr(self, op)(**params)
             if op == "add_datum_plane":
                 # Un plan ne change pas le solide : on renvoie où il se pose.
@@ -1102,11 +1107,23 @@ _DIRTY_OPS = frozenset({"undo", "redo", "sketch_move",
 #: Lectures qui gardent la vue au rang d'une fonction (``rank_view``) :
 #: celles que le panneau de réédition et la vue font pendant qu'il est
 #: ouvert. Toute autre opération rend d'abord la barre où elle était.
+#: L'aperçu annule tout ce qu'il fait ; la chaîne d'arêtes ne fait que
+#: lire la pièce affichée.
 _RANK_VIEW_READS = frozenset({
     "rank_view", "rank_view_end", "get_tree", "tessellate",
     "tessellate_edges", "remove_bodies_info", "get_params", "progress",
     "document_status", "undo_history", "material_library", "list_variables",
+    "preview", "edge_chain",
 })
+
+
+def _keeps_rank_view(op, params):
+    """L'opération garde-t-elle la vue au rang ? Une lecture de
+    ``_RANK_VIEW_READS`` ; l'aperçu, seulement celui d'une réédition
+    (``set_params``) — celui d'une création voit la pièce d'aujourd'hui."""
+    if op == "preview":
+        return isinstance(params, dict) and params.get("op") == "set_params"
+    return op in _RANK_VIEW_READS
 
 
 def _track_modified(kernel, op):
@@ -1188,7 +1205,7 @@ def dispatch(kernel: Kernel, op: str, params: dict, confirmed=False):
 def _dispatch(kernel, op, params):
     from . import protocol
     from .docprops import transaction_name
-    if (op not in _RANK_VIEW_READS
+    if (not _keeps_rank_view(op, params)
             and getattr(kernel, "_rank_view", None) is not None):
         # La pièce revient d'abord à aujourd'hui : rien ne s'applique,
         # ne s'enregistre ni ne s'annule sur la vue au rang d'une fonction.

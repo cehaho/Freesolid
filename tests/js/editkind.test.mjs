@@ -19,6 +19,11 @@ describe("éditeur d'une fonction", () => {
     assert.equal(featureEditor({ type_key: "feature", surface_cut: {} }),
       "surface_cut");
     assert.equal(featureEditor({ type_key: "chamfer", chamfer: {} }), "chamfer");
+    // Congé : ses arêtes se re-choisissent ; sans elles, son rayon seul.
+    assert.equal(featureEditor({ type_key: "fillet", dressup: { edges: [0] } }),
+      "fillet");
+    assert.equal(featureEditor({ type_key: "fillet", has_params: true }),
+      "params");
     assert.equal(featureEditor({ type_key: "groove", revolution: {} }),
       "revolution");
     assert.equal(featureEditor({ type_key: "pocket", extrude: {} }), "extrude");
