@@ -98,6 +98,10 @@ class EquationsMixin:
         # Arêtes ou faces d'un habillage (congé, chanfrein, coque,
         # dépouille), re-choisies sur la pièce à son rang : des éléments de
         # sa base, pas une cote. Le plan neutre d'une dépouille suit.
+        # La face d'arrivée d'une extrusion (« jusqu'à la face ») : une face
+        # de la pièce à son rang, posée avec les conditions de fin.
+        arrival = (values.pop("face", None)
+                   if obj.TypeId in self._EXTRUDE_KINDS else None)
         picks = {key: values.pop(key) for key in ("edges", "face", "faces")
                  if key in values}
         targets = self._picked_subs(obj, picks) if picks else None
@@ -216,12 +220,12 @@ class EquationsMixin:
             editable = editable + ("Length2", "FreeSolidThinReversed")
             options = {prop: values[prop] for prop in values
                        if prop in self._EXTRUDE_OPTIONS}
-            if options:
+            if options or arrival is not None:
                 values = {prop: value for prop, value in values.items()
                           if prop not in options}
                 try:
                     self._set_extrude_options(obj, options, previous,
-                                              exprs_before)
+                                              exprs_before, face=arrival)
                 except KernelError:
                     self._restore_props(obj, previous)
                     raise

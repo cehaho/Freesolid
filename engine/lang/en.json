@@ -333,7 +333,7 @@
  "{} : conditions de fin que la réédition ne sait pas changer": "{}: end conditions that editing cannot change",
  "sens de l'extrusion : booléen attendu": "extrusion direction: boolean expected",
  "{} : valeur numérique attendue": "{}: numeric value expected",
- "jusqu'à la face : la fonction n'a pas de face d'arrivée": "up to face: the feature has no end face",
+ "face d'arrivée : la condition de fin n'est pas « jusqu'à la face »": "end face: the end condition is not \"up to face\"",
  "côté de la paroi mince : booléen attendu": "thin wall side: boolean expected",
  "jusqu'à la face : la pièce n'a pas encore de face": "up to face: the part has no face yet",
  "Coïncidente": "Coincident",

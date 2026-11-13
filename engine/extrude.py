@@ -110,8 +110,8 @@ def extrude_options(kind, cond="borgne", midplane=False, reversed=False,
                     taper=0.0, offset=0.0, cond2=None, taper2=0.0):
     """Propriétés à poser pour changer les conditions d'une extrusion qui
     existe (``extrude_state`` en donne les valeurs d'avant). Les
-    profondeurs sont des cotes, rééditées à part ; la face d'arrivée
-    reste celle de la fonction."""
+    profondeurs sont des cotes, rééditées à part ; la face d'arrivée se
+    pose à part (``_set_extrude_options``), sur la pièce au rang."""
     if kind not in _TYPES:
         raise ExtrudeError("fonction inconnue : {}".format(kind))
     if midplane and cond2:

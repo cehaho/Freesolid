@@ -2179,21 +2179,31 @@ export function installTree(ctx) {
   }
 
   /** Extrusion ou enlèvement : le panneau de la création, rempli de ses
-   *  conditions, de ses cotes et de sa paroi mince. */
-  function editExtrude(feature) {
+   *  conditions, de ses cotes et de sa paroi mince. Quand un « jusqu'à »
+   *  peut l'arrêter, la pièce se montre à son rang (`rank_view`) : la face
+   *  d'arrivée s'y clique, celle de la fonction d'avant. */
+  async function editExtrude(feature) {
     const kind = feature.type_key === "pocket" ? "pocket" : "pad";
+    const initial = extrudeEditInitial(feature);
+    const tree = ctx.lastTree;
+    const toFace = extrudeGroups(kind, initial).flatMap((g) => g.rows)
+      .find((row) => row.key === "cond").options.some(([c]) => c === "face");
+    const atRank = toFace
+      ? await call("rank_view", { feature: feature.name }).catch(() => null)
+      : null;
+    if (atRank) await refresh(Promise.resolve(atRank));
     // La flèche du moteur vaut pour le sens d'avant : elle s'efface tant
     // que le sens ou la condition change.
     const depth = ctx.editDepthHandle?.(feature);
     const sameWay = (values) => !["cond", "midplane", "reversed", "cond2"]
       .some((key) => key in values);
-    const tree = ctx.lastTree;
     const build = (v) => (extrudeMergeProblem(v, feature, tree) ? null
       : withBodyChoices(extrudeEditValues(v, feature), v, feature, tree));
+    let applied = false;
     panel.open({
       icon: TREE_ICONS[feature.type_key] ?? "body",
       title: feature.label,
-      groups: [...extrudeGroups(kind, extrudeEditInitial(feature)),
+      groups: [...extrudeGroups(kind, initial),
                ...contourGroups(feature), ...bodyChoiceGroups(feature, tree)],
       onChange: (v, how) => {
         const values = build(v);
@@ -2203,16 +2213,26 @@ export function installTree(ctx) {
           : null, how);
         depth?.update(values && sameWay(values) ? v : {});
       },
-      onClose: () => depth?.close(),
+      onClose: () => {
+        depth?.close();
+        // Fermé sans réédition : la barre revient (voir editAtRank).
+        setTimeout(() => {
+          if (atRank && !applied) refresh(call("rank_view_end"));
+        }, 0);
+      },
       onApply: (v) => {
         const values = build(v);
         if (values === null) {
           say(extrudeEditProblem(v, feature, tree), true);
           return;
         }
-        applyEdit(feature, v, values);
+        applied = applyEdit(feature, v, values, { atRank: !!atRank });
       },
     });
+    // La face d'arrivée se surligne, et un clic la remplace.
+    if (atRank && initial.cond === "face" && initial.face !== null) {
+      ctx.selectFaceId?.(initial.face);
+    }
   }
 
   function editChamfer(feature) {
@@ -2406,8 +2426,10 @@ export function installTree(ctx) {
   }
 
   /** OK d'une réédition : les paramètres, puis les contours s'ils ont
-   *  changé — chacun son appel, l'arbre suit. */
-  function applyEdit(feature, v, values) {
+   *  changé — chacun son appel, l'arbre suit. Vrai si un appel part.
+   *  `atRank` : le panneau montrait la pièce au rang ; refusée, la
+   *  réédition rend quand même la pièce d'aujourd'hui. */
+  function applyEdit(feature, v, values, { atRank = false } = {}) {
     const profile = feature.profile;
     let contours = null;
     if (profile?.count > 1) {
@@ -2415,15 +2437,15 @@ export function installTree(ctx) {
         ?? [...Array(profile.count).keys()];
       if (!chosen.length) {
         say(t("Contours : cochez au moins un contour"), true);
-        return;
+        return false;
       }
       const same = chosen.length === profile.used.length
         && chosen.every((i) => profile.used.includes(i));
       if (!same) contours = chosen.length === profile.count ? [] : chosen;
     }
     const hasValues = Object.keys(values ?? {}).length > 0;
-    if (!hasValues && contours === null) return;
-    refresh((async () => {
+    if (!hasValues && contours === null) return false;
+    const edited = (async () => {
       let tree = null;
       if (hasValues) {
         tree = await call("set_params", { feature: feature.name, values });
@@ -2433,7 +2455,18 @@ export function installTree(ctx) {
           { feature: feature.name, contours });
       }
       return tree;
-    })());
+    })();
+    if (!atRank) {
+      refresh(edited);
+      return true;
+    }
+    // Le moteur a rendu la barre avant d'essayer : refusée, la pièce
+    // d'aujourd'hui revient, le message reste affiché.
+    edited.then((tree) => refresh(Promise.resolve(tree)), async (error) => {
+      await refresh(call("get_tree"));
+      say(error.message, true);
+    });
+    return true;
   }
 
   /** Suppression de corps : le panneau de la création, sur les corps qui

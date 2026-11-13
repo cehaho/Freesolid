@@ -117,7 +117,7 @@ function feature(extrude = {}, extra = {}) {
   return {
     name: "Pad", type_key: "pad",
     extrude: { cond: "borgne", midplane: false, reversed: false, taper: 0,
-               offset: 0, cond2: null, taper2: 0, face: false, ...extrude },
+               offset: 0, cond2: null, taper2: 0, face: null, ...extrude },
     params: [{ key: "length", value: 10 }],
     ...extra,
   };
@@ -175,17 +175,33 @@ describe("réédition de l'extrusion", () => {
     assert.equal(extrudeEditProblem(v, f), "Profondeur invalide");
   });
 
-  it("ne re-choisit pas la face d'arrivée", () => {
+  it("re-choisit la face d'arrivée, ou y passe", () => {
     const rows = (f) => extrudeGroups("pad", extrudeEditInitial(f))
       .flatMap((g) => g.rows);
     const conds = (f) => rows(f).find((r) => r.key === "cond").options
       .map(([c]) => c);
-    assert.ok(!rows(feature()).some((r) => r.key === "face"));
-    assert.ok(!conds(feature()).includes("face"));
-    const toFace = feature({ cond: "face", offset: 1.5, face: true });
-    assert.ok(conds(toFace).includes("face"));
+    const face = (id) => ({ kind: "face", face: id });
+    // La zone revient remplie de la face d'arrivée.
+    const toFace = feature({ cond: "face", offset: 1.5, face: 4 });
+    assert.deepEqual(rows(toFace).find((r) => r.key === "face").value,
+                     face(4));
+    assert.deepEqual(extrudeEditValues(opened(toFace), toFace), {});
     assert.deepEqual(extrudeEditValues(
       { ...opened(toFace), offset: "2" }, toFace), { offset: 2 });
+    assert.deepEqual(extrudeEditValues(
+      { ...opened(toFace), face: face(7) }, toFace), { face: 7 });
+    // Une borgne passe à « jusqu'à la face » : la face cliquée part avec.
+    const f = feature();
+    assert.ok(conds(f).includes("face"));
+    assert.equal(rows(f).find((r) => r.key === "face").value, undefined);
+    const picked = { ...opened(f), cond: "face" };
+    assert.equal(extrudeEditValues(picked, f), null);
+    assert.equal(extrudeEditProblem(picked, f),
+                 "Jusqu'à la face : cliquez la face d'arrivée");
+    assert.deepEqual(extrudeEditValues({ ...picked, face: face(2) }, f),
+                     { cond: "face", face: 2 });
+    // Premier volume de son corps : aucun « jusqu'à ».
+    assert.ok(!conds(feature({ alone: true })).includes("face"));
   });
 
   it("paroi mince : épaisseurs et côté, extrémités fermées borgnes", () => {

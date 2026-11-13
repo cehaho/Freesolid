@@ -5763,3 +5763,67 @@ def p127_indices_suivent_leur_cible(self, mark, report, etat):
         and spec(pole)["moves"][0][0] == tall_now
         and round(flat.Shape.Area, 3) == 300
         and spec(flat)["face"] == tall_now)
+
+
+def p128_face_d_arrivee_rechoisie(self, mark, report, etat):
+    mark("p128: une extrusion re-choisit sa face d'arrivée, ou y passe")
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def rect(x1, y1, x2, y2):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+
+    def top(z, x):
+        return next(i for i, f in enumerate(body.Shape.Faces)
+                    if abs(f.CenterOfMass.z - z) < 1e-6
+                    and abs(f.CenterOfMass.x - x) < 1e-6)
+
+    def state(obj):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == obj.Name)["extrude"]
+
+    # Une plaque 40 × 40 × 10, deux tours 10 × 10 hautes de 30 et de 20 ;
+    # un plot 10 × 10 à côté, monté jusqu'au dessus de la tour de 30.
+    self.new_part("Face d'arrivée re-choisie")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    rect(10, 10, 20, 20)
+    self.add_pad(30)
+    rect(-20, 10, -10, 20)
+    self.add_pad(20)
+    before = body.Shape.Volume
+    high, low = top(30, 15), top(20, -15)
+    rect(-15, -15, -5, -5)
+    self.add_pad(cond="face", face=high)
+    stud = body.Tip
+    made = abs(body.Shape.Volume - before - 2000) < 1e-6
+    listed = state(stud)["face"] == high
+    # Au rang, comme le panneau : la tour de 20, puis retour au borgne et
+    # de nouveau jusqu'à la face.
+    dispatch(self, "rank_view", {"feature": stud.Name})
+    lowered = edit(stud, face=low)
+    lowered_volume = body.Shape.Volume - before
+    blind = edit(stud, cond="borgne", length=15)
+    blind_volume = body.Shape.Volume - before
+    back = edit(stud, cond="face", face=high)
+    report["p128_face_d_arrivee_rechoisie"] = (
+        made and listed and lowered.get("ok") is True
+        and abs(lowered_volume - 1000) < 1e-6
+        and getattr(self, "_rank_view", None) is None
+        and blind.get("ok") is True
+        and abs(blind_volume - 500) < 1e-6
+        and back.get("ok") is True
+        and abs(body.Shape.Volume - before - 2000) < 1e-6
+        and state(stud)["face"] == high
+        # Une face inconnue, ou sans « jusqu'à la face » : refusées.
+        and edit(stud, face=999).get("ok") is False
+        and "n'est pas" in (edit(stud, cond="borgne", length=5, face=low)
+                            .get("error") or "")
+        and abs(body.Shape.Volume - before - 2000) < 1e-6
+        and "Invalid" not in (stud.State or ()))

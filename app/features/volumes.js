@@ -315,17 +315,16 @@ const EXTRUDE_CONDITIONS = {
 const usesLength = (cond) => cond === "borgne" || cond === "milieu";
 
 /** Groupes du panneau extrusion / enlèvement. `edit` : les valeurs de la
- *  fonction qu'on réédite (`extrudeEditInitial`). La face d'arrivée ne se
- *  re-choisit pas ; la paroi mince garde son genre, ses épaisseurs et son
- *  côté se changent. */
+ *  fonction qu'on réédite (`extrudeEditInitial`). La face d'arrivée se
+ *  re-choisit sur la pièce à son rang ; la paroi mince garde son genre,
+ *  ses épaisseurs et son côté se changent. */
 export function extrudeGroups(kind, edit = null) {
   // Extrémités fermées : la cavité veut des profondeurs borgnes.
   const caps = (edit?.thin?.caps ?? 0) > 0;
   // Premier volume de son corps : aucun « jusqu'à » n'a où s'arrêter.
   const blind = caps || !!edit?.alone;
   const conditions = EXTRUDE_CONDITIONS[kind].filter(([c]) => !edit
-    || (blind ? c === "borgne" || c === "milieu"
-      : c !== "face" || edit.cond === "face"));
+    || !blind || c === "borgne" || c === "milieu");
   const second = EXTRUDE_CONDITIONS[kind].filter(([c]) =>
     c !== "face" && c !== "milieu" && (!blind || c === "borgne"));
   const depth = (key, value, showIf) => (edit
@@ -340,10 +339,11 @@ export function extrudeGroups(kind, edit = null) {
         { type: "select", key: "cond", value: edit?.cond ?? conditions[0][0],
           options: conditions },
         depth("length", edit?.length ?? 10, (v) => usesLength(v.cond)),
-        ...(edit ? [] : [
-          { type: "selection", key: "face", accepts: ["face"],
-            label: "Face d'arrivée", hint: "Cliquez la face d'arrivée",
-            showIf: (v) => v.cond === "face" }]),
+        { type: "selection", key: "face", accepts: ["face"],
+          label: "Face d'arrivée", hint: "Cliquez la face d'arrivée",
+          ...(Number.isInteger(edit?.face)
+            ? { value: { kind: "face", face: edit.face } } : {}),
+          showIf: (v) => v.cond === "face" },
         { type: "number", key: "offset", label: "Décalage",
           value: edit?.offset ?? 0, unit: "mm",
           showIf: (v) => v.cond === "face" },
@@ -432,6 +432,7 @@ export function extrudeEditInitial(feature) {
   return {
     cond: state.midplane ? "milieu" : state.cond,
     alone: !!state.alone,
+    face: Number.isInteger(state.face) ? state.face : null,
     length: value("length", 10),
     offset: state.offset,
     reversed: state.reversed,
@@ -475,6 +476,10 @@ export function extrudeEditValues(v, feature) {
   if (cond2 !== (state.cond2 ?? null)) values.cond2 = cond2;
   if (dir2 && !near(taper2, state.taper2)) values.taper2 = taper2;
   if (cond === "face") {
+    // La face d'arrivée, cliquée sur la pièce au rang de la fonction.
+    const face = v.face?.face;
+    if (!Number.isInteger(face)) return null;
+    if (face !== state.face) values.face = face;
     const offset = num(v.offset) ?? 0;
     if (!near(offset, state.offset)) values.offset = offset;
   }
@@ -667,6 +672,9 @@ export function holeEditValues(v, feature) {
 export function extrudeEditProblem(v, feature, tree) {
   const merge = extrudeMergeProblem(v, feature, tree);
   if (merge) return merge;
+  if (v.cond === "face" && !Number.isInteger(v.face?.face)) {
+    return "Jusqu'à la face : cliquez la face d'arrivée";
+  }
   const bad = (key) => key in v && readMeasure(
     v[key], storedMeasure(feature.params, key, 1),
     { min: 0, max: Infinity }) == null;
