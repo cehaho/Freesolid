@@ -322,6 +322,66 @@ def cycle_de_vie_open_part(self, mark, report, etat):
     etat._volume = _volume
 
 
+def p139_fichier_atelier_part(self, mark, report, etat):
+    mark("p139: un fichier de l'atelier Part s'ouvre, ses formes en base")
+    import math as _math
+    App = self._app()
+    seen = etat.p139 = {}
+    src = App.newDocument("AtelierPart")
+    box = src.addObject("Part::Box", "Box")
+    box.Length, box.Width, box.Height = 20, 20, 10
+    cyl = src.addObject("Part::Cylinder", "Cylinder")
+    cyl.Radius, cyl.Height = 4, 30
+    cyl.Placement.Base = App.Vector(10, 10, -5)
+    cut = src.addObject("Part::Cut", "Cut")
+    cut.Base, cut.Tool = box, cyl
+    cut.Label = "Plaque percée"
+    # Une sphère rangée dans un App::Part décalé : elle garde sa place.
+    holder = src.addObject("App::Part", "Part")
+    holder.Placement.Base = App.Vector(100, 0, 0)
+    ball = src.addObject("Part::Sphere", "Sphere")
+    ball.Radius = 5
+    holder.addObject(ball)
+    # Un lien dans le même fichier n'en fait pas un assemblage.
+    link = src.addObject("App::Link", "Link")
+    link.LinkedObject = cut
+    src.recompute()
+    path = os.path.join(tempfile.gettempdir(),
+                        "freesolid-selftest-atelier-part.FCStd")
+    src.saveAs(path)
+    App.closeDocument(src.Name)
+    docs_before = len(App.listDocuments())
+    tree = self.open_part(path)
+    bodies = [o for o in self._doc.Objects if o.TypeId == "PartDesign::Body"]
+    by_label = {b.Label: b for b in bodies}
+    plate = by_label.get("Plaque percée")
+    sphere = by_label.get("Sphere")
+    seen["open"] = (tree.get("from_part_workbench"),
+                    tree.get("imported_solids"), sorted(by_label))
+    expected = 20 * 20 * 10 - _math.pi * 16 * 10
+    report["p139_part_ouvert"] = (
+        not getattr(self, "_assembly", False)
+        and tree.get("from_part_workbench") is True
+        and tree.get("imported_solids") == 2
+        and plate is not None and sphere is not None
+        and abs(plate.Shape.Volume - expected) < 1e-3
+        and abs(sphere.Shape.BoundBox.Center.x - 100) < 1e-6
+        and len(App.listDocuments()) <= docs_before + 1)
+    # Une fonction s'applique sur la forme reprise.
+    self._body = plate
+    before = plate.Shape.Volume
+    self.add_rect_sketch(4, 4)
+    self.add_pad(5)
+    report["p139_fonction_sur_la_base"] = plate.Shape.Volume > before
+    # Inséré dans un assemblage, le composant vise la forme finale.
+    self.new_assembly()
+    asm = self.insert_component(path)
+    target = self._doc.getObject(asm["components"][0]["name"]).LinkedObject
+    seen["component"] = getattr(target, "Name", None)
+    report["p139_part_en_composant"] = (
+        len(asm["components"]) == 1 and seen["component"] in ("Cut", "Sphere"))
+
+
 def p31_gardes(self, mark, report, etat):
     _refused = etat._refused  # posé par document.cycle_de_vie_open_part
     mark("p31: gardes — les refus parlent français")
