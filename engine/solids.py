@@ -1395,14 +1395,17 @@ class SolidsMixin:
             self._recompute()
         return self.get_tree()
 
-    def add_helix(self, pitch, height, sketch=None):
+    def add_helix(self, pitch, height, sketch=None, angle=0.0):
         """Hélice additive (ressort, filet réel) — le profil tourne autour
-        de l'axe vertical de son esquisse, comme la révolution."""
+        de l'axe vertical de son esquisse, comme la révolution. ``angle``
+        (°) l'évase en cône, comme à la réédition."""
         from engine.kernel import KernelError
         body = self._require_body()
         doc = self._require_doc()
         if float(pitch) <= 0 or float(height) <= 0:
             raise KernelError("pas et hauteur doivent être positifs")
+        if not -90.0 < float(angle) < 90.0:
+            raise KernelError("l'angle d'une hélice est entre -90° et 90°")
         profile = (self._get_sketch(sketch) if sketch is not None
                    else self._latest_sketch())
         helix = body.newObject("PartDesign::AdditiveHelix", "AdditiveHelix")
@@ -1410,6 +1413,7 @@ class SolidsMixin:
         helix.ReferenceAxis = (profile, ["V_Axis"])
         helix.Pitch = float(pitch)
         helix.Height = float(height)
+        helix.Angle = float(angle)
         helix.Label = self._t("Hélice")
         try:
             self._recompute()

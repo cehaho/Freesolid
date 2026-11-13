@@ -406,7 +406,7 @@ export const HABILLAGE = [
     button: "btn-draft",
     op: "add_draft",
     icon: "draft", title: "Dépouille",
-    selectionLabel: "Faces à dépouiller",
+    selectionLabel: "Face à dépouiller",
     group: "Angle de dépouille",
     rows: [
       { type: "number", key: "angle", label: "Angle", value: 3,

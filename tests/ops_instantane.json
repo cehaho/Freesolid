@@ -16,7 +16,7 @@
   "add_fillet": {"requis": ["radius"], "types": [["radius", "float"]], "optionnels": []},
   "add_graph_feature": {"requis": ["graph"], "types": [["graph", "dict"]], "optionnels": [["mode", "str"]]},
   "add_groove": {"requis": [], "types": [], "optionnels": [["angle", "float"], ["axis", "str"], ["reversed", "bool"], ["midplane", "bool"], ["contours", "list"], ["bodies", "list"]]},
-  "add_helix": {"requis": ["pitch", "height"], "types": [["pitch", "float"], ["height", "float"]], "optionnels": []},
+  "add_helix": {"requis": ["pitch", "height"], "types": [["pitch", "float"], ["height", "float"]], "optionnels": [["angle", "float"]]},
   "add_hole": {"requis": ["diameter"], "types": [["diameter", "float"]], "optionnels": [["face", "int"], ["points", "list"], ["bodies", "list"]]},
   "add_joint": {"requis": ["component1", "component2"], "types": [["component1", "str"], ["component2", "str"]], "optionnels": [["angle", "float"], ["flip", "bool"]]},
   "add_linear_pattern": {"requis": ["length", "count"], "types": [["length", "float"], ["count", "int"]], "optionnels": [["features", "list"], ["axis", "str"], ["edge", "int"], ["spacing", "bool"], ["reversed", "bool"], ["length2", "float"], ["count2", "int"], ["axis2", "str"], ["edge2", "int"], ["reversed2", "bool"], ["scope", "list"]]},

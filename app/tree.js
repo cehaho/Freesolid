@@ -2632,7 +2632,7 @@ export function installTree(ctx) {
     return editAtRank(feature, {
       icon: "draft",
       zone: Number.isInteger(face) ? {
-        label: "Faces à dépouiller",
+        label: "Face à dépouiller",
         row: { type: "selection", key: "sel", accepts: ["face"],
                value: { kind: "face", face } },
         changed: (v) => dressupPickValues(v.sel, { face }),

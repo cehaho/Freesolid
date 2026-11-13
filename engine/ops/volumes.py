@@ -139,7 +139,8 @@ OPS = (
                                   "bodies": list}),
        undo=True, preview=True,
        no_replay="Profile + Spine, pas get_params"),  # optional: subtractive
-    Op("add_helix", Req(("pitch", float), ("height", float)),
+    Op("add_helix", Req(("pitch", float), ("height", float),
+                        optional={"angle": float}),
        undo=True, preview=True,
        no_replay="Pitch/Height hors whitelist get_params"),  # optional: sketch
     Op("add_hole", Req(("diameter", float), optional={"face": int, "points": list,

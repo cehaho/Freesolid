@@ -1153,6 +1153,8 @@ export const VOLUMES = [
           unit: "mm", min: 0.01 },
         { type: "number", key: "height", label: "Hauteur", value: 40,
           unit: "mm", min: 0.01 },
+        { type: "number", key: "angle", label: "Angle", value: 0,
+          unit: "°", min: -89.9, max: 89.9 },
       ],
     }],
     note: "Le profil (dernière esquisse) tourne autour de l'axe " +
@@ -1160,10 +1162,13 @@ export const VOLUMES = [
     build: (v) => {
       const pitch = num(v.pitch);
       const height = num(v.height);
-      return pitch > 0 && height > 0
-        ? { op: "add_helix", params: { pitch, height } } : null;
+      const angle = num(v.angle) ?? 0;
+      return pitch > 0 && height > 0 && Math.abs(angle) < 90
+        ? { op: "add_helix",
+            params: angle ? { pitch, height, angle } : { pitch, height } }
+        : null;
     },
-    invalid: "Pas et hauteur doivent être positifs",
+    invalid: "Pas et hauteur positifs, angle entre -90° et 90°",
     refresh: "part",
   },
   dressup({
