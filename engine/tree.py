@@ -1369,6 +1369,10 @@ class TreeMixin:
             cut = self._surface_cut_spec(obj)
             if cut is not None:
                 item["surface_cut"] = cut
+            combine = self._combine_spec(obj)
+            if combine is not None:
+                # « Combiner » : son opération et son corps outil.
+                item["combine"] = combine
             if "FreeSolidGraphJson" in obj.PropertiesList:
                 graph = self._tree_graph_payload(obj)
                 if graph is not None:

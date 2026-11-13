@@ -12,8 +12,11 @@ class SurfaceFreeformMixin:
         moindres carrés conformes), posé sur le plan de dessus à côté de la
         pièce — gabarit de découpe, développé de tôle mince."""
         src = self._get_surface(surface)
-        stamps = {"flatsource": src.Name, "flatface": int(face)}
         shape = self._flat_shape(src.Shape, int(face))
+        anchor = self._face_anchor(self._source_face(src.Shape, int(face)))
+        stamps = {"flatsource": src.Name, "flatface": int(face),
+                  "flatanchor": "%.9g,%.9g,%.9g" % (anchor.x, anchor.y,
+                                                    anchor.z)}
         return self._add_frozen_surface(shape, "Surface aplatie", stamps)
 
     def surface_freeform(self, surface, radius=None, pushes=None,
@@ -33,6 +36,8 @@ class SurfaceFreeformMixin:
                       "freemoves": self._moves_text(moves, int(face)),
                       "freegrid": int(grid), "freeradius": 0.0}
             shape = self._free_shape(src.Shape, stamps)
+            stamps["freeanchors"] = self._anchors_text(
+                src.Shape, [m[0] for m in self._free_moves(stamps)])
             return self._add_frozen_surface(shape, "Forme libre", stamps)
         if radius is None:
             raise KernelError("le rayon d'influence doit être positif")
@@ -75,16 +80,24 @@ class SurfaceFreeformMixin:
             old_grid = int(stamps.get("freegrid", 6))
             new_grid = int(grid) if grid is not None else old_grid
             if moves is not None:
-                # Indices donnés pour la grille demandée.
+                # Indices donnés pour la grille demandée, sur les faces
+                # telles que l'arbre les montre.
                 stamps["freemoves"] = self._moves_text(
                     moves, int(stamps["freeface"]))
             elif new_grid != old_grid:
                 # Seule la grille change : chaque pôle réglé suit sa place.
                 stamps["freemoves"] = self._moves_text(self._remap_moves(
-                    src.Shape, self._free_moves(stamps), old_grid, new_grid))
+                    src.Shape, self._followed_moves(src.Shape, stamps),
+                    old_grid, new_grid))
+            else:
+                stamps["freemoves"] = self._moves_text(
+                    self._followed_moves(src.Shape, stamps))
+            stamps["freeanchors"] = self._anchors_text(
+                src.Shape, [m[0] for m in self._free_moves(stamps)])
             stamps["freegrid"] = new_grid
             obj.Shape = self._free_shape(src.Shape, stamps)
             self._stamp(obj, freemoves=stamps["freemoves"],
+                        freeanchors=stamps["freeanchors"],
                         freegrid=new_grid)
             return
         if radius is None:
@@ -204,6 +217,89 @@ class SurfaceFreeformMixin:
         return out
 
     @staticmethod
+    def _face_anchor(face):
+        """Un point bien à l'intérieur de ``face`` — le centre du plus
+        grand triangle de son maillage, ramené sur elle : il désigne la
+        face quand l'ordre des faces change."""
+        import Part
+        size = max(face.BoundBox.DiagonalLength / 20.0, 1e-3)
+        try:
+            # Sur une copie : mailler la face même casse ensuite sa
+            # conversion en NURBS (« undefined surface type »).
+            points, triangles = face.copy().tessellate(size)
+        except Exception:  # noqa: BLE001
+            points, triangles = [], []
+        if triangles:
+            a, b, c = max(triangles, key=lambda t: (
+                (points[t[1]] - points[t[0]])
+                .cross(points[t[2]] - points[t[0]]).Length))
+            middle = (points[a] + points[b] + points[c]) * (1.0 / 3.0)
+        else:
+            middle = face.CenterOfMass
+        return face.distToShape(Part.Vertex(middle))[1][0][0]
+
+    def _anchors_text(self, shape, faces):
+        """``face,x,y,z;…`` : un point de repère par face réglée."""
+        rows = []
+        for f in sorted(set(faces)):
+            if 0 <= f < len(shape.Faces):
+                p = self._face_anchor(shape.Faces[f])
+                rows.append("%d,%.9g,%.9g,%.9g" % (f, p.x, p.y, p.z))
+        return ";".join(rows)
+
+    @staticmethod
+    def _followed_faces(shape, text):
+        """Indice rangé → indice actuel : chaque face réglée retrouvée au
+        plus près de son point de repère (un segment ajouté au début de
+        l'esquisse amont décale l'ordre des faces). Sans repère, ou sur une
+        surface d'une seule face, les indices restent."""
+        import FreeCAD as App
+        import Part
+        out = {}
+        if len(shape.Faces) < 2:
+            return out
+        for row in str(text or "").split(";"):
+            try:
+                f, x, y, z = row.split(",")
+                f = int(f)
+                point = Part.Vertex(App.Vector(float(x), float(y), float(z)))
+            except Exception:  # noqa: BLE001
+                continue
+            # À égalité (repère sur une arête commune), la face d'avant.
+            out[f] = min(range(len(shape.Faces)), key=lambda k: (
+                round(shape.Faces[k].distToShape(point)[0], 7), k != f))
+        return out
+
+    def _followed_moves(self, shape, stamps):
+        """Les pôles déplacés, chacun sur sa face actuelle."""
+        follow = self._followed_faces(shape, stamps.get("freeanchors", ""))
+        return [[follow.get(m[0], m[0])] + m[1:]
+                for m in self._free_moves(stamps)]
+
+    def _followed_flat_face(self, shape, stamps):
+        """La face actuelle d'un patron à plat."""
+        face = int(stamps.get("flatface", 0) or 0)
+        anchor = stamps.get("flatanchor", "")
+        text = "%d,%s" % (face, anchor) if anchor else ""
+        return self._followed_faces(shape, text).get(face, face)
+
+    def _follow_free_faces(self, obj, shape):
+        """Après un rafraîchissement : les indices et les repères rangés
+        rejoignent la surface source telle qu'elle est."""
+        stamps = self._frozen_stamps(obj)
+        if stamps.get("freemoves"):
+            moves = self._followed_moves(shape, stamps)
+            self._stamp(obj, freemoves=self._moves_text(moves),
+                        freeanchors=self._anchors_text(
+                            shape, [m[0] for m in moves]))
+        elif stamps.get("flatsource"):
+            face = self._followed_flat_face(shape, stamps)
+            if 0 <= face < len(shape.Faces):
+                p = self._face_anchor(shape.Faces[face])
+                self._stamp(obj, flatface=face,
+                            flatanchor="%.9g,%.9g,%.9g" % (p.x, p.y, p.z))
+
+    @staticmethod
     def _pushes_text(pushes):
         from engine.kernel import KernelError
         rows = []
@@ -295,7 +391,8 @@ class SurfaceFreeformMixin:
         src = self._require_doc().getObject(str(obj.FreeSolidFlatsource))
         shape = getattr(obj, "Shape", None)
         try:
-            face = self._source_face(src.Shape, int(obj.FreeSolidFlatface))
+            face = self._source_face(src.Shape, self._followed_flat_face(
+                src.Shape, self._frozen_stamps(obj)))
         except Exception:  # noqa: BLE001
             return {}
         if shape is None or shape.isNull() or face.Area <= 0:
@@ -342,7 +439,7 @@ class SurfaceFreeformMixin:
         changed = {}
         if stamps.get("freemoves"):
             groups = {}
-            for f, i, j, dx, dy, dz in self._free_moves(stamps):
+            for f, i, j, dx, dy, dz in self._followed_moves(shape, stamps):
                 groups.setdefault(f, []).append((i, j, dx, dy, dz))
             for f, rows in sorted(groups.items()):
                 changed[f] = self._moved_shape(

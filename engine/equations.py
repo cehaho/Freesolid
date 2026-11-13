@@ -72,6 +72,9 @@ class EquationsMixin:
         if getattr(obj, "FreeSolidVchamferspec", ""):
             # Un chanfrein de sommet : ses distances, et son coin.
             return self._set_vertex_chamfer_params(obj, dict(values))
+        if self._combine_spec(obj) is not None:
+            # Un « Combiner » : son opération, son corps outil.
+            return self._set_combine_params(obj, dict(values))
         if getattr(obj, "FreeSolidCutsurface", ""):
             # Une coupe par surface : sa surface outil, son côté, sa bande.
             return self._set_surface_cut_params(obj, dict(values))

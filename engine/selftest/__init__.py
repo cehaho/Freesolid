@@ -242,6 +242,8 @@ def _etapes():
         fonctions.p123_ajuster_rechoisit,
         fonctions.p124_radiee_rechoisit_son_contour,
         fonctions.p125_forme_libre_rechoisit_sa_surface,
+        fonctions.p126_combiner_rechoisit,
+        fonctions.p127_indices_suivent_leur_cible,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

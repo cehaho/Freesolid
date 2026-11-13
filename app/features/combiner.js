@@ -3,6 +3,32 @@
 import { combineConfirm, combineToolOptions } from "../combine.js";
 import { bodyZoneRow } from "./commun.js";
 
+/** Les opérations de Combiner : `[clé, libellé]`. */
+export const COMBINE_TYPES = [["cut", "Soustraire"], ["fuse", "Ajouter"],
+                              ["common", "Intersection"]];
+
+/** Les corps outils qu'une réédition propose : ceux de la création, et
+ *  celui que le combiner tient (absorbé, il n'est plus dans le dossier). */
+export function combineEditOptions(tree, spec) {
+  const options = combineToolOptions(tree);
+  if (spec?.tool && !options.some(([name]) => name === spec.tool)) {
+    options.unshift([spec.tool, spec.tool_label ?? spec.tool]);
+  }
+  return options;
+}
+
+/** Combiner réédité : l'opération et le corps outil, s'ils changent ;
+ *  null sans corps outil. */
+export function combineEditValues(v, spec) {
+  const out = {};
+  if (v.type && v.type !== spec.type) out.type = v.type;
+  if (spec.tool) {
+    if (!v.tool) return null;
+    if (v.tool !== spec.tool) out.tool = v.tool;
+  }
+  return out;
+}
+
 /** Combiner : corps outils du noyau, plus ceux des plugins
  *  (`combine.js`). Un plugin peut aussi poser ce panneau sous un bouton
  *  de son onglet (`api.featureButton`). */
@@ -20,8 +46,7 @@ const COMBINE_FEATURE = {
       label: "Opération",
       rows: [
         { type: "select", key: "type", value: "cut",
-          options: [["cut", "Soustraire"], ["fuse", "Ajouter"],
-                    ["common", "Intersection"]] },
+          options: COMBINE_TYPES },
         { type: "select", key: "tool", value: options[0]?.[0] ?? "",
           label: "Corps outil",
           options },

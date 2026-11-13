@@ -310,6 +310,111 @@ class SolidsMixin:
             raise
         return self.get_tree()
 
+    _COMBINE_TYPES = {"cut": "Cut", "fuse": "Fuse", "common": "Common"}
+    _COMBINE_LABELS = {"cut": "Combiner — Soustraire",
+                       "fuse": "Combiner — Ajouter",
+                       "common": "Combiner — Intersection"}
+
+    def _combine_spec(self, obj):
+        """Ce qu'un « Combiner » prend (ligne d'arbre) : son opération et
+        son corps outil (None s'il vient d'un module), ou None pour un
+        autre booléen."""
+        if (obj.TypeId != "PartDesign::Boolean"
+                or any(getattr(obj, prop, "") for prop in (
+                    "FreeSolidCutsurface", "FreeSolidVchamferspec",
+                    "FreeSolidDeletefaces", "FreeSolidReplacedby",
+                    "FreeSolidScopeOf", self._THIN_HELPER))):
+            return None
+        kind = {v: k for k, v in self._COMBINE_TYPES.items()}.get(
+            str(obj.Type))
+        tools = self._boolean_tools(obj)
+        if kind is None or len(tools) != 1:
+            return None
+        derived = self._is_internal_tool(tools[0])
+        return {"type": kind,
+                "tool": None if derived else tools[0].Name,
+                "tool_label": self._body_title(tools[0])}
+
+    def _set_combine_params(self, obj, values):
+        """``set_params`` d'un « Combiner », comme à la création : son
+        opération (``type``) et son corps outil (``tool``), que le corps
+        d'avant rend. Tout ou rien."""
+        from engine.kernel import KernelError, _explain
+        for key in values:
+            if key not in ("type", "tool"):
+                raise KernelError("propriété non éditable : {}".format(key))
+        doc = self._require_doc()
+        body = obj.getParentGeoFeatureGroup()
+        kind = str(values.get("type", "")) or None
+        if kind is not None and kind not in self._COMBINE_TYPES:
+            raise KernelError(
+                "opération inconnue « {} » — attendu cut, fuse ou "
+                "common".format(kind))
+        old_tools = self._boolean_tools(obj)
+        saved = (obj.Type, obj.Label, list(obj.Group),
+                 getattr(obj, self._PARKED_TOOLS, None))
+        made = []
+        try:
+            if kind is not None:
+                before = {v: k for k, v in self._COMBINE_TYPES.items()}.get(
+                    str(obj.Type))
+                obj.Type = self._COMBINE_TYPES[kind]
+                # Un nom donné par l'utilisateur reste ; celui par défaut
+                # suit l'opération.
+                if before and obj.Label == self._t(
+                        self._COMBINE_LABELS[before]):
+                    obj.Label = self._t(self._COMBINE_LABELS[kind])
+            if "tool" in values:
+                if any(self._is_internal_tool(t) for t in old_tools):
+                    raise KernelError("le corps outil vient d'un module : "
+                                      "il ne se re-choisit pas")
+                tool = doc.getObject(str(values["tool"]))
+                hooked = self._plugins.run_boolean_tool(self, tool)
+                if hooked is not None:
+                    made = [hooked] + ([hooked.BaseFeature]
+                                       if getattr(hooked, "BaseFeature",
+                                                  None) else [])
+                    tool = hooked
+                elif tool is None or tool.TypeId != "PartDesign::Body":
+                    raise KernelError("corps outil inconnu : {}".format(
+                        values["tool"]))
+                elif tool not in old_tools:
+                    self._refuse_held_body(tool, own=obj)
+                if tool is body:
+                    raise KernelError(
+                        "un corps ne se combine pas avec lui-même — "
+                        "choisissez un autre corps outil")
+                if body in (tool.OutListRecursive or ()):
+                    raise KernelError(
+                        "« {} » suit le corps actif : les combiner ici le "
+                        "ferait dépendre de lui-même — activez « {} » et "
+                        "prenez ce corps comme outil".format(
+                            tool.Label, tool.Label))
+                if self._PARKED_TOOLS in obj.PropertiesList:
+                    setattr(obj, self._PARKED_TOOLS, "")
+                obj.Group = []
+                self._set_boolean_tools(obj, [tool])
+            self._recompute()
+        except Exception as exc:  # noqa: BLE001
+            obj.Type, obj.Label = saved[0], saved[1]
+            obj.Group = saved[2]
+            if saved[3] is not None:
+                setattr(obj, self._PARKED_TOOLS, saved[3])
+            for extra in made:
+                try:
+                    doc.removeObject(extra.Name)
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                self._recompute()
+            except KernelError:
+                pass  # l'état d'avant était sain : ne pas masquer exc
+            message = (str(exc) if isinstance(exc, KernelError)
+                       else _explain(exc))
+            raise KernelError(
+                "{} — la pièce n'a pas été modifiée".format(message))
+        return self.get_tree()
+
     @staticmethod
     def _set_boolean_tools(feature, tools):
         """Les corps outils d'un combiner — l'API a changé selon les

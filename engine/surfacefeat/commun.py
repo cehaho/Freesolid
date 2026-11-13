@@ -241,7 +241,12 @@ class SurfaceCommonMixin:
         if getattr(obj, "FreeSolidCapedges", ""):
             return {"kind": "fill", "cap": True}
         if getattr(obj, "FreeSolidFreemoves", ""):
-            moves = self._free_moves(self._frozen_stamps(obj))
+            src = self._require_doc().getObject(
+                str(getattr(obj, "FreeSolidFreesource", "")))
+            stamps = self._frozen_stamps(obj)
+            moves = (self._followed_moves(src.Shape, stamps)
+                     if src is not None and getattr(src, "Shape", None)
+                     else self._free_moves(stamps))
             return {"kind": "freeform", "moves": moves,
                     "grid": int(getattr(obj, "FreeSolidFreegrid", 6)),
                     "source": str(getattr(obj, "FreeSolidFreesource", "")),
@@ -254,8 +259,12 @@ class SurfaceCommonMixin:
                     "keep_edges": bool(getattr(obj, "FreeSolidFreeedges", 0)),
                     "source": str(obj.FreeSolidFreesource)}
         if getattr(obj, "FreeSolidFlatsource", ""):
-            spec = {"kind": "flatten",
-                    "face": int(getattr(obj, "FreeSolidFlatface", 0))}
+            src = self._require_doc().getObject(str(obj.FreeSolidFlatsource))
+            face = int(getattr(obj, "FreeSolidFlatface", 0))
+            if src is not None and getattr(src, "Shape", None):
+                face = self._followed_flat_face(src.Shape,
+                                                self._frozen_stamps(obj))
+            spec = {"kind": "flatten", "face": face}
             spec.update(self._flat_distortion(obj))
             return spec
         if (obj.TypeId == "Part::Offset"
@@ -409,8 +418,9 @@ class SurfaceCommonMixin:
                     continue
                 try:
                     if getattr(obj, "FreeSolidFlatsource", ""):
-                        result = self._flat_shape(src.Shape,
-                                                  int(obj.FreeSolidFlatface))
+                        result = self._flat_shape(
+                            src.Shape, self._followed_flat_face(
+                                src.Shape, self._frozen_stamps(obj)))
                     else:
                         result = self._free_shape(src.Shape,
                                                   self._frozen_stamps(obj))
@@ -421,6 +431,7 @@ class SurfaceCommonMixin:
                         or (old.BoundBox.Center - result.BoundBox.Center)
                         .Length > 1e-6):
                     obj.Shape = result
+                    self._follow_free_faces(obj, src.Shape)
                     changed = True
                 continue
             mid_base = getattr(obj, "FreeSolidMidbase", "")
