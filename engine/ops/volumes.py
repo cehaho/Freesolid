@@ -156,6 +156,8 @@ OPS = (
     Op("edit_text", Req(("feature", str)), undo=True),
                                        # optional: text, size, depth, x, y
                                        # — absents = inchangés
+    Op("face_frame", Req(("face", int))),
+                                       # lecture : centre et normale d'une face
     Op("face_drag_info", Req(("face", int))),
                                        # lecture : la face se tire-t-elle
     Op("feature_drag_info", Req(("feature", str))),

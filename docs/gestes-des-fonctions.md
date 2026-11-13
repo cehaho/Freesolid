@@ -25,27 +25,27 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Enlèvement extrudé | oui + flèche | comme l'Extrusion, les corps creusés au lieu des corps fondus (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | comme l'Extrusion | oui + flèche | oui | oui (à travers tout, borgne, refus de « jusqu'à la face », corps creusés qui suivent la cote, corps creusés ajoutés ou retirés) |
 | Révolution | oui | angle, axe, inverser, plan médian, contours, « Fusionner », corps fondus et corps de la fonction ; plan de l'esquisse (« Changer de plan… ») | — | oui | oui | oui (axe, plan médian, « Fusionner », corps fondus) |
 | Enlèvement de révolution | oui | comme la Révolution, les corps creusés au lieu des corps fondus | comme la Révolution | oui | oui | non (seule la Révolution est testée) |
-| Perçage | oui | le panneau de la création : positions et face (posé par des clics), type (simple, lamage, fraisage), cotes du type, angle du fraisage, à travers ou borgne, profondeur, corps creusés (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | — | oui | oui | oui (type, condition de fin, corps creusés, positions) |
+| Perçage | oui + flèche (borgne, dès le premier trou cliqué) | le panneau de la création : positions et face (posé par des clics), type (simple, lamage, fraisage), cotes du type, angle du fraisage, à travers ou borgne, profondeur, corps creusés (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | — | oui + flèche | oui | oui (type, condition de fin, corps creusés, positions) |
 | Lissage | oui | le panneau de la création, au rang : profils et leur ordre (un clic dans l'arbre retire une esquisse de la zone ou l'ajoute au bout ; celle d'un autre corps entre par un liant caché), lissage droit, boucle fermée ; « Fusionner » (décochée, il sort de son corps ; ses profils y entrent par des liants) ; quand la pièce a d'autres corps, les corps fondus, ou creusés pour l'enlèvement lissé (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | soustractif | oui | oui | oui (profils retirés, réordonnés, d'un autre corps, lissage droit, « Fusionner » décochée puis recochée, zone d'action, corps fondus ajoutés puis retirés) |
 | Balayage | oui | le panneau de la création, au rang : profil et trajectoire (une esquisse ou une courbe 3D), et comme le Lissage : « Fusionner » (profil d'un seul tenant pour sortir de son corps), les corps fondus, ou creusés pour l'enlèvement balayé | soustractif | oui | oui | oui (profil, trajectoire sur une esquisse ou une courbe 3D, « Fusionner » décochée sur une esquisse et sur une courbe 3D, profil en deux morceaux refusé, corps creusés ajoutés, Ctrl+Z et Ctrl+Y) |
-| Hélice | oui | pas, hauteur, angle ; plan de l'esquisse (« Changer de plan… ») | — | oui | oui | non |
+| Hélice | oui + flèche | pas, hauteur, angle ; plan de l'esquisse (« Changer de plan… ») | — | oui + flèche | oui | non (la flèche seule : p136) |
 | Texte | oui | le panneau de la création : texte, hauteur, profondeur, décalage, face d'appui | relief ou gravure, police | oui | oui | oui |
 
 ## Habillage, Combiner et références
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui, sans la bulle | oui | oui (rayon, arêtes) |
+| Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui + bulle de rayon | oui | oui (rayon, arêtes) |
 | Chanfrein | oui | type, taille, taille 2, angle, sens ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui | oui | oui |
 | Chanfrein de sommet | oui | le panneau de la création : sommet, distances | — | oui | à vérifier (booléen, jusqu'à deux lignes) | oui |
 | Coque | oui | épaisseur, « vers l'extérieur » ; faces à ouvrir, re-choisies sur la pièce à son rang | — | oui | oui | oui (sens, refus d'une coque trop épaisse, faces) |
 | Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
 | Combiner | non, voulu | le panneau de la création, au rang (le corps outil y reparaît) : opération, corps outil (venu d'un module : l'opération seule) | — | non, voulu | oui | oui (opération, corps outil, refus) |
-| Supprimer des corps | non | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non | oui (drapeau) | oui |
+| Supprimer des corps | non, voulu | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non, voulu | oui (drapeau) | oui |
 | Plan de référence | oui + fantôme | le panneau de la création, sur la pièce à son rang : face ou plan d'origine, décalage, angle | — | oui + fantôme | non : ne recule jamais (thème 8) | oui |
-| Axe de référence | non | le panneau de la création, sur la pièce à son rang : axe d'origine ou arête droite ou circulaire | — | non, comme à la création | non : ne recule jamais (thème 8) | oui |
-| Point de référence | non | le panneau de la création, sur la pièce à son rang : sommet, centre d'une arête circulaire ou coordonnées | — | non, comme à la création | non : ne recule jamais (thème 8) | oui |
-| Repère | non | le panneau de la création, sur la pièce à son rang : sommet ou coordonnées | — | non, comme à la création | non : ne recule jamais (thème 8) | oui |
+| Axe de référence | oui | le panneau de la création, sur la pièce à son rang : axe d'origine ou arête droite ou circulaire | — | oui | non : ne recule jamais (thème 8) | oui |
+| Point de référence | oui | le panneau de la création, sur la pièce à son rang : sommet, centre d'une arête circulaire ou coordonnées | — | oui | non : ne recule jamais (thème 8) | oui |
+| Repère | oui | le panneau de la création, sur la pièce à son rang : sommet ou coordonnées | — | oui | non : ne recule jamais (thème 8) | oui |
 
 ## Répétitions et graphe
 
@@ -57,50 +57,50 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Répétition circulaire, des corps | oui | le panneau de la création, au rang : corps répétés, axe (d'origine ou arête), inverser, angle total, nombre | copies sautées | oui (les copies) | oui | oui (axe) |
 | Symétrie, des fonctions | oui | fonctions, plan ; corps creusés, quand elle répète un enlèvement | — | oui | oui | oui (corps creusés, plan) |
 | Symétrie, des corps | oui | le panneau de la création, au rang : corps répétés, plan | copie sautée | oui (la copie) | oui | oui (plan) |
-| Fonction graphe, solide (ajout, enlèvement) | non | le graphe, dans l'éditeur de graphe | ajout ou enlèvement, nature solide ou courbe | non | oui | oui |
-| Fonction graphe, courbe ou surface | non | le graphe, dans l'éditeur de graphe | nature courbe ou surface | non | oui (drapeau) | oui |
-| Répétition variable | non | nombre d'instances et graphe, dans l'éditeur de graphe ; fonctions répétées, au rang (bouton « Fonctions » de l'éditeur) | ajout ou enlèvement | non | oui | oui (instances, fonctions) |
+| Fonction graphe, solide (ajout, enlèvement) | non, voulu | le graphe, dans l'éditeur de graphe | ajout ou enlèvement, nature solide ou courbe | non, voulu | oui | oui |
+| Fonction graphe, courbe ou surface | non, voulu | le graphe, dans l'éditeur de graphe | nature courbe ou surface | non, voulu | oui (drapeau) | oui |
+| Répétition variable | non, voulu | nombre d'instances et graphe, dans l'éditeur de graphe ; fonctions répétées, au rang (bouton « Fonctions » de l'éditeur) | ajout ou enlèvement | non, voulu | oui | oui (instances, fonctions) |
 
 ## Surfaces
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Surface extrudée | non | longueur ; plan de l'esquisse (« Changer de plan… ») | sens | à vérifier | oui (drapeau) | oui |
-| Surface de révolution | non | angle ; plan de l'esquisse (« Changer de plan… ») | axe, sens | à vérifier | oui (drapeau) | non |
-| Surface lissée | non | le panneau de la création, au rang : profils, dans l'ordre (un clic dans l'arbre en retire un ou l'ajoute au bout) | — | oui | oui (drapeau) | oui (profils, refus d'un seul ou d'un doublon) |
-| Surface cousue | non | le panneau de la création, au rang : surfaces (forme figée, recalculée sur elles) | — | oui | oui (drapeau) | oui (surfaces, refus d'une seule) |
-| Épaissir | non | le panneau de la création, au rang : surface (clic dans l'arbre), épaisseur (signée) | — | oui | oui (drapeau) | oui (surface, épaisseur) |
+| Surface extrudée | oui + flèche | longueur ; plan de l'esquisse (« Changer de plan… ») | sens | oui + flèche | oui (drapeau) | oui |
+| Surface de révolution | oui | angle ; plan de l'esquisse (« Changer de plan… ») | axe, sens | oui | oui (drapeau) | non |
+| Surface lissée | oui | le panneau de la création, au rang : profils, dans l'ordre (un clic dans l'arbre en retire un ou l'ajoute au bout) | — | oui | oui (drapeau) | oui (profils, refus d'un seul ou d'un doublon) |
+| Surface cousue | oui | le panneau de la création, au rang : surfaces (forme figée, recalculée sur elles) | — | oui | oui (drapeau) | oui (surfaces, refus d'une seule) |
+| Épaissir | oui | le panneau de la création, au rang : surface (clic dans l'arbre), épaisseur (signée) | — | oui | oui (drapeau) | oui (surface, épaisseur) |
 | Couper avec une surface | oui | le panneau de la création, au rang : surface outil (clic dans l'arbre), inverser le côté, tout un côté ou une bande épaisse, épaisseur | — | oui | oui | oui (surface outil, bande, retour à tout un côté, refus) |
-| Surface plane | non | le panneau de la création, au rang : esquisse du contour | — | oui | oui (drapeau) | oui (esquisse, refus d'une esquisse d'après) |
-| Surface balayée | non | le panneau de la création, au rang : profil, trajectoire (esquisse ou courbe 3D) | — | oui | oui (drapeau) | oui (trajectoire, refus du profil comme trajectoire) |
-| Surface décalée | non | le panneau de la création, au rang : surface (clic dans l'arbre), distance et « inverser le côté » | — | oui | oui (drapeau) | oui (surface, refus d'elle-même et d'une surface d'après) |
-| Surface de remplissage | non | le panneau de la création, au rang : contour (un bouchon tangent se refait sur les faces que bordent les nouvelles arêtes) | case « tangent » | oui | oui (drapeau) | oui (contour, arête fermée, bouchon tangent) |
-| Surface frontière | non | le panneau de la création, au rang : 2 à 4 courbes | — | oui | oui (drapeau) | oui (courbes) |
-| Surface radiée | non | le panneau de la création, au rang : contour plan, distance et « vers l'intérieur » (pilotée par une équation : la distance signée, dans le panneau des cotes) | — | oui | oui (drapeau) | oui (contour, refus d'une forme d'après) |
+| Surface plane | oui | le panneau de la création, au rang : esquisse du contour | — | oui | oui (drapeau) | oui (esquisse, refus d'une esquisse d'après) |
+| Surface balayée | oui | le panneau de la création, au rang : profil, trajectoire (esquisse ou courbe 3D) | — | oui | oui (drapeau) | oui (trajectoire, refus du profil comme trajectoire) |
+| Surface décalée | oui | le panneau de la création, au rang : surface (clic dans l'arbre), distance et « inverser le côté » | — | oui | oui (drapeau) | oui (surface, refus d'elle-même et d'une surface d'après) |
+| Surface de remplissage | oui | le panneau de la création, au rang : contour (un bouchon tangent se refait sur les faces que bordent les nouvelles arêtes) | case « tangent » | oui | oui (drapeau) | oui (contour, arête fermée, bouchon tangent) |
+| Surface frontière | oui | le panneau de la création, au rang : 2 à 4 courbes | — | oui | oui (drapeau) | oui (courbes) |
+| Surface radiée | oui | le panneau de la création, au rang : contour plan, distance et « vers l'intérieur » (pilotée par une équation : la distance signée, dans le panneau des cotes) | — | oui | oui (drapeau) | oui (contour, refus d'une forme d'après) |
 | Surface médiane | non, voulu | le panneau de la création, au rang : les deux faces, ou toutes les parois et l'épaisseur (forme figée) | — | non, voulu | oui (drapeau) | oui (faces, toutes les parois, refus d'une face) |
-| Surface réglée | non | le panneau de la création, au rang : les deux courbes | — | oui | oui (drapeau) | oui (courbes, refus de trois) |
+| Surface réglée | oui | le panneau de la création, au rang : les deux courbes | — | oui | oui (drapeau) | oui (courbes, refus de trois) |
 
 ## Opérations sur surfaces et courbes
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Diviser | non | le panneau de la création, au rang : surface, courbe outil | — | oui | oui (drapeau) | oui (courbe, refus d'une courbe qui ne scinde pas) |
+| Diviser | oui | le panneau de la création, au rang : surface, courbe outil | — | oui | oui (drapeau) | oui (courbe, refus d'une courbe qui ne scinde pas) |
 | Remplacer la face (solide) | oui | le panneau de la création, au rang : face, surface de remplacement | — | oui | oui (Tip du corps) | oui (surface : d'un ajout à une intersection) |
 | Supprimer la face (solide) | oui | le panneau de la création, au rang : faces | — | oui | oui (Tip du corps) | oui (faces : ajout, intersection, les deux ; refus d'une zone vide) |
 | Supprimer la face (surface) | oui | le panneau de la création, au rang : faces d'une même surface (une autre surface la change) | — | oui | oui (drapeau) | oui (faces, refus de toutes) |
-| Annuler l'ajustement | non | le panneau de la création, au rang : face de surface (une autre surface aussi) | — | oui | oui (drapeau) | oui (autre surface, refus d'une face inconnue) |
-| Congé de surfaces | non | le panneau de la création, au rang : arêtes (d'une même surface, qui peut changer), rayon (un pour toutes, comme à la création) | — | oui | oui (drapeau) | oui (rayon, arêtes, autre surface) |
-| Aplatir | non | le panneau de la création, au rang : face de surface (un clic sur une autre la remplace, sur une autre surface aussi) ; la déformation mesurée | — | oui | oui (drapeau) | oui (surface, face) |
-| Forme libre | non | le panneau de la création, au rang : surface (clic dans l'arbre ; les points poussés s'y reprojettent), points poussés, hauteurs, rayon, bords fixes | — | oui | oui (drapeau) | oui (surface, rayon) |
-| Pôles | surcouche dans la vue | surface (clic dans l'arbre ; les pôles déplacés gardent leurs indices), déplacements, pas de grille ; une autre face, en cliquant ses pôles | — | non | oui (drapeau) | oui (surface) |
-| Prolonger | non | le panneau de la création, au rang : bord (ou la surface entière, pour tous ses bords ; un bord d'une autre surface la change), distance | — | oui | oui (drapeau) | oui (tous les bords, un bord, autre surface) |
-| Ajuster | non | le panneau de la création, au rang : outil, surface ajustée et partie gardée (un clic dessus) | ajustement mutuel (deux lignes : chacune se réédite seule) | oui | oui (drapeau) | oui (outil, partie gardée, autre surface, refus) |
-| Courbe d'intersection | non | le panneau de la création, au rang : les deux surfaces, ou une surface et le solide (« avec le solide ») | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (seconde surface, solide, refus) |
-| Projeter une courbe | non | le panneau de la création, au rang : esquisse, face cible (la direction suit la normale de l'esquisse) | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (esquisse, surface, refus) |
-| Hélice 3D | non | pas, hauteur, rayon, angle | axe, sens | non | oui (drapeau) | oui (pas) |
-| Courbe composite | non | le panneau de la création, au rang : courbes et arêtes, bout à bout | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (arêtes, refus d'arêtes qui ne se suivent pas) |
-| Spline 3D | surcouche dans la vue | complète : points, type, fermée, liens, tangentes | rien | non | oui (drapeau) | oui |
-| Esquisse 3D | à vérifier | complète | rien | non | oui (drapeau) | oui |
+| Annuler l'ajustement | oui | le panneau de la création, au rang : face de surface (une autre surface aussi) | — | oui | oui (drapeau) | oui (autre surface, refus d'une face inconnue) |
+| Congé de surfaces | oui | le panneau de la création, au rang : arêtes (d'une même surface, qui peut changer), rayon (un pour toutes, comme à la création) | — | oui | oui (drapeau) | oui (rayon, arêtes, autre surface) |
+| Aplatir | oui | le panneau de la création, au rang : face de surface (un clic sur une autre la remplace, sur une autre surface aussi) ; la déformation mesurée | — | oui | oui (drapeau) | oui (surface, face) |
+| Forme libre | oui | le panneau de la création, au rang : surface (clic dans l'arbre ; les points poussés s'y reprojettent), points poussés, hauteurs, rayon, bords fixes | — | oui | oui (drapeau) | oui (surface, rayon) |
+| Pôles | oui, avec sa surcouche dans la vue | surface (clic dans l'arbre ; les pôles déplacés gardent leurs indices), déplacements, pas de grille ; une autre face, en cliquant ses pôles | — | oui | oui (drapeau) | oui (surface) |
+| Prolonger | oui | le panneau de la création, au rang : bord (ou la surface entière, pour tous ses bords ; un bord d'une autre surface la change), distance | — | oui | oui (drapeau) | oui (tous les bords, un bord, autre surface) |
+| Ajuster | oui | le panneau de la création, au rang : outil, surface ajustée et partie gardée (un clic dessus) | ajustement mutuel (deux lignes : chacune se réédite seule) | oui | oui (drapeau) | oui (outil, partie gardée, autre surface, refus) |
+| Courbe d'intersection | oui (ses traits) | le panneau de la création, au rang : les deux surfaces, ou une surface et le solide (« avec le solide ») | — | oui (ses traits) | oui (drapeau) | oui (seconde surface, solide, refus) |
+| Projeter une courbe | oui (ses traits) | le panneau de la création, au rang : esquisse, face cible (la direction suit la normale de l'esquisse) | — | oui (ses traits) | oui (drapeau) | oui (esquisse, surface, refus) |
+| Hélice 3D | oui (ses traits) | pas, hauteur, rayon, angle | axe, sens | oui (ses traits) | oui (drapeau) | oui (pas) |
+| Courbe composite | oui (ses traits) | le panneau de la création, au rang : courbes et arêtes, bout à bout | — | oui (ses traits) | oui (drapeau) | oui (arêtes, refus d'arêtes qui ne se suivent pas) |
+| Spline 3D | tracée dans la vue | complète : points, type, fermée, liens, tangentes | rien | tracée dans la vue | oui (drapeau) | oui |
+| Esquisse 3D | tracée dans la vue | complète | rien | tracée dans la vue | oui (drapeau) | oui |
 
 ## Écarts, par thème
 
@@ -219,14 +219,17 @@ Où ça se décide : `engine/equations.py` (`set_params`, `_editable_props`) ; `
 
 ### 6. L'aperçu absent ou inégal
 
-- **À la création** : absent pour toutes les surfaces (sauf Couper avec une surface) et toutes les opérations sur surfaces et courbes (sauf Remplacer et Supprimer la face du solide, et Supprimer la face d'une surface), pour l'Axe, le Point et le Repère, pour les fonctions graphe et la Répétition variable. Les surfaces dont le résultat est le plus incertain (Ajuster, Diviser) sont celles sans aperçu. Deux absences sont voulues : Combiner (booléen lent) et la Surface médiane.
-- **À la réédition** : absent pour les Pôles, Supprimer des corps, les fonctions graphe. La Répétition de corps passe par le même aperçu que les fonctions, sans le fantôme des seuls corps nouveaux de la création (à vérifier).
-- **Surfaces** : l'aperçu d'une surface rééditée par `set_params` montre la surface elle-même (vérifié pour la Surface plane, la décalée, Épaissir, Prolonger et le Congé de surfaces ; les autres surfaces rééditées par leurs cotes passent par la même voie, à vérifier).
-- **Bulle de rayon du Congé** : présente à la création, absente à la réédition.
-- **Flèche de profondeur** : seulement pour l'Extrusion et l'Enlèvement. Ni Révolution, ni Perçage, ni Hélice, ni Surface extrudée.
-- **Entrées du menu de la vue** : entrées dédiées pour l'Extrusion, l'Enlèvement et la Révolution seulement (écart d'accès, pas de réédition).
+Depuis le 2026-11-13, toute fonction qui fabrique une forme nouvelle a son fantôme jaune à la création et à la réédition.
 
-Où ça se décide : `app/main/featurepanel.js` (branche l'aperçu sauf `preview:false`, et la flèche) ; `app/features/*.js` (le drapeau `preview:false` de chaque entrée) ; `engine/ops/*.py` (`preview=True` de chaque opération) ; `app/tree.js` (un `onChange` par panneau de réédition) ; `app/main.js` (`showGhost`, qui ne dessine que le maillage du corps) ; `engine/directedit.py` (`_depth_editable`).
+- **À la création** : les surfaces, les opérations sur surfaces et courbes, l'Axe, le Point et le Repère ont maintenant leur aperçu (`preview=True` côté moteur). Une surface montre ses faces ; une courbe (intersection, projection, hélice 3D, composite) montre ses traits ; une référence montre son fantôme, comme le plan. Le moteur crée la fonction dans une transaction qu'il annule aussitôt : le document ne change pas (p135, 27 créations).
+- **Spline 3D et Esquisse 3D** : un mode d'édition dans la vue, à la création comme à la réédition ; le tracé en cours tient lieu d'aperçu.
+- **Absences voulues** : Combiner (booléen lent sur des corps entiers), la Surface médiane (sa forme figée se calcule sur toutes les parois), Supprimer des corps (aucune forme nouvelle : ce qu'elle retire est sa sélection, déjà surlignée), les fonctions graphe et la Répétition variable (un graphe peut contenir du Python, qui ne s'exécute qu'après autorisation, à l'application ; un aperçu le lancerait à chaque saisie ; à la création, le graphe minimal ne montre rien).
+- **À la réédition** : les Pôles prévisualisent leurs déplacements ; la Répétition de corps montre ses copies (branche `FreeSolidBodyPattern` de l'aperçu) ; une surface rééditée par `set_params` montre la surface elle-même ; une référence rééditée montre son fantôme.
+- **Bulle de rayon du Congé** : présente à la création et à la réédition.
+- **Flèche de profondeur** : Extrusion, Enlèvement, Surface extrudée, Perçage borgne (au fond du premier trou) et Hélice (au bout de sa hauteur, le long de l'axe de son esquisse), à la création comme à la réédition (p136). La Révolution n'en a pas, voulu : sa cote est un angle, pas une profondeur.
+- **Entrées du menu de la vue** : entrées dédiées pour l'Extrusion, l'Enlèvement et la Révolution seulement. C'est un écart d'accès, pas d'aperçu.
+
+Où ça se décide : `app/main/featurepanel.js` (branche l'aperçu sauf `preview:false`, et la flèche : `extrudeDepthHandle`) ; `app/features/*.js` (le drapeau `preview:false` de chaque entrée) ; `engine/ops/*.py` (`preview=True` de chaque opération, relevé dans `tests/ops_instantane.json`) ; `engine/kernel.py` (`preview` : corps, surfaces, courbes et références) ; `app/tree.js` (un `onChange` par panneau de réédition) ; `app/main.js` (`showGhost`, `ghostLines`, `showReferenceGhost`) ; `engine/directedit.py` (`feature_drag_info`, `face_frame`, `sketch_frame`, `_depth_editable`).
 
 ### 7. Le sens dit de plusieurs façons
 
@@ -258,6 +261,8 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 ### 10. La couverture du selftest
 
 Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution. Les références (p134), Diviser, Annuler l'ajustement, la Courbe composite (p132), Remplacer et Supprimer la face (p133) en ont maintenant une. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+
+L'aperçu à la création des surfaces, courbes et références est vérifié par p135 (chaque création montre quelque chose et laisse le document intact) ; les flèches du perçage et de l'hélice, par p136.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 

@@ -4,7 +4,7 @@
 
 import { panelNotice } from "../panel.js";
 import { num, plainNumber } from "../num.js";
-import { resolveProfileSketch } from "../features.js";
+import { holePositions, resolveProfileSketch } from "../features.js";
 import { combineFinished } from "../combine.js";
 import { latestGraphOrRepeat } from "../graph.js";
 
@@ -118,7 +118,9 @@ export function installFeaturePanel(ctx) {
       },
     };
     const depthHandle = ["btn-pad", "btn-pocket", "btn-surf-extrude"]
-      .includes(entry.button) ? extrudeDepthHandle(entry, ctx) : null;
+      .includes(entry.button) ? extrudeDepthHandle(entry, ctx)
+      : entry.button === "btn-hole" ? holeDepthHandle()
+        : entry.button === "btn-helix" ? helixDepthHandle(ctx) : null;
     if (depthHandle) spec.onClose = () => depthHandle.close();
     if (entry.preview !== false) {
       spec.onChange = (v, how) => {
@@ -225,6 +227,58 @@ export function installFeaturePanel(ctx) {
         arrow.update(v);
       },
     };
+  }
+
+  /** Flèche d'un perçage borgne qu'on crée : au fond du premier trou
+   *  cliqué, vers l'intérieur de la matière (contre la normale de la
+   *  face). Sans position cliquée, pas de flèche. */
+  function holeDepthHandle() {
+    const frames = new Map(); // face → cadre (centre, normale)
+    const arrow = depthArrow((v) => {
+      const positions = holePositions(v.pos);
+      const depth = num(v.depth);
+      const frame = positions && !positions.error
+        ? frames.get(positions.face) : null;
+      if (!frame?.normal || v.cond !== "borgne" || !(depth > 0)) return null;
+      const dir = frame.normal.map((c) => -c);
+      return { origin: positions.points[0].map((c, i) => c + dir[i] * depth),
+               dir, length: depth, factor: 1, key: "depth" };
+    });
+    return {
+      ...arrow,
+      update: (v) => {
+        const positions = holePositions(v.pos);
+        const face = positions?.error ? null : positions?.face;
+        if (Number.isInteger(face) && !frames.has(face)) {
+          frames.set(face, null);
+          call("face_frame", { face }).then((result) => {
+            frames.set(face, result);
+            arrow.ready();
+          }).catch(() => {});
+        }
+        arrow.update(v);
+      },
+    };
+  }
+
+  /** Flèche d'une hélice volume qu'on crée : au bout de sa hauteur, le
+   *  long de l'axe vertical de l'esquisse du profil. */
+  function helixDepthHandle(featureCtx) {
+    const sketch = resolveProfileSketch(featureCtx)?.name;
+    let frame = null;
+    const arrow = depthArrow((v) => {
+      const height = num(v.height);
+      if (!frame?.vaxis || !(height > 0)) return null;
+      return { origin: frame.center.map((c, i) => c + frame.vaxis[i] * height),
+               dir: frame.vaxis, length: height, factor: 1, key: "height" };
+    });
+    if (sketch) {
+      call("sketch_frame", { sketch }).then((result) => {
+        frame = result;
+        arrow.ready();
+      }).catch(() => {});
+    }
+    return arrow;
   }
 
   /** Flèche de la fonction qu'on réédite : le moteur la pose au bout de

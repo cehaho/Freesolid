@@ -6649,3 +6649,53 @@ def p135_apercu_des_surfaces_a_la_creation(self, mark, report, etat):
     report["p135_apercu_des_surfaces_a_la_creation"] = (
         len(seen) == 29 and not failed
         and seen["drag"] == ("length", 10.0, [0.0, 0.0, 1.0], 5.0))
+
+
+def p136_fleches_percage_helice(self, mark, report, etat):
+    mark("p136: flèches de profondeur du perçage et de l'hélice volume")
+    seen = etat.p136 = {}
+
+    def rounded(values):
+        return [round(c, 6) for c in values]
+
+    self.new_part("Flèches perçage et hélice")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    top = next(i for i, f in enumerate(body.Shape.Faces)
+               if abs(f.CenterOfMass.z - 10) < 1e-6)
+    frame = self.face_frame(top)
+    seen["face"] = (rounded(frame["normal"]), round(frame["center"][2], 6))
+    tree = self.add_hole(6, depth=5, face=top, points=[[5, 5, 10]])
+    hole = next(f["name"] for f in tree["features"]
+                if f["type"] == "PartDesign::Hole")
+    drag = self.feature_drag_info(hole)["drag"] or {}
+    seen["hole"] = (drag.get("key"), drag.get("value"),
+                    rounded(drag.get("normal", [])),
+                    rounded(drag.get("point", [0, 0, 0])), drag.get("factor"))
+    # Traversant : pas de flèche.
+    through = self.add_hole(3, through=True, face=top, points=[[-5, -5, 10]])
+    thru = [f["name"] for f in through["features"]
+            if f["type"] == "PartDesign::Hole"][-1]
+    seen["through"] = self.feature_drag_info(thru)["drag"]
+    # Hélice : l'axe vertical de l'esquisse (XZ → Z).
+    self.new_part("Flèche hélice")
+    sk = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_circle(sk, 15, 0, 2)
+    self.sketch_finish(sk)
+    seen["frame"] = rounded(self.sketch_frame(sk)["vaxis"])
+    tree = self.add_helix(pitch=8, height=40, sketch=sk)
+    helix = next(f["name"] for f in tree["features"]
+                 if f["type"] == "PartDesign::AdditiveHelix")
+    drag = self.feature_drag_info(helix)["drag"] or {}
+    top_z = self._doc.getObject(helix).Shape.BoundBox.ZMax
+    seen["helix"] = (drag.get("key"), drag.get("value"),
+                     rounded(drag.get("normal", [])),
+                     round(drag.get("point", [0, 0, 0])[2], 6),
+                     top_z > 35)
+    report["p136_fleches_percage_helice"] = (
+        seen["face"] == ([0.0, 0.0, 1.0], 10.0)
+        and seen["hole"] == ("depth", 5.0, [0.0, 0.0, -1.0],
+                             [5.0, 5.0, 5.0], 1.0)
+        and seen["through"] is None
+        and seen["helix"] == ("height", 40.0, [0.0, 0.0, 1.0], 40.0, True))
