@@ -242,6 +242,7 @@
  "pas de solide à évaluer": "no solid to evaluate",
  "pas encore de solide pour accueillir une esquisse sur face": "no solid yet to host a sketch on a face",
  "pas et hauteur doivent être positifs": "pitch and height must be positive",
+ "l'angle d'une hélice est entre -90° et 90°": "a helix angle is between -90° and 90°",
  "plafond de {} arêtes dépassé ({}) — aucune troncature": "ceiling of {} edges exceeded ({}) — no truncation",
  "plafond de {} nœuds dépassé ({}) — aucune troncature": "ceiling of {} nodes exceeded ({}) — no truncation",
  "plan de référence inconnu : {}": "unknown reference plane: {}",

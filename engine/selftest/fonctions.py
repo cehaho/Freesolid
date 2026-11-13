@@ -6699,6 +6699,31 @@ def p136_fleches_percage_helice(self, mark, report, etat):
                              [5.0, 5.0, 5.0], 1.0)
         and seen["through"] is None
         and seen["helix"] == ("height", 40.0, [0.0, 0.0, 1.0], 40.0, True))
+    # Hélice conique : l'angle se donne à la création, comme à la
+    # réédition ; hors de ]-90°, 90°[ il est refusé.
+    from engine.kernel import dispatch
+    self.new_part("Hélice conique")
+    sk = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_circle(sk, 15, 0, 2)
+    self.sketch_finish(sk)
+    refused = dispatch(self, "add_helix", {"pitch": 8, "height": 40,
+                                           "angle": 90, "sketch": sk})
+    seen["cone_refused"] = not refused.get("ok")
+    tree = dispatch(self, "add_helix", {"pitch": 8, "height": 40,
+                                        "angle": 15, "sketch": sk}
+                    ).get("result") or {"features": []}
+    cone = self._doc.getObject(next(
+        f["name"] for f in tree["features"]
+        if f["type"] == "PartDesign::AdditiveHelix"))
+    box = cone.Shape.BoundBox
+    seen["cone"] = (round(float(cone.Angle), 6),
+                    next((e["value"] for e in self.get_params(cone.Name)
+                          ["params"] if e["key"] == "angle"), None),
+                    box.XMax > 17 + 30 * 0.2)
+    report["p136_helice_conique"] = (
+        seen["cone_refused"]
+        and seen["cone"][0] == 15.0 and seen["cone"][1] == 15.0
+        and seen["cone"][2])
 
 
 def p137_barre_et_references(self, mark, report, etat):

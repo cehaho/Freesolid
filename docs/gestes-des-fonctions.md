@@ -2,7 +2,7 @@
 
 Cette grille sert à repérer où les fonctions ne se comportent pas pareil. Pour chacune, elle dit si l'on peut rééditer après coup ce qu'on a choisi à la création, et si les gestes (aperçu, double-clic, menu « Modifier », barre de retour) sont les mêmes d'une fonction à l'autre.
 
-État décrit : 2026-11-13. La grille a été dressée le 2026-11-02, après #151 (« Modifier » au menu suit le double-clic), #153 (« Désactiver » suit le moteur) et la réédition des options de création (Extrusion, Enlèvement, Coque, Perçage, surfaces décalée et radiée). Elle a été tenue à jour depuis : toutes les fonctions se rééditent (thème 3, #203 à #205), leurs sélections se re-choisissent au rang (thème 4, #189 à #202), l'aperçu est partout sauf là où son absence est voulue (thème 6, #206), et les références et les formes figées entrent dans la barre de retour comme les autres lignes (thème 8, #207). Restent les thèmes 2, 5, 7, 9 et 10. La grille vient de la lecture du code et des selftests, contrôlée par un relevé : ce que l'arbre dit de chaque ligne fabriquée par le selftest (`has_params`, 51 genres), et quelques gestes rejoués dans le navigateur. Ce qui n'a pas été tranché est marqué « à vérifier ».
+État décrit : 2026-11-13. La grille a été dressée le 2026-11-02, après #151 (« Modifier » au menu suit le double-clic), #153 (« Désactiver » suit le moteur) et la réédition des options de création (Extrusion, Enlèvement, Coque, Perçage, surfaces décalée et radiée). Elle a été tenue à jour depuis : toutes les fonctions se rééditent (thème 3, #203 à #205), leurs sélections se re-choisissent au rang (thème 4, #189 à #202), l'aperçu est partout sauf là où son absence est voulue (thème 6, #206), et les références et les formes figées entrent dans la barre de retour comme les autres lignes (thème 8, #207). Le thème 7 est réglé depuis (l'angle de l'Hélice à la création, la zone de la Dépouille). Restent les thèmes 2, 5, 9 et 10. La grille vient de la lecture du code et des selftests, contrôlée par un relevé : ce que l'arbre dit de chaque ligne fabriquée par le selftest (`has_params`, 51 genres), et quelques gestes rejoués dans le navigateur. Ce qui n'a pas été tranché est marqué « à vérifier ».
 
 Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jour dans le même changement (et, si un écart disparaît ou apparaît, la section « Écarts, par thème »). Les références vont au fichier et à la fonction, jamais à une ligne. « Écart n° N » renvoie au tableau de `docs/ecarts-solidworks.md`.
 
@@ -28,7 +28,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Perçage | oui + flèche (borgne, dès le premier trou cliqué) | le panneau de la création : positions et face (posé par des clics), type (simple, lamage, fraisage), cotes du type, angle du fraisage, à travers ou borgne, profondeur, corps creusés (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | — | oui + flèche | oui | oui (type, condition de fin, corps creusés, positions) |
 | Lissage | oui | le panneau de la création, au rang : profils et leur ordre (un clic dans l'arbre retire une esquisse de la zone ou l'ajoute au bout ; celle d'un autre corps entre par un liant caché), lissage droit, boucle fermée ; « Fusionner » (décochée, il sort de son corps ; ses profils y entrent par des liants) ; quand la pièce a d'autres corps, les corps fondus, ou creusés pour l'enlèvement lissé (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer) | soustractif | oui | oui | oui (profils retirés, réordonnés, d'un autre corps, lissage droit, « Fusionner » décochée puis recochée, zone d'action, corps fondus ajoutés puis retirés) |
 | Balayage | oui | le panneau de la création, au rang : profil et trajectoire (une esquisse ou une courbe 3D), et comme le Lissage : « Fusionner » (profil d'un seul tenant pour sortir de son corps), les corps fondus, ou creusés pour l'enlèvement balayé | soustractif | oui | oui | oui (profil, trajectoire sur une esquisse ou une courbe 3D, « Fusionner » décochée sur une esquisse et sur une courbe 3D, profil en deux morceaux refusé, corps creusés ajoutés, Ctrl+Z et Ctrl+Y) |
-| Hélice | oui + flèche | pas, hauteur, angle ; plan de l'esquisse (« Changer de plan… ») | — | oui + flèche | oui | non (la flèche seule : p136) |
+| Hélice | oui + flèche | pas, hauteur, angle (aussi à la création) ; plan de l'esquisse (« Changer de plan… ») | — | oui + flèche | oui | non (la flèche seule : p136) |
 | Texte | oui | le panneau de la création : texte, hauteur, profondeur, décalage, face d'appui | relief ou gravure, police | oui | oui | oui |
 
 ## Habillage, Combiner et références
@@ -233,10 +233,12 @@ Où ça se décide : `app/main/featurepanel.js` (branche l'aperçu sauf `preview
 
 ### 7. Le sens dit de plusieurs façons
 
+Réglé le 2026-11-13 : chaque point ci-dessous dit maintenant la même chose à la création et à la réédition.
+
 - **Surface décalée, Surface radiée, Épaissir** : la décalée et la radiée ont maintenant la même case à la création et à la réédition (« Inverser le côté », « Vers l'intérieur »), et la radiée est libellée « Distance ». Épaissir n'a pas de case : le signe de l'épaisseur, aux deux moments. Une radiée dont la distance est pilotée par une équation garde le panneau des cotes, où le sens reste le signe.
-- **Texte** : « Hauteur », « Décalage X/Y » à la création, « Taille », « X », « Y » à la réédition.
-- **Hélice** : l'angle n'existe qu'à la réédition.
-- **Dépouille** : libellé « Faces à dépouiller » au pluriel pour une seule face, alors que la Coque en accepte plusieurs.
+- **Texte** : corrigé avec sa réédition (thème 3) : création et réédition partagent les rangées (`textRows`), « Hauteur » et « Décalage X/Y » aux deux moments.
+- **Hélice** : corrigé le 2026-11-13. L'angle (hélice conique) se donne aussi à la création, entre -90° et 90° exclus, comme à la réédition (p136).
+- **Dépouille** : corrigé le 2026-11-13. La zone s'appelle « Face à dépouiller », au singulier, à la création comme à la réédition : la Dépouille prend une face, la Coque plusieurs.
 
 Où ça se décide : `app/features/surfaces.js`, `habillage.js`, `volumes.js` (panneaux de création) ; `app/tree.js` (libellés de réédition, `PARAM_LABELS_BY_KIND` et le panneau Gravure) ; `engine/vocab.py` (`PARAM_KEYS`).
 
