@@ -151,6 +151,8 @@ class SurfaceCommonMixin:
             "has_params": self._has_params(obj),
             "suppressible": self._is_suppressible(obj),
         }
+        if self._is_disabled(obj):
+            entry["suppressed"] = True
         wire(entry, obj)
         # Couture / courbe / fichiers legacy : pas d'objet paramétrique.
         if obj.TypeId == "Part::Feature":
@@ -586,7 +588,8 @@ class SurfaceCommonMixin:
         consumed = set()
         for obj in self._require_doc().Objects:
             if (not counts(obj) if counts is not None
-                    else self._is_rolled_back(obj)):
+                    else self._is_rolled_back(obj)
+                    or self._is_disabled(obj)):
                 continue
             if obj.TypeId == "Surface::Extend":
                 face = getattr(obj, "Face", None)

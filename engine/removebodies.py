@@ -133,6 +133,7 @@ class RemoveBodiesMixin:
                     if self._is_surface_obj(o)
                     and not self._is_internal_tool(o)
                     and not self._is_rolled_back(o)
+                    and not self._is_disabled(o)
                     and o.Name not in consumed and o.Name not in removed]
         return self._inventory(tips, surfaces)
 

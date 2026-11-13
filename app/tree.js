@@ -569,7 +569,7 @@ export function installTree(ctx) {
     if (ctx.selectedSurface) {
       const surf = (tree.surfaces ?? []).find(
         (item) => item.name === ctx.selectedSurface.name);
-      if (!surf || surf.rolled_back) {
+      if (!surf || surf.rolled_back || surf.suppressed) {
         ctx.selectedSurface = null;
         dropped = true;
       }
@@ -577,7 +577,8 @@ export function installTree(ctx) {
     if (ctx.selectedSketch) {
       const feat = (tree.features ?? []).find(
         (item) => item.name === ctx.selectedSketch.name);
-      if (feat?.type_key === "sketch" && feat.rolled_back) {
+      if (feat?.type_key === "sketch"
+          && (feat.rolled_back || feat.suppressed)) {
         ctx.selectedSketch = null;
         clearSketchHighlight();
         dropped = true;

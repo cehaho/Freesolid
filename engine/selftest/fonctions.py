@@ -3227,16 +3227,22 @@ def p88_desactiver_suit_le_moteur(self, mark, report, etat):
             self.set_suppressed([name], True)
         except KernelError:
             return True
+        self.set_suppressed([name], False)
         return False
 
+    # Références et courbes se désactivent aussi (drapeau FreeSolid) ; un
+    # corps, non.
+    body = self._require_body().Name
     report["p88_desactiver_suit_le_moteur"] = (
         rows[pad]["suppressible"] is True
         and len(datums) == 3
-        and all(d["suppressible"] is False and refused(d["name"])
+        and all(d["suppressible"] is True and not refused(d["name"])
                 for d in datums)
-        and composite["suppressible"] is False
-        and refused(composite["name"])
+        and composite["suppressible"] is True
+        and not refused(composite["name"])
+        and refused(body)
         and not refused(pad))
+    self.set_suppressed([pad], True)
     off = {f["name"]: f for f in self.get_tree()["features"]}
     back = {f["name"]: f for f in self.set_suppressed([pad], False)["features"]}
     report["p88_reactiver"] = (
@@ -6886,3 +6892,117 @@ def p138_formes_figees_et_barre(self, mark, report, etat):
         seen["vertex"] == (3995.5, 4120.5, ["3", "3", "3"])
         and seen["face"] == (16000.0, 15875.0, True, True)
         and seen["sew"] == 300.0)
+
+
+def p140_desactiver_emporte_les_enfants(self, mark, report, etat):
+    mark("p140: désactiver emporte ce qui s'appuie dessus")
+    from engine.kernel import dispatch
+    seen = etat.p140 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def off(*names):
+        tree = self.get_tree()
+        rows = {}
+        stack = list(tree["features"]) + list(tree["surfaces"])
+        while stack:
+            row = stack.pop()
+            rows.setdefault(row["name"], row)
+            stack.extend(row.get("children") or ())
+        return [bool(rows[n].get("suppressed")) for n in names]
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    # Bloc, plan sur son dessus, esquisse sur le plan, bossage.
+    self.new_part("Désactiver et enfants")
+    base = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(base, -20, -20, 20, 20)
+    self.sketch_finish(base)
+    pad = self.add_pad(10, sketch=base)["features"][-1]["name"]
+    top = next(i for i, f in enumerate(self._doc.getObject(pad).Shape.Faces)
+               if f.BoundBox.ZMin > 9.99 and f.BoundBox.ZLength < 1e-6)
+    plane = [f["name"] for f in self.add_datum_plane(face=top)["features"]
+             if f["type"] == "PartDesign::Plane"][-1]
+    boss_sk = self.sketch_start(datum=plane)["sketch"]
+    self.sketch_add_rectangle(boss_sk, 5, 5, 15, 15)
+    self.sketch_finish(boss_sk)
+    self.add_pad(5, sketch=boss_sk)
+    boss = self._require_body().Tip.Name
+    full = volume()
+    # Le plan : l'esquisse et le bossage partent avec lui.
+    call("set_suppressed", features=[plane], suppressed=True)
+    seen["plane"] = (off(plane, boss_sk, boss, pad), volume())
+    alone = call("set_suppressed", features=[boss], suppressed=False)
+    seen["alone"] = (alone.get("ok"), "réactivez" in str(alone.get("error")))
+    on_plane = call("sketch_start", datum=plane)
+    seen["sketch_on_off"] = on_plane.get("ok")
+    call("set_suppressed", features=[plane], suppressed=False)
+    seen["back"] = (off(plane, boss_sk, boss), volume() == full)
+    # Le bloc : le plan posé sur sa face, puis tout ce qui suit.
+    call("set_suppressed", features=[pad], suppressed=True)
+    seen["pad"] = off(pad, plane, boss_sk, boss)
+    call("set_suppressed", features=[pad], suppressed=False)
+    seen["pad_back"] = (off(pad, plane, boss_sk, boss), volume() == full,
+                        self.rebuild_errors()["errors"] == [])
+    # Un congé sur l'arête d'un trou part avec le trou ; un bossage
+    # d'après qui ne prend rien au trou reste.
+    self.new_part("Désactiver un trou")
+    sk = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(sk, -20, -20, 20, 20)
+    self.sketch_finish(sk)
+    self.add_pad(10, sketch=sk)
+    hole_sk = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_circle(hole_sk, 0, 0, 4)
+    self.sketch_finish(hole_sk)
+    # L'esquisse est sous le bloc : l'enlèvement part vers le haut.
+    self.add_pocket(through=True, reversed=True, sketch=hole_sk)
+    hole = self._require_body().Tip.Name
+    rim = next(i for i, e in enumerate(self._require_body().Shape.Edges)
+               if e.Curve.TypeId == "Part::GeomCircle"
+               and e.BoundBox.ZMin > 9.99)
+    self.add_fillet(1, edges=[rim])
+    fillet = self._require_body().Tip.Name
+    post_sk = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(post_sk, 10, 10, 18, 18)
+    self.sketch_finish(post_sk)
+    self.add_pad(15, sketch=post_sk)
+    post = self._require_body().Tip.Name
+    call("set_suppressed", features=[hole], suppressed=True)
+    seen["hole"] = (off(hole, fillet, post),
+                    self.rebuild_errors()["errors"] == [])
+    call("set_suppressed", features=[hole], suppressed=False)
+    seen["hole_back"] = (off(hole, fillet, post),
+                         self.rebuild_errors()["errors"] == [])
+    # Surfaces : la décalée part avec sa source, pas l'inverse ; la vue
+    # ne dessine plus une surface désactivée.
+    self.new_part("Désactiver une surface")
+    square = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(square, 0, 0, 40, 40)
+    self.sketch_finish(square)
+    flat = self.surface_planar(sketch=square)["surfaces"][-1]["name"]
+    offset = self.surface_offset(flat, 10)["surfaces"][-1]["name"]
+    call("set_suppressed", features=[offset], suppressed=True)
+    seen["offset"] = (off(flat, offset),
+                      len(self.tessellate().get("surfaces") or []))
+    call("set_suppressed", features=[offset], suppressed=False)
+    call("set_suppressed", features=[flat], suppressed=True)
+    seen["flat"] = (off(flat, offset),
+                    len(self.tessellate().get("surfaces") or []))
+    call("set_suppressed", features=[flat], suppressed=False)
+    seen["flat_back"] = (off(flat, offset),
+                         len(self.tessellate().get("surfaces") or []))
+    report["p140_desactiver_emporte_les_enfants"] = (
+        seen["plane"][0] == [True, True, True, False]
+        and seen["plane"][1] < full
+        and seen["alone"] == (False, True)
+        and seen["sketch_on_off"] is False
+        and seen["back"] == ([False, False, False], True)
+        and seen["pad"] == [True, True, True, True]
+        and seen["pad_back"] == ([False, False, False, False], True, True)
+        and seen["hole"] == ([True, True, False], True)
+        and seen["hole_back"] == ([False, False, False], True)
+        and seen["offset"] == ([False, True], 1)
+        and seen["flat"] == ([True, True], 0)
+        and seen["flat_back"] == ([False, False], 2))

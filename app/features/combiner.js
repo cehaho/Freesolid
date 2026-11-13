@@ -85,7 +85,8 @@ export function removalCandidates(tree) {
     }
   }
   for (const surface of tree?.surfaces ?? []) {
-    if (surface.removed || surface.consumed || surface.rolled_back) continue;
+    if (surface.removed || surface.consumed || surface.rolled_back
+        || surface.suppressed) continue;
     rows.push({ name: surface.name, label: surface.label, surface: true });
   }
   return rows;

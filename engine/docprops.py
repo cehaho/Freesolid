@@ -14,6 +14,12 @@ partent avec le .FCStd. Les imports FreeCAD restent dans les méthodes ;
 et ``clean_meta`` sont testées en CI.
 """
 
+#: Drapeau « désactivé » d'une ligne sans ``Suppressed`` (surface,
+#: référence, esquisse emportée).
+_DISABLED_PROP = "FreeSolidSuppressed"
+#: La ligne désactivée par l'utilisateur qui a emporté celle-ci.
+_DISABLED_BY_PROP = "FreeSolidSuppressedBy"
+
 #: Préfixe des transactions ouvertes par ``dispatch`` (kernel.py).
 _PREFIX = "freesolid-"
 #: Marque, après le nom de l'op, de la session d'esquisse en cours.
@@ -198,18 +204,135 @@ class DocPropsMixin:
             obj.FreeSolidHidden = bool(hidden)
         return self._current_tree()
 
-    @staticmethod
-    def _is_suppressible(obj):
-        """Ce que ``set_suppressed`` accepte : un objet qui porte
-        ``Suppressed`` (fonction de corps PartDesign). L'arbre le dit
-        (``suppressible``), « Désactiver » le suit."""
-        return "Suppressed" in getattr(obj, "PropertiesList", ())
+    def _is_suppressible(self, obj):
+        """Ce que « Désactiver » accepte : une fonction de corps PartDesign
+        (``Suppressed``), une surface ou une courbe, une référence (plan,
+        axe, point, repère). Les deux dernières n'ont pas ``Suppressed``
+        dans FreeCAD : elles portent ``FreeSolidSuppressed``. L'arbre le
+        dit (``suppressible``), le menu le suit."""
+        if obj is None:
+            return False
+        if "Suppressed" in getattr(obj, "PropertiesList", ()):
+            return True
+        if self._is_internal_tool(obj):
+            return False
+        if not (self._is_surface_obj(obj) or self._is_reference(obj)):
+            return False
+        # Réseau de corps, suppression de corps : leurs étapes cachées
+        # sont des fonctions de corps, pas encore désactivées avec eux.
+        return not any(obj is host for host in self._removal_hosts()) \
+            and not any(obj is host for host in self._body_pattern_hosts())
+
+    def _is_disabled(self, obj):
+        """Désactivée : ``Suppressed`` d'une fonction de corps, ou le
+        drapeau d'une surface, d'une référence, d'une esquisse."""
+        if obj is None:
+            return False
+        if "Suppressed" in getattr(obj, "PropertiesList", ()):
+            return bool(obj.Suppressed)
+        return bool(getattr(obj, _DISABLED_PROP, False))
+
+    def _emptied_by_suppression(self, obj):
+        """Un corps vide parce que toutes ses fonctions sont désactivées :
+        FreeCAD le dit en erreur (« Tip shape is empty »), ce n'en est pas
+        une — comme dans les modeleurs courants, la pièce est vide."""
+        if getattr(obj, "TypeId", "") != "PartDesign::Body":
+            return False
+        if getattr(obj, "BaseFeature", None) is not None:
+            return False
+        features = [o for o in obj.Group
+                    if o.isDerivedFrom("PartDesign::Feature")]
+        return bool(features) and all(
+            bool(getattr(o, "Suppressed", False)) for o in features)
+
+    def _disabled_root(self, obj):
+        """La ligne dont la désactivation a emporté ``obj``, ou None."""
+        name = getattr(obj, _DISABLED_BY_PROP, "") or ""
+        root = self._require_doc().getObject(name) if name else None
+        return root if root is not None and self._is_disabled(root) else None
+
+    def _can_carry_disabled(self, obj):
+        """Ce qu'une cascade désactive : les lignes qui se désactivent et
+        les esquisses (une esquisse posée sur une face ou un plan qui
+        disparaît). Les objets cachés (liants) se traversent seulement."""
+        return (self._is_suppressible(obj)
+                or getattr(obj, "TypeId", "") == "Sketcher::SketchObject")
+
+    def _set_disabled(self, obj, disabled, root=None):
+        """Pose l'état désactivé et sa racine (``root`` : la ligne que
+        l'utilisateur a désactivée, si ce n'est pas ``obj``)."""
+        disabled = bool(disabled)
+        if "Suppressed" in obj.PropertiesList:
+            obj.Suppressed = disabled
+        else:
+            if _DISABLED_PROP not in obj.PropertiesList:
+                if not disabled:
+                    return
+                obj.addProperty("App::PropertyBool", _DISABLED_PROP,
+                                "FreeSolid", "Désactivé")
+                obj.setEditorMode(_DISABLED_PROP, 2)
+            setattr(obj, _DISABLED_PROP, disabled)
+            if hasattr(obj, "Visibility"):
+                obj.Visibility = not (disabled or self._is_rolled_back(obj))
+        by = root.Name if (disabled and root is not None
+                           and root is not obj) else ""
+        if _DISABLED_BY_PROP not in obj.PropertiesList:
+            if not by:
+                return
+            obj.addProperty("App::PropertyString", _DISABLED_BY_PROP,
+                            "FreeSolid", "Désactivé avec")
+            obj.setEditorMode(_DISABLED_BY_PROP, 2)
+        setattr(obj, _DISABLED_BY_PROP, by)
+
+    def _parent_links(self, obj):
+        """Ce que ``obj`` prend, au sens de « Parents et enfants » : ses
+        liens hors chaîne du corps. Un habillage (congé, chanfrein,
+        dépouille, coque) ne compte pas sa base, la fonction d'avant : il
+        n'en est l'enfant que si ses arêtes ou ses faces disparaissent
+        avec elle (``set_suppressed`` le voit à l'erreur)."""
+        links = self._links_of(obj)
+        if obj.isDerivedFrom("PartDesign::DressUp"):
+            base = getattr(obj, "Base", None)
+            base = base[0] if isinstance(base, (list, tuple)) and base else base
+            links = [o for o in links if o is not base]
+        return links
+
+    def _children_of(self, obj):
+        return [o for o in getattr(obj, "InList", ())
+                if o is not obj and obj in self._parent_links(o)]
+
+    def _disable_closure(self, targets):
+        """{nom: (objet, racine)} : les cibles et tout ce qui s'appuie
+        sur elles, de proche en proche. Les objets cachés se traversent ;
+        ce qui est déjà désactivé garde sa propre racine."""
+        out = {}
+        stack = [(obj, obj) for obj in targets]
+        seen = set()
+        while stack:
+            obj, root = stack.pop()
+            if obj.Name in seen:
+                continue
+            seen.add(obj.Name)
+            if obj is root or (self._can_carry_disabled(obj)
+                               and not self._is_disabled(obj)):
+                out[obj.Name] = (obj, root)
+            elif self._is_disabled(obj):
+                continue
+            for helper in self._thin_helpers(obj) if (
+                    obj.isDerivedFrom("PartDesign::Feature")) else ():
+                stack.append((helper, root))
+            for child in self._children_of(obj):
+                if child.TypeId != "PartDesign::Body":
+                    stack.append((child, root))
+        return out
 
     def set_suppressed(self, features, suppressed=True):
-        """Désactive (ou réactive) des fonctions : elles restent dans
-        l'arbre avec leurs réglages, la pièce se calcule sans elles. Une
-        fonction qui s'appuyait sur une fonction désactivée passe en
-        erreur jusqu'à sa réactivation."""
+        """Désactive (ou réactive) des lignes : elles restent dans l'arbre
+        avec leurs réglages, la pièce se calcule sans elles. Comme dans
+        les modeleurs courants, ce qui s'appuie sur une ligne désactivée
+        l'est avec elle : ce qui la prend par un lien (profil, appui,
+        référence), et ce qui perd ses arêtes ou ses faces. La réactiver
+        les rend ; une ligne emportée ne se réactive pas seule."""
         from engine.kernel import KernelError
         doc = self._require_doc()
         targets = []
@@ -217,30 +340,105 @@ class DocPropsMixin:
             obj = doc.getObject(str(name))
             if obj is None or not self._is_suppressible(obj):
                 raise KernelError(
-                    "seule une fonction de volume se désactive : {}".format(
+                    "cette ligne ne se désactive pas : {}".format(
                         getattr(obj, "Label", name)))
             targets.append(obj)
         if not targets:
             raise KernelError("choisissez une fonction")
-        from engine.kernel import KernelError as _Broken
-        for obj in targets:
-            obj.Suppressed = bool(suppressed)
+        if suppressed:
+            self._disable(doc, targets)
+        else:
+            self._enable(doc, targets)
+        return self._current_tree()
+
+    def _broken_names(self, doc):
+        return {o.Name for o in doc.Objects
+                if "Invalid" in (o.State or ())}
+
+    def _recompute_quiet(self):
+        from engine.kernel import KernelError
+        try:
+            self._recompute()
+        except KernelError:
+            pass  # l'état des objets dit ce qui casse
+
+    def _disable(self, doc, targets):
+        broken_before = self._broken_names(doc)
+        for obj, root in self._disable_closure(targets).values():
+            self._set_disabled(obj, True, root)
             # Ses objets cachés la suivent : la cavité d'une paroi mince,
             # le combiner qui fond d'autres corps (les corps reviennent).
-            for helper in self._thin_helpers(obj):
-                if self._is_suppressible(helper):
-                    helper.Suppressed = bool(suppressed)
+            if obj.isDerivedFrom("PartDesign::Feature"):
+                for helper in self._thin_helpers(obj):
+                    if "Suppressed" in helper.PropertiesList:
+                        helper.Suppressed = True
+        roots = list(targets)
+        for _ in range(10):
+            self._recompute_quiet()
+            # Ce qui casse maintenant a perdu ses arêtes ou ses faces avec
+            # une ligne désactivée : il l'est avec elle.
+            fresh = [doc.getObject(n) for n in
+                     self._broken_names(doc) - broken_before]
+            fresh = [o for o in fresh if o is not None
+                     and self._can_carry_disabled(o)
+                     and not self._is_disabled(o)]
+            if not fresh:
+                break
+            for obj in fresh:
+                root = self._broken_root(obj, roots)
+                for item, by in self._disable_closure([obj]).values():
+                    self._set_disabled(item, True,
+                                       root if by is obj else by)
+
+    def _broken_root(self, obj, roots):
+        """La racine à laquelle rattacher ``obj`` qui casse : la ligne
+        désactivée la plus proche avant lui dans l'arbre."""
+        order_of = self._tree_order()
+        at = order_of.get(obj.Name, -1)
+        before = [r for r in roots if order_of.get(r.Name, -1) < at]
+        return max(before, key=lambda r: order_of.get(r.Name, -1),
+                   default=roots[0])
+
+    def _enable(self, doc, targets):
+        from engine.kernel import KernelError
+        for obj in targets:
+            root = self._disabled_root(obj)
+            if root is not None and root not in targets:
+                raise KernelError(
+                    "« {} » a été désactivée avec « {} » : réactivez "
+                    "« {} »".format(obj.Label, root.Label, root.Label))
+        names = {o.Name for o in targets}
+        coming = list(targets) + [
+            o for o in doc.Objects
+            if getattr(o, _DISABLED_BY_PROP, "") in names
+            and o.Name not in names]
+        back = {o.Name for o in coming}
+        for obj in coming:
+            self._set_disabled(obj, False)
+            if obj.isDerivedFrom("PartDesign::Feature"):
+                for helper in self._thin_helpers(obj):
+                    if "Suppressed" in helper.PropertiesList:
+                        helper.Suppressed = False
+        # Ce qui s'appuie aussi sur une autre ligne encore désactivée
+        # reste désactivé, avec elle.
+        for obj in coming:
+            if obj in targets:
+                continue
+            held = next((p for p in self._parent_links(obj)
+                         if self._is_disabled(p) and p.Name not in back),
+                        None)
+            if held is not None:
+                self._set_disabled(obj, True,
+                                   self._disabled_root(held) or held)
         for _ in range(2):
             try:
                 self._recompute()
                 break
-            except _Broken:
-                # Les fonctions qui en dépendaient restent en erreur, sauf
-                # si elles ont seulement perdu leurs arêtes ou faces le
-                # temps de la désactivation : on les leur rend.
-                if suppressed or not self._heal_missing_links(doc):
+            except KernelError:
+                # Les fonctions qui ont seulement perdu leurs arêtes ou
+                # faces le temps de la désactivation : on les leur rend.
+                if not self._heal_missing_links(doc):
                     break
-        return self._current_tree()
 
     @staticmethod
     def _heal_missing_links(doc):
@@ -280,7 +478,8 @@ class DocPropsMixin:
             state = obj.State or ()
             if "Invalid" not in state and "Error" not in state:
                 continue
-            if self._is_internal_tool(obj):
+            if (self._is_internal_tool(obj)
+                    or self._emptied_by_suppression(obj)):
                 continue
             # « Fonction : ce qui ne va pas », traduit comme à la
             # reconstruction.
