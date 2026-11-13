@@ -57,26 +57,33 @@ describe("géométrie de référence", () => {
   it("rouvre un plan rempli de ce qui le porte", () => {
     assert.deepEqual(datumPlaneSpecValues(
       { kind: "plane", face: 2, offset: 3, angle: 15 }),
-    { face: { kind: "face", face: 2 }, base: "XY", offset: 3, angle: 15 });
+    { face: { kind: "face", face: 2 }, base: "", offset: 3, angle: 15 });
     assert.deepEqual(datumPlaneSpecValues(
       { kind: "plane", base: "YZ", offset: 0, angle: 0 }),
     { face: null, base: "YZ", offset: 0, angle: 0 });
-    // Une face perdue au rang : la zone vient vide.
-    assert.equal(datumPlaneSpecValues({ kind: "plane", face: null }).face, null);
+    // Une face perdue au rang : la zone vient vide, la liste sans choix.
+    const lost = datumPlaneSpecValues({ kind: "plane", face: null });
+    assert.equal(lost.face, null);
+    assert.equal(lost.base, "");
   });
 
   it("n'envoie d'un plan réédité que ce qui change", () => {
     const onFace = { kind: "plane", face: 2, offset: 3, angle: 0 };
-    const same = { sel: { kind: "face", face: 2 }, base: "XY", offset: "3",
+    const same = { sel: { kind: "face", face: 2 }, base: "", offset: "3",
                    angle: 0 };
     assert.deepEqual(datumPlaneEditValues(same, onFace), {});
     assert.deepEqual(datumPlaneEditValues({ ...same, offset: "7,5" }, onFace),
       { offset: 7.5 });
     assert.deepEqual(datumPlaneEditValues(
       { ...same, sel: { kind: "face", face: 5 } }, onFace), { face: 5 });
-    // La zone vidée : le plan d'origine choisi.
+    // La zone vidée par la liste : le plan d'origine choisi.
     assert.deepEqual(datumPlaneEditValues({ ...same, sel: null, base: "XZ" },
       onFace), { base: "XZ" });
+    // La face disparue au rang, rien de choisi : le plan reste où il est.
+    const lost = { kind: "plane", face: null, offset: 3, angle: 0 };
+    assert.deepEqual(datumPlaneEditValues({ ...same, sel: null }, lost), {});
+    assert.deepEqual(datumPlaneEditValues(
+      { ...same, sel: null, offset: "4" }, lost), { offset: 4 });
     const onBase = { kind: "plane", base: "XZ", offset: 0, angle: 0 };
     assert.deepEqual(datumPlaneEditValues(
       { sel: null, base: "XZ", offset: 0, angle: "45" }, onBase), { angle: 45 });

@@ -68,20 +68,23 @@ export function datumPlaneBuild(v) {
 }
 
 /** Valeurs du panneau d'un plan réédité (`spec` : sa ligne `reference`
- *  de l'arbre) : ce qui le porte, son décalage, son angle.
+ *  de l'arbre) : ce qui le porte, son décalage, son angle. Posé sur une
+ *  face, la liste des plans d'origine vient vide : rien n'y est choisi.
  *  ⚠ Moteur : `_set_reference_params` (engine/refgeom.py). */
 export function datumPlaneSpecValues(spec) {
   return {
     face: Number.isInteger(spec?.face) ? { kind: "face", face: spec.face } : null,
-    base: spec?.base ?? "XY",
+    base: spec?.base ?? "",
     offset: spec?.offset ?? 0,
     angle: spec?.angle ?? 0,
   };
 }
 
 /** Ce qui change à la réédition d'un plan : `{}` si rien, les clés qui
- *  changent sinon ; null si une cote n'est pas un nombre. Une zone vidée
- *  le pose sur le plan d'origine choisi, comme à la création. */
+ *  changent sinon ; null si une cote n'est pas un nombre. Un plan
+ *  d'origine choisi dans la liste (qui vide la zone) le pose dessus ; une
+ *  face disparue au rang laisse la zone vide et la liste sans choix : le
+ *  plan reste où il est. */
 export function datumPlaneEditValues(v, spec) {
   const offset = num(v.offset);
   const angle = num(v.angle);
@@ -89,7 +92,7 @@ export function datumPlaneEditValues(v, spec) {
   const out = {};
   if (v.sel?.face != null) {
     if (v.sel.face !== spec.face) out.face = v.sel.face;
-  } else if (v.base !== spec.base) {
+  } else if (v.base && v.base !== spec.base) {
     out.base = v.base;
   }
   if (offset !== spec.offset) out.offset = offset;
