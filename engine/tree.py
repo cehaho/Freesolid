@@ -1308,6 +1308,11 @@ class TreeMixin:
                 # Conditions de fin : la réédition rouvre le panneau de la
                 # création.
                 item["extrude"] = extrude
+            swept = self._swept_spec(obj)
+            if swept is not None:
+                # Profils d'un lissage, profil et trajectoire d'un
+                # balayage : la réédition les re-choisit.
+                item["swept"] = swept
             if obj.TypeId == "PartDesign::Thickness":
                 item["shell"] = {"outward": not bool(obj.Reversed)}
                 faces = self._base_face_ids(obj)

@@ -264,7 +264,8 @@ class SurfaceCommonMixin:
             if src is not None and getattr(src, "Shape", None):
                 face = self._followed_flat_face(src.Shape,
                                                 self._frozen_stamps(obj))
-            spec = {"kind": "flatten", "face": face}
+            spec = {"kind": "flatten", "face": face,
+                    "surface": str(obj.FreeSolidFlatsource)}
             spec.update(self._flat_distortion(obj))
             return spec
         if (obj.TypeId == "Part::Offset"

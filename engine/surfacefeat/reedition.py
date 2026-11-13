@@ -23,6 +23,7 @@ class SurfaceReeditMixin:
         "radiate": ("boundary", "distance"),
         "freeform": ("source", "pushes", "radius", "keep_edges", "moves",
                      "grid"),
+        "flatten": ("surface", "face"),
     }
 
     def _surface_pick_kind(self, obj):
@@ -46,6 +47,8 @@ class SurfaceReeditMixin:
             return "trim"
         if getattr(obj, "FreeSolidFreesource", ""):
             return "freeform"
+        if getattr(obj, "FreeSolidFlatsource", ""):
+            return "flatten"
         return None
 
     def _refuse_later_source(self, obj, source):
@@ -97,6 +100,8 @@ class SurfaceReeditMixin:
                 self._set_radiate_params(obj, values)
             elif kind == "freeform":
                 self._set_freeform_params(obj, values)
+            elif kind == "flatten":
+                self._set_flatten_params(obj, values)
             else:
                 self._set_projection_params(obj, values)
             self._recompute()
@@ -128,10 +133,11 @@ class SurfaceReeditMixin:
         if kind == "radiate":
             return [(obj.Source, "Support", list(obj.Source.Support)),
                     (obj, "Value", obj.Value)]
-        if kind == "freeform":
+        if kind in ("freeform", "flatten"):
+            stem = "FreeSolidFree" if kind == "freeform" else "FreeSolidFlat"
             return [(obj, "Shape", obj.Shape.copy())] + [
                 (obj, prop, getattr(obj, prop)) for prop in obj.PropertiesList
-                if prop.startswith("FreeSolidFree")]
+                if prop.startswith(stem)]
         props = {
             "planar": ("Sources",),
             "extend": ("Face", "ExtendUNeg", "ExtendUPos", "ExtendVNeg",
@@ -203,6 +209,28 @@ class SurfaceReeditMixin:
             raise KernelError("choisissez deux surfaces différentes")
         obj.Base = base
         obj.Tool = tool
+
+    def _set_flatten_params(self, obj, values):
+        """Patron à plat : sa surface (``surface``) et sa face (``face``,
+        base 0), comme à la création. Une autre surface sans face dit :
+        sa première face."""
+        from engine.kernel import KernelError
+        stamps = self._frozen_stamps(obj)
+        src = (self._picked_surface(obj, values["surface"])
+               if "surface" in values
+               else self._get_surface(stamps["flatsource"]))
+        face = values.get("face")
+        if face is None:
+            face = (self._followed_flat_face(src.Shape, stamps)
+                    if src.Name == stamps.get("flatsource") else 0)
+        if type(face) is not int:
+            raise KernelError("face inconnue : {}".format(face))
+        target = self._source_face(src.Shape, face)
+        obj.Shape = self._flat_shape(src.Shape, face)
+        anchor = self._face_anchor(target)
+        self._stamp(obj, flatsource=src.Name, flatface=face,
+                    flatanchor="%.9g,%.9g,%.9g" % (anchor.x, anchor.y,
+                                                   anchor.z))
 
     def _set_projection_params(self, obj, values):
         """Courbe projetée : son esquisse (``sketch``), la surface et la

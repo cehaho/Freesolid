@@ -1280,11 +1280,12 @@ const {
   clearSurfaceSelection, selectSketch, onPlaneRow,
   beginInlineRename, treeRowFor, beginRenameSelected,
   renderTree, editSurface, editFeature, editSketchPlane,
+  editRepeatFeatures,
   moveBar, stepBar, barToPrevious, barCommands, isAfterBar, handleBarKey,
   setFlatTree, isFlatTree,
 } = installTree(ctx);
 Object.assign(ctx, {
-  renderTree, refreshDatumGhost, clearSketchSelection,
+  renderTree, refreshDatumGhost, clearSketchSelection, editRepeatFeatures,
   cancelPendingSurfaceClick, onSurfaceClick, onSurfaceDblClick,
   clearSurfaceSelection, selectSketch,
   moveBar, stepBar, barToPrevious, barCommands, isAfterBar,

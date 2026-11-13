@@ -7,9 +7,9 @@
 // `has_params` vient du moteur : vrai quand get_params a au moins une
 // cote. Absent (ligne d'un plugin, ligne reconstruite à la main), on
 // tente get_params, comme avant. Une répétition d'enlèvements sans cote
-// (une symétrie) se rouvre pour ses corps creusés, `cut` ; un lissage ou
-// un balayage, pour ses corps fondus ou creusés, `fused` ou `cut`, et pour
-// « Fusionner », `merged`.
+// (une symétrie) se rouvre pour ses corps creusés, `cut`. Un lissage ou un
+// balayage se rouvre sur ses profils (`swept`), avec ses corps fondus ou
+// creusés et « Fusionner ».
 
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 
@@ -38,6 +38,8 @@ export function featureEditor(item) {
       && item.revolution) return "revolution";
   if ((item.type_key === "pad" || item.type_key === "pocket")
       && item.extrude) return "extrude";
+  // Lissage : ses profils ; balayage : son profil et sa trajectoire.
+  if (item.swept) return item.swept.kind === "loft" ? "loft" : "sweep";
   if (item.type_key === "thickness" && item.shell) return "shell";
   // Dépouille : sa face et son plan neutre (sinon, son angle seul).
   if (item.type_key === "draft" && item.draft) return "draft";

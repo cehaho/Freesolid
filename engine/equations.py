@@ -78,6 +78,17 @@ class EquationsMixin:
         if getattr(obj, "FreeSolidCutsurface", ""):
             # Une coupe par surface : sa surface outil, son côté, sa bande.
             return self._set_surface_cut_params(obj, dict(values))
+        if (obj.TypeId in self._SWEPT_TYPES and set(values) & {
+                "profiles", "ruled", "closed", "profile", "spine"}):
+            # Un lissage ou un balayage : ses profils, sa trajectoire ; les
+            # corps concernés et « Fusionner » suivent.
+            return self._set_swept_params(obj, dict(values))
+        if ("FreeSolidRepeatJson" in obj.PropertiesList
+                and set(values) == {"features"}):
+            # Une répétition variable : ses fonctions répétées (son graphe
+            # se réédite dans l'éditeur de graphe).
+            return self.edit_repeat_feature(obj.Name,
+                                            features=values["features"])
         if (obj.TypeId == "Part::Offset2D" and "boundary" in values
                 and self._radiate_binder(obj) is not None):
             # Le contour d'une surface radiée (sa distance seule, peut-être

@@ -509,6 +509,67 @@ export function extrudeEditValues(v, feature) {
   return values;
 }
 
+// ---------- lissage, balayage rééditées ----------
+// Le panneau de la création, au rang : les profils (et la trajectoire)
+// reviennent dans leurs zones ; le genre (ajout ou enlèvement) reste.
+
+/** Lissage droit, boucle fermée : ceux de `swept` (l'arbre), décochés à
+ *  la création. */
+export function loftOptionRows(swept = null) {
+  return [
+    { type: "check", key: "ruled", label: "Lissage droit (réglé)",
+      value: !!swept?.ruled },
+    { type: "check", key: "closed", label: "Boucle fermée",
+      value: !!swept?.closed },
+  ];
+}
+
+/** Zone des profils d'un lissage réédité, dans l'ordre du lissage. */
+export function loftProfilesPick(swept) {
+  return { kind: "sketch", items: (swept?.profiles ?? []).map(
+    (p) => ({ kind: "sketch", name: p.name, label: p.label })) };
+}
+
+/** `{}` si les profils n'ont changé ni de liste ni d'ordre, `{ profiles }`
+ *  sinon, null s'il en reste moins de deux. */
+export function loftProfilesValues(zone, swept) {
+  const names = (zone?.items ?? []).map((item) => item.name)
+    .filter(Boolean);
+  if (names.length < 2) return null;
+  const before = (swept?.profiles ?? []).map((p) => p.name);
+  const same = names.length === before.length
+    && names.every((name, i) => name === before[i]);
+  return same ? {} : { profiles: names };
+}
+
+/** Options d'un lissage réédité : seulement celles qui changent. */
+export function loftOptionValues(v, swept) {
+  const out = {};
+  if (!!v.ruled !== !!swept?.ruled) out.ruled = !!v.ruled;
+  if (!!v.closed !== !!swept?.closed) out.closed = !!v.closed;
+  return out;
+}
+
+/** Profil ou trajectoire d'un balayage réédité, pour sa zone : une
+ *  esquisse, ou une courbe 3D du dossier des surfaces. */
+export function sweptPick(entry) {
+  if (!entry?.name) return null;
+  return { kind: entry.curve ? "surface" : "sketch", name: entry.name,
+           label: entry.label ?? entry.name };
+}
+
+/** Balayage réédité : son profil et sa trajectoire, seulement ce qui
+ *  change ; null s'il en manque un, ou si c'est le même. */
+export function sweepEditValues(v, swept) {
+  const profile = v.profile?.name;
+  const spine = v.spine?.name;
+  if (!profile || !spine || profile === spine) return null;
+  const out = {};
+  if (profile !== swept?.profile?.name) out.profile = profile;
+  if (spine !== swept?.spine?.name) out.spine = spine;
+  return out;
+}
+
 // Extrémités fermées (extrusion, profil fermé) : profondeurs borgnes et
 // sans dépouille — la cavité se règle sur elles.
 const capsAllowed = (v) => usesLength(v.cond) && !(num(v.taper) ?? 0)
@@ -1031,10 +1092,7 @@ export const VOLUMES = [
         rows: [
           { type: "check", key: "subtractive",
             label: "Enlever de la matière", value: false },
-          { type: "check", key: "ruled", label: "Lissage droit (réglé)",
-            value: false },
-          { type: "check", key: "closed", label: "Boucle fermée",
-            value: false },
+          ...loftOptionRows(),
         ] },
       ...mergeGroups(ctx?.lastTree?.bodies, { when: added }),
       ...cutGroups(ctx?.lastTree?.bodies, { when: (v) => !added(v) }),

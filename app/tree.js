@@ -21,6 +21,8 @@ import {
   revolutionGroups, revolutionEditValues, revolutionProblem,
   extrudeEditInitial, extrudeEditProblem, extrudeEditValues, extrudeGroups,
   bodyChoiceGroups, bodyChoiceValues, extrudeMergeProblem,
+  loftOptionRows, loftOptionValues, loftProfilesPick, loftProfilesValues,
+  sweepEditValues, sweptPick,
   holeEditInitial, holeEditValues, holeGroups, shellEditGroups,
   shellEditValues,
   checkedContours, contourRows, vertexChamferEditValues, vertexChamferPick,
@@ -31,10 +33,12 @@ import {
   BODY_PATTERN_TYPES, bodyZoneRow,
   COMBINE_TYPES, combineEditOptions, combineEditValues,
   cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
-  filletEdgesValues, freeformEditValues, intersectionEditValues,
+  filletEdgesValues, flattenEditValues, freeformEditValues,
+  intersectionEditValues,
   ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
   radiateBoundaryPick, radiateBoundaryValues, signedEditValues,
   sourceEditValues, surfacePick, trimEditValues, trimKeepPick,
+  repeatFeaturesRow, repeatFeaturesValues,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -1740,7 +1744,7 @@ export function installTree(ctx) {
     radiate: (surface) => editRadiate(surface),
     surface_fillet: (surface) => editSurfaceFillet(surface),
     poles: (surface) => ctx.openPoles(surface),
-    flatten: (surface) => showFlatten(surface),
+    flatten: (surface) => editFlatten(surface),
     freeform: (surface) => editFreeform(surface),
     params: (surface) => editParams({ name: surface.name,
       label: surface.label, type_key: surface.type_key }),
@@ -1941,17 +1945,25 @@ export function installTree(ctx) {
     });
   }
 
-  // Patron à plat : sa déformation mesurée (lecture seule ; le patron
-  // suit la surface d'origine).
-  function showFlatten(surface) {
+  // Patron à plat : le panneau de la création, au rang — sa face de
+  // surface revient dans la zone, un clic sur une autre la remplace —, et
+  // sa déformation mesurée (le patron suit la surface d'origine).
+  function editFlatten(surface) {
     const spec = surface.surface;
     const exact = (spec.area_error ?? 0) < 0.5 && (spec.edge_error ?? 0) < 0.5;
-    panel.open({
+    return editAtRank(surface, {
       icon: "surface_flatten",
-      title: surface.label,
-      noApply: true,
+      zone: {
+        label: "Face",
+        row: { type: "selection", key: "target",
+               accepts: ["surfface", "surface"],
+               hint: "Cliquez la face de surface à aplatir",
+               value: projectTargetPick(ctx.lastTree, spec) },
+        changed: (v) => flattenEditValues(v.target, spec),
+        missing: "Aplatir : cliquez une face de surface",
+      },
       groups: [{
-        label: t("Déformation du patron"),
+        label: "Déformation du patron",
         rows: [
           { type: "note", readonly: true, text: t(
             "Aire : {a} % · contour : {e} %",
@@ -1962,6 +1974,8 @@ export function installTree(ctx) {
               + "mettre à plat ; ces écarts disent de combien.") },
         ],
       }],
+      values: () => ({}),
+      problem: () => "Aplatir : cliquez une face de surface",
     });
   }
 
@@ -2233,6 +2247,60 @@ export function installTree(ctx) {
     if (atRank && initial.cond === "face" && initial.face !== null) {
       ctx.selectFaceId?.(initial.face);
     }
+  }
+
+  /** Lissage : le panneau de la création, au rang. Ses profils reviennent
+   *  dans leur zone, dans l'ordre du lissage : un clic dans l'arbre retire
+   *  une esquisse de la zone, ou l'ajoute au bout. Le genre (ajout,
+   *  enlèvement) reste. */
+  function editLoft(feature) {
+    const swept = feature.swept;
+    const tree = ctx.lastTree;
+    return editAtRank(feature, {
+      icon: TREE_ICONS[feature.type_key] ?? "loft",
+      zone: {
+        label: "Profils",
+        row: { type: "selection", key: "profiles", accepts: ["sketch"],
+               multiple: true,
+               hint: "Cliquez les esquisses dans l'arbre, dans " +
+                     "l'ordre du lissage",
+               value: loftProfilesPick(swept) },
+        changed: (v) => loftProfilesValues(v.profiles, swept),
+        missing: "Lissage : au moins deux profils",
+      },
+      groups: [{ label: "Options", rows: loftOptionRows(swept) },
+               ...bodyChoiceGroups(feature, tree)],
+      values: (v) => withBodyChoices(loftOptionValues(v, swept), v,
+                                     feature, tree),
+      problem: () => "Lissage : au moins deux profils",
+    });
+  }
+
+  /** Balayage : le panneau de la création, au rang — son profil et sa
+   *  trajectoire (une esquisse ou une courbe 3D) reviennent dans leurs
+   *  zones. */
+  function editSweep(feature) {
+    const swept = feature.swept;
+    const tree = ctx.lastTree;
+    const problem = "Balayage : un profil puis une trajectoire (différents)";
+    return editAtRank(feature, {
+      icon: TREE_ICONS[feature.type_key] ?? "sweep",
+      zone: {
+        label: "Profil",
+        row: { type: "selection", key: "profile", accepts: ["sketch"],
+               hint: "Cliquez l'esquisse du profil dans l'arbre",
+               value: sweptPick(swept.profile) },
+        changed: (v) => sweepEditValues(v, swept),
+        missing: problem,
+      },
+      groups: [{ label: "Trajectoire", rows: [
+        { type: "selection", key: "spine", accepts: ["sketch", "surface"],
+          hint: "Puis la trajectoire : une esquisse ou une spline 3D",
+          value: sweptPick(swept.spine) }] },
+               ...bodyChoiceGroups(feature, tree)],
+      values: (v) => withBodyChoices({}, v, feature, tree),
+      problem: () => problem,
+    });
   }
 
   function editChamfer(feature) {
@@ -2601,6 +2669,27 @@ export function installTree(ctx) {
     });
   }
 
+  /** Répétition variable : ses fonctions répétées, au rang, dans la zone
+   *  de sa création. Son graphe se réédite dans l'éditeur de graphe, dont
+   *  le bouton « Fonctions » ouvre ce panneau ; le graphe enregistré
+   *  reste. */
+  function editRepeatFeatures(feature) {
+    const repeat = feature.repeat ?? {};
+    return editAtRank(feature, {
+      icon: "variable_pattern",
+      preview: false,
+      zone: {
+        label: "Fonctions",
+        row: repeatFeaturesRow(patternFeaturesPick(repeat, ctx.lastTree)),
+        changed: (v) => repeatFeaturesValues(v.features, repeat),
+        missing: "Cliquez les fonctions dans l'arbre",
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => "Cliquez les fonctions dans l'arbre",
+    });
+  }
+
   /** Répétition de fonctions : le panneau de sa création, au rang — ses
    *  fonctions (zone), sa direction et son sens, son plan, sa deuxième
    *  direction, ses cotes, les corps qu'elle creuse. */
@@ -2740,6 +2829,9 @@ export function installTree(ctx) {
     fillet: (feature) => editFillet(feature),
     revolution: (feature) => editRevolved(feature),
     extrude: (feature) => editExtrude(feature),
+    // Lissage : ses profils ; balayage : son profil et sa trajectoire.
+    loft: (feature) => editLoft(feature),
+    sweep: (feature) => editSweep(feature),
     // Coque : épaisseur et sens ; perçage : type, cotes, condition de fin.
     shell: (feature) => editShell(feature),
     draft: (feature) => editDraft(feature),
@@ -2765,6 +2857,7 @@ export function installTree(ctx) {
     clearSurfaceSelection, selectSketch, onPlaneRow,
     beginInlineRename, treeRowFor, beginRenameSelected,
     renderTree, editSurface, editFeature, editSketchPlane,
+    editRepeatFeatures,
     moveBar, stepBar, barToPrevious, barCommands, isAfterBar, handleBarKey,
     setFlatTree, isFlatTree,
   };

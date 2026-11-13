@@ -561,8 +561,14 @@ class GraphMixin:
                 tip, payload, mode, self._repeat_label(mode))
         return self.get_tree()
 
-    def edit_repeat_feature(self, feature, instances=None, graph=None):
-        """Réédite une répétition variable (instances **ou** graphe).
+    def edit_repeat_feature(self, feature, instances=None, graph=None,
+                            features=None):
+        """Réédite une répétition variable (instances **ou** graphe), et
+        ses fonctions répétées.
+
+        ``features`` : les fonctions répétées, re-choisies ; chacune vient
+        avant la répétition. Sans instances ni graphe, la source
+        enregistrée reste.
 
         Atomique : le groupe est rejoué et la géométrie reconstruite
         **d'abord** ; si l'un ou l'autre échoue, la pièce n'est pas
@@ -579,8 +585,20 @@ class GraphMixin:
             raise KernelError("fonction inconnue : {}".format(feature))
         stored = self._load_repeat_json(obj)
         mode = stored["mode"]
+        names = stored["features"]
+        if features is not None:
+            if not isinstance(features, (list, tuple)):
+                raise KernelError("features doit être une liste de noms")
+            names = [str(name) for name in features]
+            for name in names:
+                source = doc.getObject(name)
+                if source is not None:
+                    self._refuse_later_source(obj, source)
+            if instances is None and graph is None:
+                graph = stored.get("graph")
+                instances = stored.get("instances")
         resolved = self._resolve_repeat_instances(instances, graph)
-        solid, names = self._repeat_solid(stored["features"], resolved)
+        solid, names = self._repeat_solid(names, resolved)
         payload = {"features": names, "mode": mode}
         if graph is not None:
             payload["graph"] = migrate_graph(graph)
