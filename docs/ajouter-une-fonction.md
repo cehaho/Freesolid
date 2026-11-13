@@ -48,6 +48,11 @@ Plus bas, un exemple complet : la Coque (`add_thickness`).
 - `undo=True` pour une op qui modifie le document : c'est un pas
   d'annulation.
 - `preview=True` si l'aperçu jaune peut l'exécuter puis l'annuler.
+  L'aperçu (`preview` de `engine/kernel.py`) montre le corps actif ; une
+  op `surface_*` ou `curve_*` montre les surfaces ou les traits qu'elle
+  fait naître, une référence son fantôme. Une forme nouvelle a son
+  aperçu à la création et à la réédition ; son absence est un choix,
+  écrit dans `docs/gestes-des-fonctions.md` (thème 6).
 - `creates` et `indexed` disent quel TypeId l'op crée, et s'il porte des
   indices de faces ou d'arêtes.
 - Toute `add_*` a **soit** `replay=` (la fonction qui la recrée depuis sa
@@ -109,6 +114,9 @@ correspond ; `app/features.js` rassemble les familles.
 - `dressup: true` quand la fonction s'appuie sur une sélection de faces
   ou d'arêtes. Le graphe ne la place alors qu'avec une sélection.
 - `preview: false` si l'op n'a pas `preview=True`.
+- Une profondeur ou une hauteur peut se tirer dans la vue : une branche de
+  `depthHandle` (`app/main/featurepanel.js`) pose la flèche à la
+  création, `feature_drag_info` (`engine/directedit.py`) à la réédition.
 - Une sélection suivie d'une valeur tient dans l'aide `dressup({...})` de
   `features/commun.js`.
 
@@ -132,8 +140,13 @@ correspond ; `app/features.js` rassemble les familles.
     réédition : sa clé du formulaire dans `PARAM_KEYS`, une branche de
     `set_params` qui traduit la valeur du formulaire en propriété, et
     l'état de la fonction dans l'arbre pour remplir le panneau (`shell`,
-    `hole`, `extrude`). Le panneau de la création sert aux deux, sans ses
-    sélections (`shellEditGroups`, `holeGroups`, `extrudeGroups`).
+    `hole`, `extrude`). Le panneau de la création sert aux deux
+    (`shellEditGroups`, `holeGroups`, `extrudeGroups`) ;
+  - ce qu'elle a pris à la création (arêtes, faces, profils, corps) se
+    re-choisit dans la même zone, sur la pièce à son rang : `editAtRank`
+    (`app/tree.js`) pose la barre juste au-dessus d'elle (`rank_view`),
+    l'arbre décrit ce qu'elle prend, et `set_params` le reçoit dans les
+    mots de la création.
 
 **11–12.** Le libellé d'annulation est en français ; sa traduction et
 celles de tous les textes du panneau vont dans `app/lang/en.json`. Les
