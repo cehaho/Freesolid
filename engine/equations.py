@@ -62,6 +62,10 @@ class EquationsMixin:
             raise KernelError("fonction inconnue : {}".format(feature))
         if not isinstance(values, dict):
             raise KernelError("values doit être un objet JSON")
+        if self._is_reference(obj):
+            # Plan, axe, point, repère : ce qui les porte, re-choisi au
+            # rang ; le décalage et l'angle d'un plan.
+            return self._set_reference_params(obj, dict(values))
         if "FreeSolidTextString" in obj.PropertiesList:
             # Un texte : ses mots de création, et sa face d'appui.
             return self._set_text_params(obj, dict(values))

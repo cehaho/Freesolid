@@ -42,10 +42,10 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
 | Combiner | non, voulu | le panneau de la création, au rang (le corps outil y reparaît) : opération, corps outil (venu d'un module : l'opération seule) | — | non, voulu | oui | oui (opération, corps outil, refus) |
 | Supprimer des corps | non | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non | oui (drapeau) | oui |
-| Plan de référence | oui + fantôme | rien | appui, décalage, angle | — | non (d'après le code, à vérifier) | non |
-| Axe de référence | non | rien | tout | — | non (d'après le code, à vérifier) | non |
-| Point de référence | non | rien | tout | — | non (d'après le code, à vérifier) | non |
-| Repère | non | rien | tout | — | non (d'après le code, à vérifier) | non |
+| Plan de référence | oui + fantôme | le panneau de la création, sur la pièce à son rang : face ou plan d'origine, décalage, angle | — | oui + fantôme | non : ne recule jamais (thème 8) | oui |
+| Axe de référence | non | le panneau de la création, sur la pièce à son rang : axe d'origine ou arête droite ou circulaire | — | non, comme à la création | non : ne recule jamais (thème 8) | oui |
+| Point de référence | non | le panneau de la création, sur la pièce à son rang : sommet, centre d'une arête circulaire ou coordonnées | — | non, comme à la création | non : ne recule jamais (thème 8) | oui |
+| Repère | non | le panneau de la création, sur la pièce à son rang : sommet ou coordonnées | — | non, comme à la création | non : ne recule jamais (thème 8) | oui |
 
 ## Répétitions et graphe
 
@@ -137,11 +137,9 @@ Où ça se décide :
 
 ### 3. Fonctions sans aucune réédition
 
-Un choix de création est définitif : il faut supprimer et refaire.
+Un choix de création était définitif : il fallait supprimer et refaire.
 
-- **Références** : Axe, Point, Repère, Plan de référence.
-
-Corrigé pour les surfaces lissée, balayée, frontière, réglée, de remplissage (le bouchon tangent compris), cousue et médiane, Diviser, Annuler l'ajustement, Supprimer la face d'une surface, la Courbe composite, Remplacer et Supprimer la face du solide : leur double-clic rouvre le panneau de la création (thème 4).
+Corrigé pour toutes : les surfaces lissée, balayée, frontière, réglée, de remplissage (le bouchon tangent compris), cousue et médiane, Diviser, Annuler l'ajustement, Supprimer la face d'une surface, la Courbe composite, Remplacer et Supprimer la face du solide, et les références (Plan, Axe, Point, Repère) : leur double-clic rouvre le panneau de la création (thème 4).
 
 Une même fonction change de comportement selon un choix : le Remplissage est paramétrique sans tangence, figé avec. Les deux re-choisissent leur contour ; la case « tangent », elle, ne revient pas (thème 5).
 
@@ -153,7 +151,7 @@ Contre-exemple à suivre : Supprimer des corps vient d'être rendu rééditable 
 
 Arêtes, faces, profils, corps, directions, outils : presque aucun ne se re-choisissait.
 
-Fait : chaque fonction qui se réédite re-choisit maintenant ce qu'elle a pris à la création, dans le panneau de sa création, sur la pièce à son rang. Ce qui ne revient toujours pas tient aux fonctions encore sans aucune réédition (les références : thème 3), qui re-choisiront leurs sélections avec leur panneau, ou à des options (thème 5). Le détail, fonction par fonction :
+Fait : chaque fonction qui se réédite re-choisit maintenant ce qu'elle a pris à la création, dans le panneau de sa création, sur la pièce à son rang. Ce qui ne revient toujours pas tient à des options (thème 5). Le détail, fonction par fonction :
 
 Corrigé pour le Congé, le Chanfrein, la Coque et la Dépouille. Leur double-clic rouvre le panneau de la création, sa zone remplie de leurs arêtes ou de leurs faces. Comme dans les modeleurs courants, la pièce se montre à leur rang, comme pour Supprimer des corps (`rank_view`) : les arêtes qu'ils ont arrondies y existent encore, se surlignent, et Ctrl+clic en ajoute ou en retire. L'aperçu les montre rééditées sans quitter ce rang. `set_params` prend `edges` ou `face` (congé, chanfrein), `faces` (coque), `face` et `neutral` (dépouille, dont le plan neutre se repose sur la nouvelle face) ; une fonction plus bas qui perdrait une arête qu'elle utilise fait refuser la réédition, en la nommant. Toutes les faces d'une zone se surlignent, pas seulement la dernière cliquée (à la création aussi).
 Corrigé aussi pour le Perçage posé par des clics sur une face. Sa zone « Positions » revient remplie de ses centres, sur la pièce à son rang : un clic pose un centre, un clic dans un trou le retire, un clic sur une autre face fait repartir la zone de cette face (à la création aussi). `set_params` prend `positions` (`{face, points}`) : l'esquisse du perçage se repose sur la face et n'y garde qu'un cercle par centre. Un perçage posé sur une esquisse dessinée à part garde la réédition de son esquisse.
@@ -190,11 +188,13 @@ Surfaces lissée, balayée, réglée, frontière, de remplissage, Diviser, Annul
 
 Surfaces cousue et médiane, Remplacer et Supprimer la face du solide : des formes figées, recalculées sur leurs sources, sans réédition jusqu'ici (thème 3). Leur double-clic rouvre le panneau de la création, au rang : les surfaces d'une couture (un nom par défaut suit la peau, solide si elle se ferme) ; les deux faces d'une médiane, ou toutes les parois plus minces qu'une épaisseur, sans aperçu comme à la création ; les faces supprimées du solide ; la face remplacée et sa surface. La forme se recalcule sur la fonction d'avant. Le booléen qui la range suit : un ajout quand la matière ne fait que croître, une intersection quand elle ne fait que diminuer, les deux à la suite quand elle fait les deux (l'ajout se pose alors, caché, juste avant la fonction). Une surface qui vient après est refusée ; une forme que le modeleur ne sait pas faire aussi, la pièce restant telle quelle. `set_params` prend `surfaces` ; `faces` ou `thickness` ; `faces` ; `face` et `surface`. Selftest p133.
 
+Plan, Axe, Point et Repère de référence : ils n'avaient aucune réédition (thème 3). Leur double-clic rouvre le panneau de la création, sur la pièce à leur rang. Ce ne sont pas des lignes d'historique : la vue montre la pièce telle qu'elle les précède, la barre juste après la ligne d'avant. Le plan revient sur sa face, surlignée, ou sur son plan d'origine, avec son décalage et son angle et l'aperçu de son fantôme ; choisir un plan d'origine dans la liste vide la zone de face (à la création aussi), sinon la face l'emporte. L'axe revient sur son axe d'origine ou son arête ; le point, sur son sommet, le centre de son arête circulaire ou ses coordonnées ; le repère, sur son sommet ou ses coordonnées. Ces trois-là restent sans aperçu, comme à la création. Une face, une arête ou un sommet se cliquent sur la fonction qui précède la référence ; un élément disparu de ce rang laisse la zone vide. Un plan dont la face a disparu reste alors où il est, tant qu'on ne clique pas une face ou ne choisit pas un plan d'origine ; un axe ou un point doit retrouver son appui. Les refus de la création valent aussi (un centre demande une arête circulaire). `set_params` prend `face` ou `base`, `offset` et `angle` ; `edge` ou `axis` ; `vertex`, `edge` ou `point` ; `vertex` ou `point`. Selftest p134.
+
 Répétition variable : son graphe se réédite dans l'éditeur de graphe, dont le bouton « Fonctions » ferme l'éditeur (la question vient d'abord si le graphe n'a pas été appliqué) et rouvre la zone de la création, au rang, remplie des fonctions répétées. Un clic dans l'arbre en retire une ou l'ajoute au bout : l'ordre compte, le groupe se rejoue dans l'ordre de la zone. Le graphe ou les instances enregistrés restent ; des cotes d'instance qui visent une fonction retirée font refuser la réédition, comme une fonction qui vient après la répétition (elle en dépend). `set_params` prend `features`. Selftest p131.
 
 Indices de face ou d'arête, vérifiés quand l'esquisse amont change de topologie (un trou, un segment ajouté au début, qui décalent l'ordre des faces et des arêtes). Le Congé et le Chanfrein, la Surface radiée sur des arêtes de la pièce, le Congé de surfaces suivent leurs arêtes : le nommage topologique de FreeCAD 1.x remet les indices. Le Prolongement range son bord comme un côté de la surface, l'Ajuster sa partie gardée comme un morceau de la découpe : rien ne se décale. Les pôles d'une forme libre et la face d'un patron à plat gardaient l'indice de leur face : quand l'ordre changeait, les déplacements passaient en silence sur une autre face. Chaque face réglée garde maintenant un point de repère pris à l'intérieur, et ses réglages retrouvent la face la plus proche ; repères et indices se remettent à jour quand la surface source change. Selftest p127.
 
-Où ça se décide : `app/tree.js`, `editAtRank`, rouvre le panneau de la création sur la pièce au rang de la fonction (`rank_view`), ses zones remplies de ce que l'arbre décrit (`app/features/*.js`, les fonctions `…Pick` et `…EditValues`), et n'envoie que ce qui change. Le moteur remplace les sélections dans `set_params` (`engine/equations.py` aiguille selon la fonction : `engine/surfacefeat/reedition.py` pour les surfaces et les courbes, `_set_surface_cut_params`, `_set_combine_params`, `_set_swept_params`, `_set_pattern_picks`, `_set_body_pattern_picks`, `edit_repeat_feature`…), tout ou rien, et refuse en la nommant une forme qui vient après ou qui dépend de la fonction.
+Où ça se décide : `app/tree.js`, `editAtRank`, rouvre le panneau de la création sur la pièce au rang de la fonction (`rank_view`), ses zones remplies de ce que l'arbre décrit (`app/features/*.js`, les fonctions `…Pick` et `…EditValues`), et n'envoie que ce qui change. Le moteur remplace les sélections dans `set_params` (`engine/equations.py` aiguille selon la fonction : `engine/surfacefeat/reedition.py` pour les surfaces et les courbes, `_set_surface_cut_params`, `_set_combine_params`, `_set_swept_params`, `_set_pattern_picks`, `_set_body_pattern_picks`, `edit_repeat_feature`, `_set_reference_params` dans `engine/refgeom.py`…), tout ou rien, et refuse en la nommant une forme qui vient après ou qui dépend de la fonction.
 
 ### 5. Les options de création qui ne reviennent pas
 
@@ -239,7 +239,7 @@ Où ça se décide : `app/features/surfaces.js`, `habillage.js`, `volumes.js` (p
 
 ### 8. Barre de retour : des lignes qui n'y entrent pas comme les autres
 
-- **Références** (Plan, Axe, Point, Repère) : ce ne sont pas des fonctions de l'historique. D'après le code, la barre ne les pose pas et « poser la barre ici » est refusé (« n'est pas une ligne d'historique »). À vérifier à l'exécution.
+- **Références** (Plan, Axe, Point, Repère) : ce ne sont pas des fonctions de l'historique. Vérifié à l'exécution (2026-11-13) : « poser la barre ici » sur une référence est refusé (« n'est pas une ligne d'historique »), et une référence ne recule jamais. La barre en tête, le plan et l'axe remontent au-dessus d'elle dans l'arbre et restent dessinés dans la vue, alors que la fonction qui les porte est reculée ; une esquisse peut encore s'y poser. Leur réédition montre quand même la pièce à leur rang : `rank_view` pose la barre juste après la ligne qui les précède.
 - **Chanfrein de sommet** : rangé comme un booléen (jusqu'à deux lignes, ajout puis intersection). Effet sur la barre : à vérifier.
 - **Épaissir** : classée avec les surfaces (barre par drapeau) alors que son résultat est un solide ; Couper avec une surface est une fonction de corps (barre par le Tip). Pas d'écart de comportement constaté.
 - **Cousue et Médiane** : si la barre recule au-dessus de leur base, le moteur saute la mise à jour sans le dire.
@@ -257,7 +257,7 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 
 ### 10. La couverture du selftest
 
-Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution. Les références (p134), Diviser, Annuler l'ajustement, la Courbe composite (p132), Remplacer et Supprimer la face (p133) en ont maintenant une. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 

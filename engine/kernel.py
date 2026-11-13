@@ -1063,6 +1063,9 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
                     and o.Name not in bodies and not self._is_internal_tool(o)])
             edited = (doc.getObject(str(params.get("feature") or ""))
                       if op == "set_params" else None)
+            if getattr(edited, "TypeId", "") == "PartDesign::Plane":
+                # Réédition d'un plan : où il se pose, comme à la création.
+                return {"plane": list(edited.Placement.Matrix.A)}
             if "FreeSolidBodyPattern" in getattr(edited, "PropertiesList", ()):
                 # Réédition d'un réseau de corps : ses copies, telles
                 # qu'elles deviennent.

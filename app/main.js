@@ -39,7 +39,11 @@ import {
   writeShortcuts,
 } from "./shortcuts.js";
 import { countTreeErrors, undoStepLabel } from "./history.js";
-import { installRefGeometry } from "./refgeom.js";
+import {
+  datumPlaneBuild,
+  datumPlaneGroups,
+  installRefGeometry,
+} from "./refgeom.js";
 import { installGestures } from "./gestures.js";
 import { installHandles } from "./handles.js";
 import { installCommandSearch, installShortcutBar } from "./shortcutbar.js";
@@ -2343,46 +2347,15 @@ document.getElementById("btn-datum").addEventListener("click", () =>
   featureCommand(() => panel.open({
     icon: "PartDesign_Plane",
     title: t("Plan de référence"),
-    groups: [
-      {
-        label: t("Référence"),
-        rows: [
-          { type: "selection", key: "sel", accepts: ["face"],
-            hint: t("Cliquez une face — ou choisissez un plan ci-dessous"),
-            value: currentSelection(["face"]) },
-          { type: "select", key: "base", value: "XY", label: t("Plan"),
-            options: [["XZ", "Plan de face"], ["XY", "Plan de dessus"],
-                      ["YZ", "Plan de droite"]] },
-        ],
-      },
-      {
-        label: t("Position"),
-        rows: [
-          { type: "number", key: "offset", label: t("Décalage"), value: 20,
-            unit: "mm" },
-          { type: "number", key: "angle", label: t("Angle"), value: 0,
-            unit: "°" },
-        ],
-      },
-    ],
+    groups: datumPlaneGroups({ face: currentSelection(["face"]) }),
     // Aperçu : le plan se dessine là où il se posera.
-    onChange: (v) => schedulePreview(datumBuild(v)),
-    onPreview: (on, v) => schedulePreview(on ? datumBuild(v) : null),
+    onChange: (v) => schedulePreview(datumPlaneBuild(v)),
+    onPreview: (on, v) => schedulePreview(on ? datumPlaneBuild(v) : null),
     onApply: (v) => {
       clearGhost();
-      refresh(call("add_datum_plane", datumBuild(v).params));
+      refresh(call("add_datum_plane", datumPlaneBuild(v).params));
     },
   })));
-
-function datumBuild(v) {
-  const params = {
-    offset: num(v.offset) ?? 0,
-    angle: num(v.angle) ?? 0,
-  };
-  if (v.sel && v.sel.face != null) params.face = v.sel.face;
-  else params.base = v.base;
-  return { op: "add_datum_plane", params };
-}
 
 const pickFile = installFileDialog(document, {
   listDir: (path) => call("list_dir", path ? { path } : {}),

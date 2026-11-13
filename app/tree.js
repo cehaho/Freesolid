@@ -48,6 +48,15 @@ import {
   sketchFaceValues, sketchPlaneChoice, sketchPlaneOptions, sketchPlaneValues,
 } from "./sketchplane.js";
 import { featureEditor, isFrozen, surfaceEditor } from "./editkind.js";
+import {
+  REFERENCE_ICONS,
+  datumPlaneEditValues,
+  datumPlaneGroups,
+  datumPlaneSpecValues,
+  referenceEditValues,
+  referenceGroups,
+  referenceSpecValues,
+} from "./refgeom.js";
 import { solidParam } from "./contextmenu.js";
 import { readScene } from "./theme.js";
 
@@ -2888,6 +2897,49 @@ export function installTree(ctx) {
     });
   }
 
+  /** Plan, axe, point, repère : le panneau de leur création, ce qui les
+   *  porte re-choisi sur la pièce à leur rang — la face, l'arête ou le
+   *  sommet de la fonction qui les précède, un élément d'origine, des
+   *  coordonnées. Le plan garde son aperçu ; les autres, comme à leur
+   *  création, n'en ont pas. */
+  function editReference(feature) {
+    const spec = feature.reference;
+    if (spec.kind === "plane") {
+      const [support, position] = datumPlaneGroups(datumPlaneSpecValues(spec));
+      return editAtRank(feature, {
+        icon: REFERENCE_ICONS.plane,
+        zone: {
+          label: support.label,
+          rows: support.rows,
+          changed: () => ({}),
+          missing: "Valeurs invalides",
+          select: () => (Number.isInteger(spec.face)
+            ? ctx.selectFaceId?.(spec.face) : null),
+        },
+        groups: [position],
+        values: (v) => datumPlaneEditValues(v, spec),
+        problem: () => "Valeurs invalides",
+      });
+    }
+    const [group] = referenceGroups(spec.kind, referenceSpecValues(spec));
+    const missing = "Choisissez d'abord ce qui porte l'élément";
+    return editAtRank(feature, {
+      icon: REFERENCE_ICONS[spec.kind],
+      zone: {
+        label: group.label,
+        rows: group.rows,
+        changed: (v) => referenceEditValues(spec.kind, v, spec),
+        missing,
+        select: () => (Number.isInteger(spec.edge)
+          ? ctx.selectEdgeIds?.([spec.edge]) : null),
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => missing,
+      preview: false,
+    });
+  }
+
   /** Chanfrein de sommet : le panneau de sa création, son coin
    *  re-choisi sur la pièce à son rang. */
   function editVertexChamfer(feature) {
@@ -3086,6 +3138,7 @@ export function installTree(ctx) {
       ctx.sketchMode.enter(call("sketch_edit", { feature: feature.name }));
     },
     vertex_chamfer: editVertexChamfer,
+    reference: (feature) => editReference(feature),
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),
     delete_face: (feature) => editDeleteFace(feature),
