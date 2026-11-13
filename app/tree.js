@@ -29,6 +29,7 @@ import {
   patternEditGroups, patternEditValues, patternFeaturesPick,
   patternFeaturesValues, patternSourcesPick, patternSourcesValues,
   BODY_PATTERN_TYPES, bodyZoneRow,
+  COMBINE_TYPES, combineEditOptions, combineEditValues,
   cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
   filletEdgesValues, freeformEditValues, intersectionEditValues,
   ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
@@ -1883,6 +1884,32 @@ export function installTree(ctx) {
     });
   }
 
+  // Combiner : son opération et son corps outil, comme à la création,
+  // sur la pièce à son rang (le corps outil y reparaît). Sans aperçu,
+  // comme à la création.
+  function editCombine(feature) {
+    const spec = feature.combine;
+    return editAtRank(feature, {
+      icon: "boolean",
+      preview: false,
+      zone: {
+        label: "Opération",
+        rows: [
+          { type: "select", key: "type", value: spec.type,
+            options: COMBINE_TYPES },
+          ...(spec.tool ? [{ type: "select", key: "tool", value: spec.tool,
+            label: "Corps outil",
+            options: combineEditOptions(ctx.lastTree, spec) }] : []),
+        ],
+        changed: (v) => combineEditValues(v, spec),
+        missing: "Combiner : créez d'abord un second corps",
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => "Combiner : créez d'abord un second corps",
+    });
+  }
+
   // Coupe par surface : sa surface outil, son côté, tout un côté ou une
   // bande épaisse, comme à la création, sur la pièce à son rang.
   function editSurfaceCut(feature) {
@@ -2303,7 +2330,7 @@ export function installTree(ctx) {
    *  rend `{}` (inchangée), les valeurs `set_params` du re-choix, ou null
    *  (vide) ; `select` donne à la vue ce que la zone contient. */
   async function editAtRank(feature, { icon, title, note, zone, groups,
-    values, problem }) {
+    values, problem, preview = true }) {
     const atRank = zone
       ? await call("rank_view", { feature: feature.name }).catch(() => null)
       : null;
@@ -2332,6 +2359,8 @@ export function installTree(ctx) {
         : [...zoneGroups, ...groups],
       hint: (v) => (build(v) ? null : missing(v)),
       onChange: (v, how) => {
+        // Sans aperçu (un booléen, qui peut durer) : comme à la création.
+        if (!preview) return;
         const changed = build(v);
         schedulePreview(changed
           ? { op: "set_params",
@@ -2673,6 +2702,7 @@ export function installTree(ctx) {
     vertex_chamfer: editVertexChamfer,
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),
+    combine: (feature) => editCombine(feature),
     chamfer: (feature) => editChamfer(feature),
     fillet: (feature) => editFillet(feature),
     revolution: (feature) => editRevolved(feature),

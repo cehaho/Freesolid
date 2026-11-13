@@ -98,6 +98,7 @@ export {
 export {
   REMOVE_BODIES_NOTE, removalCandidates, removalItem, removalMatch,
   removeBodiesGroups, removeBodiesParams,
+  COMBINE_TYPES, combineEditOptions, combineEditValues,
 } from "./features/combiner.js";
 export {
   boundaryParam,

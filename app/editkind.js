@@ -29,6 +29,8 @@ export function featureEditor(item) {
   if (item.vertex_chamfer) return "vertex_chamfer";
   if (item.text) return "text";
   if (item.surface_cut) return "surface_cut";
+  // Combiner : son opération et son corps outil.
+  if (item.combine) return "combine";
   if (item.type_key === "chamfer" && item.chamfer) return "chamfer";
   // Congé : ses arêtes se re-choisissent (sinon, son rayon seul).
   if (item.type_key === "fillet" && item.dressup) return "fillet";

@@ -40,7 +40,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Chanfrein de sommet | oui | le panneau de la création : sommet, distances | — | oui | à vérifier (booléen, jusqu'à deux lignes) | oui |
 | Coque | oui | épaisseur, « vers l'extérieur » ; faces à ouvrir, re-choisies sur la pièce à son rang | — | oui | oui | oui (sens, refus d'une coque trop épaisse, faces) |
 | Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
-| Combiner | non, voulu | rien | opération, corps outil | — | oui | non |
+| Combiner | non, voulu | le panneau de la création, au rang (le corps outil y reparaît) : opération, corps outil (venu d'un module : l'opération seule) | — | non, voulu | oui | oui (opération, corps outil, refus) |
 | Supprimer des corps | non | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non | oui (drapeau) | oui |
 | Plan de référence | oui + fantôme | rien | appui, décalage, angle | — | non (d'après le code, à vérifier) | non |
 | Axe de référence | non | rien | tout | — | non (d'après le code, à vérifier) | non |
@@ -139,7 +139,7 @@ Où ça se décide :
 
 Un choix de création est définitif : il faut supprimer et refaire.
 
-- **Habillage et références** : Combiner, Axe, Point, Repère, Plan de référence.
+- **Références** : Axe, Point, Repère, Plan de référence.
 - **Surfaces** : lissée, balayée, frontière, réglée, remplissage sans tangence.
 - **Surfaces figées sans réédition** : cousue, médiane, remplissage tangent. Le moteur les recalcule déjà avec leurs sources (il garde ce qu'il faut sur chaque forme) : un panneau de réédition est possible, comme pour la Forme libre.
 - **Opérations** : Diviser, Annuler l'ajustement, Courbe composite, Supprimer la face (surface), Remplacer et Supprimer la face du solide.
@@ -177,12 +177,13 @@ Surface radiée : le même panneau, au rang. La zone « Contour plan » revient 
 
 Forme libre et Pôles : la surface déformée revient dans sa zone et se re-choisit d'un clic dans l'arbre, la Forme libre au rang avec l'aperçu. Les points poussés se reprojettent sur la nouvelle surface ; les pôles déplacés gardent leurs indices, et la grille se redessine sur elle. Une surface qui vient après, ou qui dépend de la forme libre, est refusée. `set_params` prend `source` avec, selon le genre, `pushes`, `radius` et `keep_edges`, ou `moves` et `grid`. Selftest p125.
 
+Combiner : le panneau de la création, au rang, où le corps outil reparaît dans le dossier. L'opération et le corps outil reviennent dans leurs listes ; un autre corps outil rend le premier, qui revient au dossier. Un nom donné à la fonction reste ; le nom par défaut suit l'opération. Un corps outil venu d'un module (dérivé par lui) ne se re-choisit pas : l'opération seule. Comme à la création, pas d'aperçu : un booléen peut durer. `set_params` prend `type` et `tool`. Selftest p126.
+
 Reste :
 
-- **Outils** : le corps outil de Combiner.
 - **Indices de face ou d'arête** : si la source change de topologie, la fonction peut pointer sur autre chose. Aucun test de décalage d'indice trouvé (comportement à vérifier).
 
-Où ça se décide : le panneau de réédition ne contient que les cotes (`app/tree.js`, `editFeature` ; `engine/equations.py`, `get_params` et `set_params`). Les sélections sont saisies par les panneaux de création (`app/features/habillage.js`, `repetitions.js`, `surfaces.js`, `combiner.js`, `volumes.js`) et le moteur ne sait pas les remplacer (`engine/ops/`). Piste : rouvrir le panneau de création rempli, comme `editRemoveBodies`.
+Où ça se décide : `app/tree.js`, `editAtRank`, rouvre le panneau de la création sur la pièce au rang de la fonction (`rank_view`), ses zones remplies de ce que l'arbre décrit (`app/features/*.js`, les fonctions `…Pick` et `…EditValues`), et n'envoie que ce qui change. Le moteur remplace les sélections dans `set_params` (`engine/equations.py` aiguille selon la fonction : `engine/surfacefeat/reedition.py` pour les surfaces et les courbes, `_set_surface_cut_params`, `_set_combine_params`, `_set_pattern_picks`, `_set_body_pattern_picks`…), tout ou rien, et refuse en la nommant une forme qui vient après ou qui dépend de la fonction.
 
 ### 5. Les options de création qui ne reviennent pas
 
@@ -245,7 +246,7 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 
 ### 10. La couverture du selftest
 
-Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, et les opérations Diviser, Annuler l'ajustement, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 

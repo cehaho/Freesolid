@@ -8,6 +8,8 @@ import {
   combineToolOptions,
   resetCombineTools,
 } from "../../app/combine.js";
+import { combineEditOptions, combineEditValues } from "../../app/features.js";
+import { featureEditor } from "../../app/editkind.js";
 
 afterEach(() => {
   resetCombineTools();
@@ -75,5 +77,33 @@ describe("combineFinished", () => {
     });
     combineFinished(TREE, "Piece", 2.5);
     assert.deepEqual(seen, [[TREE, "Piece", 2.5]]);
+  });
+});
+
+describe("Combiner réédité", () => {
+  const spec = { type: "cut", tool: "Body002", tool_label: "Absorbé" };
+
+  it("propose aussi le corps qu'il tient, absorbé", () => {
+    assert.deepEqual(combineEditOptions(TREE, spec),
+                     [["Body002", "Absorbé"], ["Body001", "Outil"]]);
+    assert.deepEqual(combineEditOptions(TREE, { ...spec, tool: "Body001" }),
+                     [["Body001", "Outil"]]);
+  });
+
+  it("n'envoie que l'opération ou le corps qui changent", () => {
+    assert.deepEqual(combineEditValues({ type: "cut", tool: "Body002" }, spec),
+                     {});
+    assert.deepEqual(combineEditValues({ type: "fuse", tool: "Body001" }, spec),
+                     { type: "fuse", tool: "Body001" });
+    assert.equal(combineEditValues({ type: "cut", tool: "" }, spec), null);
+    // Un corps outil venu d'un module : l'opération seule.
+    assert.deepEqual(combineEditValues({ type: "common" },
+                                       { type: "cut", tool: null }),
+                     { type: "common" });
+  });
+
+  it("se rouvre au double-clic", () => {
+    assert.equal(featureEditor({ type_key: "boolean", combine: spec }),
+                 "combine");
   });
 });

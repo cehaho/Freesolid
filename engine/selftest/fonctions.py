@@ -5619,3 +5619,54 @@ def p125_forme_libre_rechoisit_sa_surface(self, mark, report, etat):
                               or "")
         and spec(bump)["source"] == second.Name
         and clean())
+
+
+def p126_combiner_rechoisit(self, mark, report, etat):
+    mark("p126: un « Combiner » re-choisit son opération et son corps outil")
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    def spec(obj):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == obj.Name).get("combine")
+
+    def present():
+        return {b["name"] for b in self.get_tree()["bodies"]}
+
+    # Une plaque 40 × 40 × 10 ; deux poteaux qui la traversent, 10 × 10
+    # et 20 × 20, hauts de 30 (centrés).
+    self.new_part("Combiner re-choisi")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    plate = self._require_body()
+    posts = []
+    for side in (10, 20):
+        self.add_body()
+        self.add_rect_sketch(side, side)
+        self.add_pad(30)
+        posts.append(self._require_body())
+    small, large = posts
+    self.set_active_body(plate.Name)
+    self.add_boolean(small.Name, "cut")
+    combine = plate.Tip
+    listed = spec(combine) == {"type": "cut", "tool": small.Name,
+                               "tool_label": self._body_title(small)}
+    fused = edit(combine, type="fuse")
+    fused_volume = plate.Shape.Volume
+    swapped = edit(combine, tool=large.Name)
+    report["p126_combiner_rechoisit"] = (
+        listed and fused.get("ok") is True
+        and abs(fused_volume - 18000) < 1e-3
+        and swapped.get("ok") is True
+        and abs(plate.Shape.Volume - 24000) < 1e-3
+        and spec(combine)["tool"] == large.Name
+        and small.Name in present() and large.Name not in present()
+        and edit(combine, tool=plate.Name).get("ok") is False
+        and spec(combine)["tool"] == large.Name
+        and clean())

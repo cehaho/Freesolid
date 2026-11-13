@@ -318,6 +318,7 @@
  "Combiner — Soustraire": "Combine — Subtract",
  "Combiner — Ajouter": "Combine — Add",
  "Combiner — Intersection": "Combine — Common",
+ "le corps outil vient d'un module : il ne se re-choisit pas": "the tool body comes from a module: it cannot be re-chosen",
  "Maillage": "Meshing",
  "Reconstruction de l'arbre": "Rebuilding the tree",
  "Soustraire": "Subtract",
