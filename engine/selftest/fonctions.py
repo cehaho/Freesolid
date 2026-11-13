@@ -6080,3 +6080,209 @@ def p131_repetition_variable_rechoisit(self, mark, report, etat):
         and sum(1 for f in self.get_tree()["features"]
                 if f.get("repeat")) == 1
         and _temp_bodies_left(self) == [])
+
+
+def p132_surfaces_a_liens_rechoisissent(self, mark, report, etat):
+    mark("p132: les surfaces à liens re-choisissent ce qu'elles prennent")
+    from engine.kernel import dispatch
+    seen = etat.p132 = {}
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values}).get("ok")
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def spec(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name).get("surface")
+
+    def sketch(fill, plane="XY", datum=None):
+        name = (self.sketch_start(datum=datum) if datum
+                else self.sketch_start(plane=plane))["sketch"]
+        fill(name)
+        self.sketch_finish(name)
+        return name
+
+    def datum(offset):
+        tree = self.add_datum_plane(base="XY", offset=offset)
+        return [f for f in tree["features"]
+                if f["type"] == "PartDesign::Plane"][-1]["name"]
+
+    def zmax(obj):
+        return round(obj.Shape.BoundBox.ZMax, 3)
+
+    self.new_part("Surfaces à liens re-choisies")
+    mid, high = datum(20), datum(40)
+
+    def ring(r):
+        return lambda s: self.sketch_add_circle(s, 0, 0, r)
+
+    # Lissée : deux profils, puis trois, l'ordre gardé ; un seul, ou deux
+    # fois le même, refusés.
+    a, b, c = sketch(ring(10)), sketch(ring(6), datum=mid), sketch(
+        ring(10), datum=high)
+    loft = last(self.surface_loft([a, b]))
+    seen["loft"] = (spec(loft), zmax(loft),
+                    edit(loft, profiles=[a, b, c]), zmax(loft),
+                    [p["name"] for p in spec(loft)["profiles"]] == [a, b, c],
+                    edit(loft, profiles=[a]), edit(loft, profiles=[a, a]),
+                    zmax(loft))
+    # Balayée : une autre trajectoire.
+    short = sketch(lambda s: self.sketch_add_line(s, 30, 0, 30, 25), "XZ")
+    long_ = sketch(lambda s: self.sketch_add_line(s, 30, 0, 30, 45), "XZ")
+    disk = sketch(lambda s: self.sketch_add_circle(s, 30, 0, 2))
+    sweep = last(self.surface_sweep(disk, short))
+    seen["sweep"] = (zmax(sweep), edit(sweep, spine=long_), zmax(sweep),
+                     spec(sweep)["spine"]["name"] == long_,
+                     edit(sweep, spine=disk), zmax(sweep))
+    # Réglée : une autre seconde courbe ; trois courbes refusées.
+    low_line = sketch(lambda s: self.sketch_add_line(s, 60, 0, 70, 0))
+    mid_line = sketch(lambda s: self.sketch_add_line(s, 60, 0, 70, 0),
+                      datum=mid)
+    top_line = sketch(lambda s: self.sketch_add_line(s, 60, 0, 70, 0),
+                      datum=high)
+    ruled = last(self.surface_ruled([{"name": low_line},
+                                     {"name": mid_line}]))
+    seen["ruled"] = (zmax(ruled),
+                     edit(ruled, boundary=[{"name": low_line},
+                                           {"name": top_line}]),
+                     zmax(ruled), spec(ruled)["boundary"] == [
+                         {"name": low_line, "edge": 0},
+                         {"name": top_line, "edge": 0}],
+                     edit(ruled, boundary=[{"name": low_line},
+                                           {"name": mid_line},
+                                           {"name": top_line}]),
+                     zmax(ruled))
+    # Frontière : de deux courbes à deux autres.
+    frontier = last(self.surface_boundary([{"name": low_line},
+                                           {"name": mid_line}]))
+    seen["boundary"] = (zmax(frontier),
+                        edit(frontier, boundary=[{"name": mid_line},
+                                                 {"name": top_line}]),
+                        round(frontier.Shape.BoundBox.ZMin, 3),
+                        zmax(frontier))
+    # Remplissage : d'un carré à un cercle (une arête fermée : moitiés
+    # auxiliaires), puis retour au carré (moitiés défaites).
+
+    def square(x, half):
+        return lambda s: self.sketch_add_rectangle(
+            s, x - half, -half, x + half, half)
+
+    small = sketch(square(120, 5))
+    big = sketch(square(120, 10))
+    circle = sketch(lambda s: self.sketch_add_circle(s, 120, 0, 8))
+    fill = last(self.surface_fill([{"name": small}]))
+
+    def halves():
+        return sum(1 for o in self._doc.Objects
+                   if getattr(o, "FreeSolidHalvessource", ""))
+
+    seen["fill"] = (round(fill.Shape.Area, 1),
+                    edit(fill, boundary=[{"name": big}]),
+                    round(fill.Shape.Area, 1),
+                    edit(fill, boundary=[{"name": circle}]), halves(),
+                    round(fill.Shape.Area, 1),
+                    spec(fill)["boundary"] == [{"name": circle, "edge": 0}],
+                    edit(fill, boundary=[{"name": small}]), halves(),
+                    round(fill.Shape.Area, 1))
+    # Courbe composite : deux arêtes, puis trois ; deux qui ne se suivent
+    # pas, refusées.
+    chain = sketch(lambda s: (self.sketch_add_line(s, 0, 80, 10, 80),
+                              self.sketch_add_line(s, 10, 80, 10, 90),
+                              self.sketch_add_line(s, 10, 90, 20, 90)))
+    composite = last(self.curve_composite([{"name": chain, "edge": 0},
+                                           {"name": chain, "edge": 1}]))
+    seen["composite"] = (len(composite.Shape.Edges),
+                         edit(composite, boundary=[
+                             {"name": chain, "edge": i} for i in range(3)]),
+                         len(composite.Shape.Edges),
+                         edit(composite, boundary=[
+                             {"name": chain, "edge": 0},
+                             {"name": chain, "edge": 2}]),
+                         len(composite.Shape.Edges))
+    # Diviser : un autre trait qui traverse ; un trait à côté, refusé.
+    plate = last(self.surface_planar(sketch=sketch(square(200, 20))))
+    across = sketch(lambda s: self.sketch_add_line(s, 190, -30, 190, 30))
+    other = sketch(lambda s: self.sketch_add_line(s, 210, -30, 210, 30))
+    beside = sketch(lambda s: self.sketch_add_line(s, 300, -30, 300, 30))
+    split = last(self.surface_split(plate.Name, across))
+    seen["split"] = (len(split.Shape.Faces), edit(split, tool=other),
+                     sorted(round(f.Area) for f in split.Shape.Faces),
+                     spec(split)["tool"] == other,
+                     edit(split, tool=beside),
+                     sorted(round(f.Area) for f in split.Shape.Faces))
+    # Supprimer la face d'une surface : une autre face ; toutes, refusé.
+    corner = last(self.surface_extrude(10, sketch=sketch(
+        lambda s: (self.sketch_add_line(s, 300, 100, 320, 100),
+                   self.sketch_add_line(s, 320, 100, 320, 130)))))
+    wide = next(i for i, f in enumerate(corner.Shape.Faces)
+                if abs(f.Area - 200) < 1e-6)
+    tall = 1 - wide
+    removed = last(self.surface_delete_faces(corner.Name, [wide]))
+    seen["deleteface"] = (round(removed.Shape.Area),
+                          edit(removed, faces=[tall]),
+                          round(removed.Shape.Area),
+                          spec(removed)["faces"] == [tall],
+                          edit(removed, faces=[0, 1]),
+                          round(removed.Shape.Area))
+    # Annuler l'ajustement : une autre surface.
+    untrim = last(self.surface_untrim(plate.Name, 0))
+    seen["untrim"] = (round(untrim.Shape.Area),
+                      edit(untrim, source=corner.Name, face=tall),
+                      round(untrim.Shape.Area),
+                      spec(untrim) == {"kind": "untrim",
+                                       "source": corner.Name, "face": tall},
+                      edit(untrim, face=9), round(untrim.Shape.Area))
+    # Bouchon tangent (remplissage figé) : le bout d'un autre tube ; une
+    # arête qui ne borde pas de face, refusée.
+
+    def tube(x, r):
+        made = last(self.surface_extrude(20, sketch=sketch(
+            lambda s: self.sketch_add_circle(s, x, 300, r))))
+        top = next(i for i, e in enumerate(made.Shape.Edges)
+                   if e.isClosed() and e.BoundBox.ZMin > 19)
+        return made, top
+
+    thin, thin_top = tube(0, 5)
+    thick, thick_top = tube(40, 8)
+    dome = last(self.surface_fill([{"name": thin.Name, "edge": thin_top}],
+                                  tangent=True))
+    seen["cap"] = (bool(getattr(dome, "FreeSolidCapedges", "")),
+                   round(dome.Shape.BoundBox.XMin),
+                   edit(dome, boundary=[{"name": thick.Name,
+                                         "edge": thick_top}]),
+                   round(dome.Shape.BoundBox.XMin),
+                   spec(dome)["boundary"] == [{"name": thick.Name,
+                                               "edge": thick_top}],
+                   edit(dome, boundary=[{"name": circle}]),
+                   round(dome.Shape.BoundBox.XMin))
+    report["p132_surfaces_a_liens_rechoisissent"] = all((
+        seen["cap"] == (True, -5, True, 32, True, False, 32),
+        [p["name"] for p in seen["loft"][0]["profiles"]] == [a, b],
+        seen["loft"][1] == 20 and seen["loft"][2] is True
+        and seen["loft"][3] == 40 and seen["loft"][4]
+        and seen["loft"][5] is False and seen["loft"][6] is False
+        and seen["loft"][7] == 40,
+        seen["sweep"][0] == 25 and seen["sweep"][1] is True
+        and seen["sweep"][2] == 45 and seen["sweep"][3]
+        and seen["sweep"][4] is False and seen["sweep"][5] == 45,
+        seen["ruled"][0] == 20 and seen["ruled"][1] is True
+        and seen["ruled"][2] == 40 and seen["ruled"][3]
+        and seen["ruled"][4] is False and seen["ruled"][5] == 40,
+        seen["boundary"] == (20, True, 20, 40),
+        seen["fill"][0] == 100 and seen["fill"][1] is True
+        and seen["fill"][2] == 400 and seen["fill"][3] is True
+        and seen["fill"][4] == 1 and seen["fill"][6]
+        and seen["fill"][7] is True and seen["fill"][8] == 0
+        and seen["fill"][9] == 100,
+        seen["composite"] == (2, True, 3, False, 3),
+        seen["split"][0] == 2 and seen["split"][1] is True
+        and seen["split"][2] == [400, 1200] and seen["split"][3]
+        and seen["split"][4] is False and seen["split"][5] == [400, 1200],
+        seen["deleteface"] == (300, True, 200, True, False, 200),
+        seen["untrim"][1] is True and seen["untrim"][2] == 300
+        and seen["untrim"][3] and seen["untrim"][4] is False
+        and seen["untrim"][5] == 300,
+    ))

@@ -69,6 +69,17 @@ export function surfaceEditor(item) {
   if (kind === "fillet") return "surface_fillet";
   if (kind === "freeform") return item.surface.moves ? "poles" : "freeform";
   if (kind === "flatten") return "flatten";
+  // Ce que prennent les surfaces lissée, balayée, à contour, la division,
+  // le désajustement et la suppression de faces : re-choisi au rang. Un
+  // bouchon tangent (remplissage figé) aussi.
+  if (kind === "loft") return "surface_loft";
+  if (kind === "sweep") return "surface_sweep";
+  if (["ruled", "boundary", "fill", "composite"].includes(kind)) {
+    return "contour";
+  }
+  if (kind === "split") return "split";
+  if (kind === "untrim") return "untrim";
+  if (kind === "deleteface") return "surface_delete_face";
   if (isFrozen(item)) return null;
   // Radiée : distance et sens, comme à la création.
   if (item.type_key === "surface_radiate") return params(item) && "radiate";

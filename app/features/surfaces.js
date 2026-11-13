@@ -216,9 +216,9 @@ function treeLabel(tree, name) {
   return name;
 }
 
-/** Le contour d'une surface radiée, arête par arête, comme la zone le
- *  montre. */
-export function radiateBoundaryPick(tree, spec) {
+/** Le contour d'une surface (radiée, réglée, frontière, remplissage,
+ *  courbe composite), arête par arête, comme la zone le montre. */
+export function contourPick(tree, spec) {
   const items = (spec?.boundary ?? []).map((b) => (b.body
     ? { kind: "boundary", body: true, name: "body", label: t("Solide"),
         edge: b.edge }
@@ -227,9 +227,9 @@ export function radiateBoundaryPick(tree, spec) {
   return items.length ? { items } : null;
 }
 
-/** Contour d'une surface radiée re-choisi : `{}` s'il est le même,
- *  `{ boundary }` sinon, null si la zone est vide. */
-export function radiateBoundaryValues(sel, spec) {
+/** Contour re-choisi : `{}` s'il est le même, `{ boundary }` sinon,
+ *  null si la zone est vide. */
+export function contourValues(sel, spec) {
   const items = sel?.items ?? [];
   if (!items.length) return null;
   const boundary = items.map(boundaryParam);
@@ -238,6 +238,68 @@ export function radiateBoundaryValues(sel, spec) {
     && boundary.every((b, i) => !!b.body === !!before[i].body
       && (b.body || b.name === before[i].name) && b.edge === before[i].edge);
   return same ? {} : { boundary };
+}
+
+/** Une face de surface comme choix d'une zone. */
+export function surfaceFacePick(tree, name, face) {
+  if (!name) return null;
+  return { ...surfacePick(tree, name), kind: "surfface", face: face ?? 0 };
+}
+
+/** Une courbe ou une esquisse (outil d'une division) comme choix d'une
+ *  zone : une surface du dossier, sinon une esquisse. */
+export function shapePick(tree, name) {
+  if (!name) return null;
+  if ((tree?.surfaces ?? []).some((s) => s.name === name)) {
+    return surfacePick(tree, name);
+  }
+  return { kind: "sketch", name, label: treeLabel(tree, name) };
+}
+
+/** Division rééditée : sa surface et sa courbe, si elles changent ; null
+ *  s'il en manque une ou si c'est la même. */
+export function splitEditValues(v, spec) {
+  const source = v.surface?.name;
+  const tool = v.tool?.name;
+  if (!source || !tool || source === tool) return null;
+  const out = {};
+  if (source !== spec.source) out.source = source;
+  if (tool !== spec.tool) out.tool = tool;
+  return out;
+}
+
+/** Désajustement réédité : sa surface et sa face, si elles changent ; une
+ *  autre surface emporte sa face. */
+export function untrimEditValues(target, spec) {
+  if (!target?.name) return null;
+  const face = target.face ?? 0;
+  if (target.name !== spec.source) return { source: target.name, face };
+  return face === (spec.face ?? 0) ? {} : { face };
+}
+
+/** Les faces qu'une suppression retire, comme la zone les montre. */
+export function deletedFacesPick(tree, spec) {
+  if (!spec?.source || !spec.faces?.length) return null;
+  return { items: spec.faces.map((face) => surfaceFacePick(
+    tree, spec.source, face)) };
+}
+
+/** Faces supprimées re-choisies, toutes d'une même surface : `{}` si ce
+ *  sont les mêmes, `{ faces }` (et `source` pour une autre surface)
+ *  sinon, null si la zone est vide ou mêle des surfaces. */
+export function deletedFacesValues(sel, spec) {
+  const items = sel?.items ?? [];
+  if (!items.length || items.some((i) => i.kind !== "surfface"
+      || i.name !== items[0].name)) return null;
+  const faces = [...new Set(items.map((i) => i.face ?? 0))]
+    .sort((a, b) => a - b);
+  if (items[0].name !== spec.source) {
+    return { source: items[0].name, faces };
+  }
+  const before = [...(spec.faces ?? [])].sort((a, b) => a - b);
+  const same = faces.length === before.length
+    && faces.every((f, i) => f === before[i]);
+  return same ? {} : { faces };
 }
 
 /** Coupe par surface rééditée : le côté et la bande, seulement ce qui

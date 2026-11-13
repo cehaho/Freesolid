@@ -91,6 +91,19 @@ describe("éditeur d'une surface", () => {
       "params");
   });
 
+  it("ce que prennent les surfaces à liens se re-choisit", () => {
+    const editor = (kind) => surfaceEditor({ type_key: "surface",
+      surface: { kind }, has_params: false });
+    assert.equal(editor("loft"), "surface_loft");
+    assert.equal(editor("sweep"), "surface_sweep");
+    for (const kind of ["ruled", "boundary", "fill", "composite"]) {
+      assert.equal(editor(kind), "contour");
+    }
+    assert.equal(editor("split"), "split");
+    assert.equal(editor("untrim"), "untrim");
+    assert.equal(editor("deleteface"), "surface_delete_face");
+  });
+
   it("une surface figée ou sans cote ne se réédite pas", () => {
     assert.equal(surfaceEditor({ type_key: "shape", static: true }), null);
     assert.equal(surfaceEditor({ type_key: "surface_radiate",
@@ -99,8 +112,9 @@ describe("éditeur d'une surface", () => {
                                  has_params: false }), null);
     assert.equal(surfaceEditor({ type_key: "surface_loft", has_params: false }),
       null);
-    assert.equal(surfaceEditor({ type_key: "surface", surface: { kind: "split" },
-      has_params: false }), null);
+    // Un bouchon tangent est une forme figée qui re-choisit son contour.
+    assert.equal(surfaceEditor({ type_key: "shape", static: true,
+      surface: { kind: "fill", cap: true } }), "contour");
     assert.equal(surfaceEditor(undefined), null);
     assert.equal(isFrozen({ static: true }), true);
     assert.equal(isFrozen({ type_key: "surface_extrude" }), false);

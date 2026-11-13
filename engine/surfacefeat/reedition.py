@@ -3,7 +3,10 @@ surface plane, la surface d'un décalage ou d'un épaississement, le bord
 d'un prolongement, les arêtes d'un congé, les deux formes d'une courbe
 d'intersection, l'esquisse et la face d'une courbe projetée, l'outil et
 la partie gardée d'un ajustement, le contour d'une surface radiée, la
-surface d'une forme libre.
+surface d'une forme libre, les profils d'une surface lissée, le profil et
+la trajectoire d'une balayée, les courbes d'une réglée, d'une frontière,
+d'un remplissage ou d'une courbe composite, la surface et la courbe d'une
+division, la face d'un désajustement, les faces supprimées d'une surface.
 
 Mixin de ``Kernel``. Pas d'import FreeCAD au niveau du module.
 """
@@ -24,6 +27,24 @@ class SurfaceReeditMixin:
         "freeform": ("source", "pushes", "radius", "keep_edges", "moves",
                      "grid"),
         "flatten": ("surface", "face"),
+        "loft": ("profiles",),
+        "sweep": ("profile", "spine"),
+        "ruled": ("boundary",),
+        "boundary": ("boundary",),
+        "fill": ("boundary",),
+        "composite": ("boundary",),
+        "split": ("source", "tool"),
+        "untrim": ("source", "face"),
+        "deleteface": ("source", "faces"),
+    }
+
+    #: Genres re-choisis par leurs propriétés de liens, sans autre réglage.
+    _SURFACE_LINK_KINDS = {
+        "Part::Loft": "loft",
+        "Part::Sweep": "sweep",
+        "Part::RuledSurface": "ruled",
+        "Surface::GeomFillSurface": "boundary",
+        "Surface::Filling": "fill",
     }
 
     def _surface_pick_kind(self, obj):
@@ -34,9 +55,16 @@ class SurfaceReeditMixin:
             return None
         if obj.TypeId == "Part::Face":
             return "planar"
-        if (obj.TypeId == "Surface::Extend"
-                and not getattr(obj, "FreeSolidUntrim", 0)):
-            return "extend"
+        if obj.TypeId == "Surface::Extend":
+            return "untrim" if getattr(obj, "FreeSolidUntrim", 0) else "extend"
+        if obj.TypeId in self._SURFACE_LINK_KINDS:
+            return self._SURFACE_LINK_KINDS[obj.TypeId]
+        if getattr(obj, "FreeSolidCapedges", ""):
+            return "fill"
+        if getattr(obj, "FreeSolidComposite", False):
+            return "composite"
+        if getattr(obj, "FreeSolidKind", "") in ("split", "deleteface"):
+            return obj.FreeSolidKind
         if obj.TypeId == "Part::Fillet":
             return "fillet"
         if obj.TypeId == "Part::Section":
@@ -102,6 +130,14 @@ class SurfaceReeditMixin:
                 self._set_freeform_params(obj, values)
             elif kind == "flatten":
                 self._set_flatten_params(obj, values)
+            elif kind in ("loft", "sweep", "ruled", "boundary", "composite"):
+                self._set_linked_surface_params(obj, kind, values)
+            elif kind == "fill":
+                self._set_fill_params(obj, values)
+            elif kind == "split":
+                self._set_split_params(obj, values)
+            elif kind in ("untrim", "deleteface"):
+                self._set_face_source_params(obj, kind, values)
             else:
                 self._set_projection_params(obj, values)
             self._recompute()
@@ -109,6 +145,7 @@ class SurfaceReeditMixin:
                 raise KernelError("les deux formes ne se coupent pas"
                                   if kind == "intersection" else
                                   "la projection ne touche pas la face")
+            self._check_rechosen(obj, kind)
         except Exception as exc:  # noqa: BLE001
             for owner, prop, value in saved:
                 setattr(owner, prop, value)
@@ -125,6 +162,9 @@ class SurfaceReeditMixin:
     @staticmethod
     def _surface_saved(obj, kind):
         """Ce qu'il faut remettre sur refus : (objet, propriété, valeur)."""
+        if kind == "fill" and getattr(obj, "FreeSolidCapedges", ""):
+            return [(obj, "Shape", obj.Shape.copy()),
+                    (obj, "FreeSolidCapedges", obj.FreeSolidCapedges)]
         if kind == "trim":
             slicer = obj.Base
             return [(slicer, "Base", slicer.Base),
@@ -145,6 +185,15 @@ class SurfaceReeditMixin:
             "fillet": ("Base", "Edges"),
             "intersection": ("Base", "Tool"),
             "project": ("SupportFace", "Projection", "Direction"),
+            "loft": ("Sections",),
+            "sweep": ("Sections", "Spine"),
+            "ruled": ("Curve1", "Curve2"),
+            "boundary": ("BoundaryList",),
+            "fill": ("BoundaryEdges", "BoundaryFaces", "BoundaryOrder"),
+            "composite": ("Support",),
+            "split": ("Base", "Tools"),
+            "untrim": ("Face",),
+            "deleteface": ("Support",),
         }[kind]
         return [(obj, prop, getattr(obj, prop)) for prop in props
                 if prop in obj.PropertiesList]
@@ -349,3 +398,213 @@ class SurfaceReeditMixin:
                                    float(obj.FreeSolidFreeradius)),
             pushes=values.get("pushes"),
             keep_edges=values.get("keep_edges"))
+
+    def _rechosen_edges(self, obj, boundary):
+        """Les liens d'un contour re-choisi (``boundary``, comme à la
+        création) ; chaque forme vient avant ``obj`` et n'en dépend pas."""
+        links = self._boundary_links(boundary)
+        for linked, _ in links:
+            if linked.TypeId != "PartDesign::Body":
+                self._refuse_later_source(obj, linked)
+        return links
+
+    def _set_linked_surface_params(self, obj, kind, values):
+        """Surfaces lissée (``profiles``), balayée (``profile``,
+        ``spine``), réglée et frontière (``boundary``), courbe composite
+        (``boundary``) : ce qu'elles prennent, re-choisi comme à la
+        création."""
+        from engine.kernel import KernelError
+        if kind == "loft":
+            names = [str(name) for name in values["profiles"] or ()]
+            if len(names) < 2:
+                raise KernelError("une surface lissée demande au moins deux "
+                                  "profils")
+            if len(set(names)) != len(names):
+                raise KernelError("lissage : un profil ne se prend qu'une "
+                                  "fois")
+            sections = []
+            for name in names:
+                sketch = self._get_sketch(name)
+                if not sketch.Shape.Edges:
+                    raise KernelError("esquisse vide : {}".format(name))
+                self._refuse_later_source(obj, sketch)
+                sections.append(sketch)
+            obj.Sections = sections
+        elif kind == "sweep":
+            section = obj.Sections[0]
+            path = obj.Spine[0] if obj.Spine else None
+            if "profile" in values:
+                section = self._get_sketch(str(values["profile"]))
+                self._refuse_later_source(obj, section)
+            if "spine" in values:
+                path = self._require_doc().getObject(str(values["spine"]))
+                if (path is None or not getattr(path, "Shape", None)
+                        or not path.Shape.Edges or path.Shape.Faces):
+                    raise KernelError(
+                        "trajectoire inconnue : {} (esquisse ou courbe "
+                        "3D)".format(values["spine"]))
+                self._refuse_later_source(obj, path)
+            if path is None or section.Name == path.Name:
+                raise KernelError("profil et trajectoire doivent être "
+                                  "différents")
+            obj.Sections = [section]
+            obj.Spine = (path, ["Edge%d" % (i + 1)
+                                for i in range(len(path.Shape.Edges))])
+        else:
+            links = self._rechosen_edges(obj, values["boundary"])
+            if kind == "ruled":
+                if len(links) != 2:
+                    raise KernelError("une surface réglée relie exactement "
+                                      "deux courbes")
+                obj.Curve1 = (links[0][0], [links[0][1]])
+                obj.Curve2 = (links[1][0], [links[1][1]])
+            elif kind == "boundary":
+                if not 2 <= len(links) <= 4:
+                    raise KernelError("une surface frontière demande deux à "
+                                      "quatre courbes")
+                obj.BoundaryList = links
+            else:
+                groups, order = {}, []
+                for linked, sub in links:
+                    if linked.Name not in groups:
+                        groups[linked.Name] = (linked, [])
+                        order.append(linked.Name)
+                    groups[linked.Name][1].append(sub)
+                obj.Support = [(groups[n][0], tuple(groups[n][1]))
+                               for n in order]
+
+    def _check_rechosen(self, obj, kind):
+        """Après le recalcul, ce que la création vérifiait aussi."""
+        from engine.kernel import KernelError
+        import Part
+        if kind == "composite":
+            edges = obj.Shape.Edges
+            if not edges:
+                raise KernelError("aucune arête retenue")
+            if len(Part.sortEdges(list(edges))) != 1:
+                raise KernelError("les arêtes ne se suivent pas bout à "
+                                  "bout")
+        elif kind == "split":
+            if len(obj.Shape.Faces) <= len(obj.Base.Shape.Faces):
+                raise KernelError("la courbe ne scinde pas la surface — "
+                                  "elle doit être posée dessus, d'un bord à "
+                                  "l'autre ou fermée")
+        elif kind in ("loft", "sweep", "ruled", "boundary"):
+            if obj.Shape.isNull() or not obj.Shape.Faces:
+                raise KernelError("aucune surface produite")
+
+    def _set_fill_params(self, obj, values):
+        """Surface de remplissage : son contour (``boundary``), comme à la
+        création. La tangence reste ce qu'elle était : un bouchon tangent
+        se refait sur les faces que bordent les nouvelles arêtes."""
+        from engine.kernel import KernelError
+        links = self._rechosen_edges(obj, values["boundary"])
+        if getattr(obj, "FreeSolidCapedges", ""):
+            faces = [self._adjacent_face(o, sub) for o, sub in links]
+            if not all(faces):
+                raise KernelError("bouchon tangent : chaque arête doit "
+                                  "border une face")
+            spec = ";".join(":".join((o.Name, sub, face))
+                            for (o, sub), face in zip(links, faces))
+            obj.Shape = self._cap_shape(spec)
+            self._stamp(obj, capedges=spec)
+            return
+        tangent = any(obj.BoundaryOrder or ())
+        faces = [self._adjacent_face(o, sub) if tangent else ""
+                 for o, sub in links]
+        closed = any(o.Shape.Edges[int(sub[4:]) - 1].isClosed()
+                     for o, sub in links)
+        if tangent and closed and all(faces):
+            raise KernelError("remplissage tangent : une arête fermée "
+                              "demande un bouchon — refaites la surface")
+        # Un objet auxiliaire par arête fermée, lié par ses deux moitiés.
+        old = list({o.Name: o for o, _ in self._link_pairs(obj.BoundaryEdges)
+                    if getattr(o, "FreeSolidHalvessource", "")}.values())
+        before = (list(obj.BoundaryEdges), list(obj.BoundaryFaces or ()),
+                  list(obj.BoundaryOrder or ()))
+        links, faces = self._split_closed_links(
+            links, [""] * len(links) if closed else faces)
+        made = list({o.Name: o for o, _ in links
+                     if getattr(o, "FreeSolidHalvessource", "")
+                     and o not in old}.values())
+        doc = self._require_doc()
+        try:
+            obj.BoundaryEdges = links
+            obj.BoundaryFaces = faces if any(faces) else []
+            obj.BoundaryOrder = ([1 if face else 0 for face in faces]
+                                 if any(faces) else [])
+            self._recompute()
+            # Vérifié avant de défaire les anciennes moitiés d'arêtes : un
+            # refus les remet en place.
+            if obj.Shape.isNull() or not obj.Shape.Faces:
+                raise KernelError("aucune surface produite")
+        except Exception:
+            obj.BoundaryEdges, obj.BoundaryFaces, obj.BoundaryOrder = before
+            for helper in made:
+                doc.removeObject(helper.Name)
+            raise
+        used = {o.Name for o, _ in links}
+        for helper in old:
+            if helper.Name not in used:
+                doc.removeObject(helper.Name)
+
+    @staticmethod
+    def _link_pairs(links):
+        """``[(objet, "EdgeN"), …]`` d'une liste de liens FreeCAD."""
+        pairs = []
+        for link in links or ():
+            if not link or link[0] is None:
+                continue
+            subs = link[1] if len(link) > 1 else ()
+            for sub in [subs] if isinstance(subs, str) else subs or ():
+                pairs.append((link[0], sub))
+        return pairs
+
+    def _set_split_params(self, obj, values):
+        """Diviser : sa surface (``source``) et sa courbe outil
+        (``tool``)."""
+        from engine.kernel import KernelError
+        src = obj.Base
+        tool = obj.Tools[0] if obj.Tools else None
+        if "source" in values:
+            src = self._picked_surface(obj, values["source"])
+        if "tool" in values:
+            tool = self._require_doc().getObject(str(values["tool"]))
+            if tool is None or not getattr(tool, "Shape", None):
+                raise KernelError("objet inconnu : {}".format(values["tool"]))
+            self._refuse_later_source(obj, tool)
+        if tool is None or tool.Name == src.Name:
+            raise KernelError("la surface et l'outil doivent être différents")
+        obj.Base = src
+        obj.Tools = [tool]
+
+    def _set_face_source_params(self, obj, kind, values):
+        """Annuler l'ajustement (``source``, ``face``) et Supprimer la face
+        d'une surface (``source``, ``faces``) : la surface et ses faces,
+        base 0. Une autre surface demande ses faces."""
+        from engine.kernel import KernelError
+        current = obj.Face[0] if kind == "untrim" else obj.Support[0][0]
+        src = current
+        if "source" in values:
+            src = self._picked_surface(obj, values["source"])
+        count = len(src.Shape.Faces)
+        if kind == "untrim":
+            face = int(values.get("face", 0 if src is not current
+                                  else int(obj.Face[1][0][4:]) - 1))
+            if face < 0 or face >= count:
+                raise KernelError("face inconnue : {}".format(face))
+            obj.Face = (src, ["Face%d" % (face + 1)])
+            return
+        if "faces" not in values and src is not current:
+            raise KernelError("cliquez les faces à supprimer")
+        drop = ({int(f) for f in values["faces"] or ()} if "faces" in values
+                else {i for i in range(count)} - {
+                    int(sub[4:]) - 1 for sub in obj.Support[0][1]})
+        if not drop:
+            raise KernelError("cliquez les faces à supprimer")
+        if any(f < 0 or f >= count for f in drop):
+            raise KernelError("face inconnue : {}".format(sorted(drop)))
+        keep = ["Face%d" % (i + 1) for i in range(count) if i not in drop]
+        if not keep:
+            raise KernelError("toutes les faces seraient supprimées")
+        obj.Support = [(src, tuple(keep))]
