@@ -549,15 +549,22 @@ class SurfaceCommonMixin:
             if not base_name:
                 continue
             base = doc.getObject(base_name)
-            if base is None or not getattr(base, "Shape", None):
-                continue
-            if getattr(obj, "FreeSolidVchamferbase", ""):
+            # La forme part de la fonction juste avant la sienne : une
+            # fonction glissée avant elle (sous la barre reculée) y entre.
+            chain = self._frozen_chain_base(obj)
+            if chain is not None and chain is not base:
+                stamps = self._rebase_frozen(obj, base, chain)
+                base = chain
+                changed = True
+            elif getattr(obj, "FreeSolidVchamferbase", ""):
                 stamps = {"vchamfer": obj.FreeSolidVchamfer}
             elif getattr(obj, "FreeSolidDefeatbase", ""):
                 stamps = {"defeatfaces": obj.FreeSolidDefeatfaces}
             else:
                 stamps = {"replaceface": obj.FreeSolidReplaceface,
                           "replacesurface": obj.FreeSolidReplacesurface}
+            if base is None or not getattr(base, "Shape", None):
+                continue
             try:
                 result = self._frozen_result(stamps, base.Shape)
             except Exception:  # noqa: BLE001

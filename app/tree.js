@@ -2906,7 +2906,7 @@ export function installTree(ctx) {
       },
       groups: [{ label: "Nouveau plan", rows: [
         { type: "select", key: "support", value: sketchPlaneChoice(support),
-          options: sketchPlaneOptions(ctx.lastTree) },
+          options: sketchPlaneOptions(ctx.lastTree, sketch) },
       ] }],
       values: (v) => sketchPlaneValues(v, support),
       problem: () => "Cliquez la face d'accueil",

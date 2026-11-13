@@ -6699,3 +6699,165 @@ def p136_fleches_percage_helice(self, mark, report, etat):
                              [5.0, 5.0, 5.0], 1.0)
         and seen["through"] is None
         and seen["helix"] == ("height", 40.0, [0.0, 0.0, 1.0], 40.0, True))
+
+
+def p137_barre_et_references(self, mark, report, etat):
+    mark("p137: plan et axe de référence reculent avec la barre de retour")
+    from engine.kernel import dispatch
+    seen = etat.p137 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def rolled(*names):
+        rows = {f["name"]: f for f in self.get_tree()["features"]}
+        return [bool(rows[n].get("rolled_back")) for n in names]
+
+    def tip():
+        return getattr(self._require_body().Tip, "Name", None)
+
+    # Bloc, esquisse libre, plan sur le dessus, axe Z, bossage sur le plan.
+    self.new_part("Barre et références")
+    base = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(base, -20, -20, 20, 20)
+    self.sketch_finish(base)
+    pad = self.add_pad(10, sketch=base)["features"][-1]["name"]
+    free = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_line(free, 0, 0, 10, 10)
+    self.sketch_finish(free)
+    top = next(i for i, f in enumerate(self._doc.getObject(pad).Shape.Faces)
+               if f.BoundBox.ZMin > 9.99 and f.BoundBox.ZLength < 1e-6)
+    plane = [f["name"] for f in self.add_datum_plane(face=top)["features"]
+             if f["type"] == "PartDesign::Plane"][-1]
+    axis = [f["name"] for f in self.add_datum_axis(axis="Z")["features"]
+            if f["type"] == "PartDesign::Line"][-1]
+    boss = self.sketch_start(datum=plane)["sketch"]
+    self.sketch_add_rectangle(boss, 5, 5, 15, 15)
+    self.sketch_finish(boss)
+    self.add_pad(5, sketch=boss)
+    boss_pad = tip()
+    # Barre en tête : tout recule, les références aussi, et la vue ne les
+    # dessine plus.
+    call("set_tip")
+    seen["top"] = (rolled(plane, axis),
+                   self._doc.getObject(plane).Visibility)
+    # Sous le bloc : une esquisse ne se pose pas sur le plan reculé.
+    call("set_tip", feature=pad)
+    refused = call("sketch_start", datum=plane)
+    seen["sketch_refused"] = (rolled(plane, axis), refused.get("ok"),
+                              "barre" in str(refused.get("error")))
+    # La barre se pose sur une référence : ce qui suit recule.
+    seen["on_plane"] = (call("set_tip", feature=plane).get("ok"),
+                        rolled(plane, axis), tip() == pad)
+    seen["on_axis"] = (call("set_tip", feature=axis).get("ok"),
+                       rolled(plane, axis), tip() == pad)
+    call("tip_to_end")
+    seen["end"] = (rolled(plane, axis), tip() == boss_pad)
+    # La vue au rang de l'axe : le plan reste, l'axe recule ; puis retour.
+    self.rank_view(axis)
+    seen["rank"] = (rolled(plane, axis), tip() == pad)
+    self.rank_view_end()
+    seen["rank_back"] = (rolled(plane, axis), tip() == boss_pad)
+    # L'esquisse libre précède le plan : elle ne s'y pose pas.
+    moved = call("sketch_set_plane", sketch=free, datum=plane)
+    seen["set_plane_refused"] = (moved.get("ok"),
+                                 "après" in str(moved.get("error")))
+    # Supprimer ce qui est sous la barre posée sur le plan : l'axe part
+    # avec le bossage ; l'annulation les rend.
+    call("set_tip", feature=plane)
+    call("delete_rolled_back")
+    gone = (self._doc.getObject(axis) is None,
+            self._doc.getObject(boss_pad) is None,
+            self._doc.getObject(plane) is not None)
+    call("undo")
+    call("tip_to_end")
+    seen["deleted"] = (gone, self._doc.getObject(axis) is not None,
+                       tip() == boss_pad)
+    report["p137_barre_et_references"] = (
+        seen["top"] == ([True, True], False)
+        and seen["sketch_refused"] == ([True, True], False, True)
+        and seen["on_plane"] == (True, [False, True], True)
+        and seen["on_axis"] == (True, [False, False], True)
+        and seen["end"] == ([False, False], True)
+        and seen["rank"] == ([False, True], True)
+        and seen["rank_back"] == ([False, False], True)
+        and seen["set_plane_refused"] == (False, True)
+        and seen["deleted"] == ((True, True, True), True, True))
+
+
+def p138_formes_figees_et_barre(self, mark, report, etat):
+    mark("p138: une fonction glissée sous la barre entre dans les formes "
+         "figées d'après")
+    from engine.kernel import dispatch
+    seen = etat.p138 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    def block(x1, y1, x2, y2, height, hole=None):
+        sk = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(sk, x1, y1, x2, y2)
+        if hole:
+            self.sketch_add_circle(sk, 0, 0, hole)
+        self.sketch_finish(sk)
+        self.add_pad(height, sketch=sk)
+        return self._require_body().Tip.Name
+
+    # Chanfrein de sommet, puis la barre sous le bloc : un plot de 5×5×5
+    # posé alors dépasse au-dessus, il reste quand la barre revient.
+    self.new_part("Formes figées et barre")
+    pad = block(0, 0, 20, 20, 10)
+    self.add_vertex_chamfer([3, 3, 3], point=[20, 20, 10])
+    corner = self._require_body().Tip
+    chamfered = volume()
+    call("set_tip", feature=pad)
+    block(0, 0, 5, 5, 15)
+    call("tip_to_end")
+    seen["vertex"] = (chamfered, volume(),
+                      corner.FreeSolidVchamferspec.split(";")[1:])
+    # Supprimer la face : le trou rebouché ; une poche posée sous la barre
+    # reste creusée, la face suit son nouveau numéro.
+    self.new_part("Formes figées et barre, face")
+    pad = block(-20, -20, 20, 20, 10, hole=4)
+    faces = self._doc.getObject(pad).Shape.Faces
+    hole = next(i for i, f in enumerate(faces)
+                if f.Surface.TypeId == "Part::GeomCylinder")
+    top = next(i for i, f in enumerate(faces)
+               if f.BoundBox.ZMin > 9.99 and f.BoundBox.ZLength < 1e-6)
+    self.add_delete_face([hole])
+    deleted = self._require_body().Tip
+    filled = volume()
+    call("set_tip", feature=pad)
+    sk = self.sketch_start(face=top)["sketch"]
+    self.sketch_add_rectangle(sk, 10, 10, 15, 15)
+    self.sketch_finish(sk)
+    self.add_pocket(sketch=sk, length=5)
+    call("tip_to_end")
+    # La forme part de la poche ; la face retirée y est encore le trou.
+    frozen = self._frozen_steps(deleted)[0][1]
+    start = self._doc.getObject(frozen.FreeSolidDefeatbase)
+    face = start.Shape.Faces[int(deleted.FreeSolidDeletefaces)]
+    seen["face"] = (filled, volume(), start.Name != pad,
+                    face.Surface.TypeId == "Part::GeomCylinder")
+    # Une couture suit sa surface rééditée sous la barre.
+    self.new_part("Formes figées et barre, couture")
+
+    def band(x1, y1, x2, y2):
+        sk = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_line(sk, x1, y1, x2, y2)
+        self.sketch_finish(sk)
+        return self.surface_extrude(10, sketch=sk)["surfaces"][-1]["name"]
+
+    first, second = band(0, 0, 10, 0), band(10, 0, 10, 10)
+    sewn = self.surface_sew([first, second])["surfaces"][-1]["name"]
+    call("set_tip", feature=first)
+    call("set_params", feature=first, values={"length": 20})
+    call("tip_to_end")
+    seen["sew"] = round(self._doc.getObject(sewn).Shape.Area, 3)
+    report["p138_formes_figees_et_barre"] = (
+        seen["vertex"] == (3995.5, 4120.5, ["3", "3", "3"])
+        and seen["face"] == (16000.0, 15875.0, True, True)
+        and seen["sew"] == 300.0)

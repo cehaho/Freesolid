@@ -253,6 +253,8 @@ def _etapes():
         fonctions.p134_references_rechoisissent,
         fonctions.p135_apercu_des_surfaces_a_la_creation,
         fonctions.p136_fleches_percage_helice,
+        fonctions.p137_barre_et_references,
+        fonctions.p138_formes_figees_et_barre,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

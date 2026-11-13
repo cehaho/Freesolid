@@ -165,7 +165,7 @@ def resolve_pattern_originals(names, catalog):
 
 
 #: Lignes hors chaîne PartDesign — flag ``FreeSolidRolledBack``.
-_ROLLBACK_ROLES = frozenset({"sketch", "surface", "remove"})
+_ROLLBACK_ROLES = frozenset({"sketch", "surface", "remove", "reference"})
 
 #: Propriété custom persistée dans le .FCStd (source de vérité du recul).
 _ROLLED_BACK_PROP = "FreeSolidRolledBack"
@@ -176,16 +176,18 @@ def rollback_plan(history, target_name=None):
 
     *history* : séquence de dicts ``{name, order, role}`` déjà triée par
     ``order``, avec ``role`` ∈ ``{"feature", "sketch", "surface",
-    "absorbed", "pattern", "remove"}``. ``absorbed`` : l'esquisse rangée
+    "absorbed", "pattern", "remove", "reference"}``. ``absorbed`` : l'esquisse rangée
     sous sa fonction — la barre peut se poser juste après elle, elle ne
     prend pas de flag. ``pattern`` : un réseau de corps, ni flag ni Tip ;
     la base de chaque copie est une ligne ``feature`` à son rang.
     ``remove`` : une suppression de corps, qui prend un flag comme une
     surface ; ses étapes cachées sont des lignes ``feature`` à son rang.
+    ``reference`` : un plan, un axe, un point ou un repère, qui prend un
+    flag comme une esquisse libre.
     *target_name* : dernière ligne visible, ou ``None`` (barre en tête).
 
-    Retour : ``(flags, tip)`` — ``flags`` mappe chaque nom sketch/surface
-    vers un booléen reculé ; ``tip`` est le nom de la dernière fonction
+    Retour : ``(flags, tip)`` — ``flags`` mappe chaque nom d'une ligne à
+    flag (esquisse, surface, suppression, référence) vers un booléen reculé ; ``tip`` est le nom de la dernière fonction
     volumique visible, ou ``None``.
     """
     if target_name is None:
@@ -201,8 +203,8 @@ def rollback_plan(history, target_name=None):
     if target_order is None:
         raise KernelError(
             "« {} » n'est pas une ligne d'historique — la barre de "
-            "retour se pose sur une fonction, une esquisse libre ou "
-            "une surface".format(target_name))
+            "retour se pose sur une fonction, une esquisse libre, une "
+            "surface ou une référence".format(target_name))
     flags = {}
     tip = None
     for row in history:

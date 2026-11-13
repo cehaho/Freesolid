@@ -3,10 +3,16 @@
 // testées en CI ; le panneau est dans tree.js (editSketchPlane).
 
 /** La liste des plans : ceux de l'origine, les plans de référence, puis
- *  « Face du solide » (la zone de la face apparaît). */
-export function sketchPlaneOptions(tree) {
+ *  « Face du solide » (la zone de la face apparaît). Pour `sketch`, les
+ *  plans de référence qui viennent après elle dans l'arbre n'y sont pas :
+ *  une esquisse ne s'appuie pas sur ce qui la suit (son plan actuel
+ *  reste). */
+export function sketchPlaneOptions(tree, sketch = null) {
+  const before = (d) => !sketch || d.name === sketch.support?.datum
+    || typeof d.order !== "number" || typeof sketch.order !== "number"
+    || d.order < sketch.order;
   const datums = (tree?.features ?? [])
-    .filter((f) => f.type_key === "datum_plane");
+    .filter((f) => f.type_key === "datum_plane" && before(f));
   return [
     ...(tree?.planes ?? []).map((p) => [p.id, p.label]),
     ...datums.map((d) => [`datum:${d.name}`, d.label]),

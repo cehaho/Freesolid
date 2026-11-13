@@ -49,6 +49,21 @@ def test_rollback_plan_on_pad():
     assert flags == {"Sketch001": True, "Surface": True}
 
 
+def test_rollback_plan_on_reference():
+    # Un plan de référence recule par drapeau, comme une esquisse libre ;
+    # la barre se pose sous lui.
+    history = _hist(("Pad", 5, "feature"),
+                    ("DatumPlane", 6, "reference"),
+                    ("DatumLine", 7, "reference"),
+                    ("Pocket", 9, "feature"))
+    flags, tip = rollback_plan(history, "DatumPlane")
+    assert tip == "Pad"
+    assert flags == {"DatumPlane": False, "DatumLine": True}
+    flags, tip = rollback_plan(history, None)
+    assert tip is None
+    assert flags == {"DatumPlane": True, "DatumLine": True}
+
+
 def test_rollback_plan_unknown_raises():
     with pytest.raises(KernelError, match="ligne d'historique"):
         rollback_plan(_hist(("Pad", 1, "feature")), "Body")
