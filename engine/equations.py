@@ -75,6 +75,11 @@ class EquationsMixin:
         if self._combine_spec(obj) is not None:
             # Un « Combiner » : son opération, son corps outil.
             return self._set_combine_params(obj, dict(values))
+        if (getattr(obj, "FreeSolidDeletefaces", "")
+                or getattr(obj, "FreeSolidReplacedby", "")):
+            # Supprimer ou remplacer une face du solide : ses faces, sa
+            # surface, re-choisies au rang.
+            return self._set_frozen_face_params(obj, dict(values))
         if getattr(obj, "FreeSolidCutsurface", ""):
             # Une coupe par surface : sa surface outil, son côté, sa bande.
             return self._set_surface_cut_params(obj, dict(values))

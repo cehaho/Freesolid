@@ -102,6 +102,19 @@ describe("éditeur d'une surface", () => {
     assert.equal(editor("split"), "split");
     assert.equal(editor("untrim"), "untrim");
     assert.equal(editor("deleteface"), "surface_delete_face");
+    // Couture et médiane : des formes figées qui re-choisissent leurs
+    // sources.
+    assert.equal(surfaceEditor({ type_key: "shape", static: true,
+      surface: { kind: "sew", surfaces: ["A", "B"] } }), "sew");
+    assert.equal(surfaceEditor({ type_key: "shape", static: true,
+      surface: { kind: "mid", faces: [0, 5] } }), "mid");
+  });
+
+  it("supprimer ou remplacer une face du solide se rouvre", () => {
+    assert.equal(featureEditor({ type_key: "boolean", has_params: false,
+      delete_face: { faces: [3] } }), "delete_face");
+    assert.equal(featureEditor({ type_key: "boolean", has_params: false,
+      replace_face: { face: 5, surface: "Surface" } }), "replace_face");
   });
 
   it("une surface figée ou sans cote ne se réédite pas", () => {

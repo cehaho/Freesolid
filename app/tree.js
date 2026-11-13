@@ -38,7 +38,8 @@ import {
   ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
   contourPick, contourValues, signedEditValues,
   deletedFacesPick, deletedFacesValues, shapePick, splitEditValues,
-  surfaceFacePick, untrimEditValues,
+  surfaceFacePick, untrimEditValues, midEditValues, replaceFaceValues,
+  sewEditValues,
   sourceEditValues, surfacePick, trimEditValues, trimKeepPick,
   repeatFeaturesRow, repeatFeaturesValues,
 } from "./features.js";
@@ -1754,6 +1755,8 @@ export function installTree(ctx) {
     split: (surface) => editSplit(surface),
     untrim: (surface) => editUntrim(surface),
     surface_delete_face: (surface) => editDeletedFaces(surface),
+    sew: (surface) => editSew(surface),
+    mid: (surface) => editMid(surface),
     params: (surface) => editParams({ name: surface.name,
       label: surface.label, type_key: surface.type_key }),
   };
@@ -1901,6 +1904,62 @@ export function installTree(ctx) {
                  + "sur une même surface",
                value: deletedFacesPick(ctx.lastTree, spec) },
         changed: (v) => deletedFacesValues(v.faces, spec),
+        missing: problem,
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
+  // Couture : ses surfaces, au rang.
+  function editSew(surface) {
+    const spec = surface.surface;
+    const problem = "Coudre : au moins deux surfaces";
+    return editAtRank(surface, {
+      icon: "sew",
+      note: "Si la peau cousue est fermée, elle devient un solide.",
+      zone: {
+        label: "Surfaces",
+        row: { type: "selection", key: "surfaces", accepts: ["surface"],
+               multiple: true, hint: "Cliquez les surfaces dans l'arbre",
+               value: { items: (spec.surfaces ?? []).map(
+                 (name) => surfacePick(ctx.lastTree, name)) } },
+        changed: (v) => sewEditValues(v.surfaces, spec),
+        missing: problem,
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
+  // Surface médiane : ses deux faces, ou toutes les parois et une
+  // épaisseur, sur la pièce à son rang. Sans aperçu, comme à la création.
+  function editMid(surface) {
+    const spec = surface.surface;
+    const problem = "Médiane : les deux faces d'une paroi, ou toutes les "
+      + "parois et une épaisseur";
+    return editAtRank(surface, {
+      icon: "surface_mid",
+      preview: false,
+      note: "La peau passe à mi-épaisseur et suit les cotes de la pièce. "
+        + "Plans parallèles et cylindres concentriques : exact ; faces "
+        + "inclinées ou courbes : surface passant par les milieux.",
+      zone: {
+        label: "Paroi",
+        rows: [
+          { type: "check", key: "auto", label: "Toutes les parois de la pièce",
+            value: !!spec.auto },
+          { type: "selection", key: "faces", accepts: ["face"],
+            multiple: true, showIf: (v) => !v.auto,
+            hint: "Cliquez les deux faces en vis-à-vis de la paroi",
+            value: spec.faces ? shellFacesPick(spec.faces) : null },
+          { type: "number", key: "thickness", label: "Épaisseur maximale",
+            value: spec.thickness ?? 3, unit: "mm", min: 0.01,
+            showIf: (v) => !!v.auto },
+        ],
+        changed: (v) => midEditValues(v, spec),
         missing: problem,
       },
       groups: [],
@@ -2510,6 +2569,52 @@ export function installTree(ctx) {
     });
   }
 
+  /** Supprimer la face du solide : ses faces, sur la pièce à son rang. */
+  function editDeleteFace(feature) {
+    const faces = feature.delete_face.faces;
+    const problem = "Supprimer : des faces du solide, ou d'une même surface";
+    return editAtRank(feature, {
+      icon: "surface_delete_face",
+      zone: {
+        label: "Faces",
+        row: { type: "selection", key: "faces", accepts: ["face"],
+               multiple: true,
+               hint: "Cliquez les faces à supprimer : sur le solide, ou "
+                 + "sur une même surface",
+               value: shellFacesPick(faces) },
+        changed: (v) => shellFacesValues(v.faces, faces),
+        missing: problem,
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
+  /** Remplacer la face : la face du solide, au rang, et sa surface. */
+  function editReplaceFace(feature) {
+    const spec = feature.replace_face;
+    const problem = "Remplacer : une face du solide, puis une surface";
+    return editAtRank(feature, {
+      icon: "replace_face",
+      zone: {
+        label: "Face du solide",
+        row: { type: "selection", key: "face", accepts: ["face"],
+               hint: "Cliquez la face à remplacer",
+               value: { kind: "face", face: spec.face } },
+        changed: (v) => replaceFaceValues(v, spec),
+        missing: problem,
+        select: () => ctx.selectFaceId?.(spec.face),
+      },
+      groups: [{ label: "Surface de remplacement", rows: [
+        { type: "selection", key: "surface", accepts: ["surface"],
+          hint: "Puis la surface, qui doit couvrir toute la face",
+          value: surfacePick(ctx.lastTree, spec.surface) }] }],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
   /** Dépouille : sa face, son angle et son plan neutre. */
   function editDraft(feature) {
     const face = feature.draft?.face;
@@ -2983,6 +3088,8 @@ export function installTree(ctx) {
     vertex_chamfer: editVertexChamfer,
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),
+    delete_face: (feature) => editDeleteFace(feature),
+    replace_face: (feature) => editReplaceFace(feature),
     combine: (feature) => editCombine(feature),
     chamfer: (feature) => editChamfer(feature),
     fillet: (feature) => editFillet(feature),

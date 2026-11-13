@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import {
   flattenEditValues, freeformEditValues, contourPick, contourValues,
   deletedFacesPick, deletedFacesValues, shapePick, splitEditValues,
-  surfaceFacePick, untrimEditValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
+  surfaceFacePick, untrimEditValues, midEditValues, replaceFaceValues,
+  sewEditValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
@@ -357,5 +358,43 @@ describe("surfaces à liens rééditées", () => {
     assert.equal(deletedFacesValues({ items: [pick("Plate", 1),
                                               pick("Curve", 3)] }, spec), null);
     assert.equal(deletedFacesValues({ items: [] }, spec), null);
+  });
+});
+
+describe("formes figées rééditées", () => {
+  it("une couture n'envoie que des surfaces changées, au moins deux", () => {
+    const spec = { surfaces: ["A", "B"] };
+    const zone = (names) => ({ items: names.map((name) => ({ name })) });
+    assert.deepEqual(sewEditValues(zone(["B", "A"]), spec), {});
+    assert.deepEqual(sewEditValues(zone(["A", "C"]), spec),
+                     { surfaces: ["A", "C"] });
+    assert.equal(sewEditValues(zone(["A"]), spec), null);
+  });
+
+  it("une médiane passe de deux faces à toutes les parois", () => {
+    const pair = { faces: [0, 5] };
+    const faces = (list) => ({ items: list.map((face) => ({ face })) });
+    assert.deepEqual(midEditValues({ faces: faces([5, 0]) }, pair), {});
+    assert.deepEqual(midEditValues({ faces: faces([1, 2]) }, pair),
+                     { faces: [1, 2] });
+    assert.equal(midEditValues({ faces: faces([1]) }, pair), null);
+    assert.deepEqual(midEditValues({ auto: true, thickness: "4" }, pair),
+                     { thickness: 4 });
+    const auto = { auto: true, thickness: 4 };
+    assert.deepEqual(midEditValues({ auto: true, thickness: "4" }, auto), {});
+    assert.equal(midEditValues({ auto: true, thickness: "0" }, auto), null);
+    assert.deepEqual(midEditValues({ faces: faces([0, 5]) }, auto),
+                     { faces: [0, 5] });
+  });
+
+  it("une face remplacée re-choisit sa face et sa surface", () => {
+    const spec = { face: 5, surface: "Plane" };
+    const v = (face, surface) => ({ face: { kind: "face", face },
+                                    surface: { name: surface } });
+    assert.deepEqual(replaceFaceValues(v(5, "Plane"), spec), {});
+    assert.deepEqual(replaceFaceValues(v(2, "Other"), spec),
+                     { face: 2, surface: "Other" });
+    assert.equal(replaceFaceValues({ face: null, surface: { name: "P" } },
+                                   spec), null);
   });
 });

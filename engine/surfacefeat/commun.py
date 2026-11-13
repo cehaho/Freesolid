@@ -257,6 +257,19 @@ class SurfaceCommonMixin:
                     # Un point de la partie gardée : la zone le montre.
                     "point": ([round(v, 6) for v in point]
                               if point is not None else None)}
+        if getattr(obj, "FreeSolidSources", ""):
+            # Couture : ses surfaces, que la réédition re-choisit.
+            return {"kind": "sew", "surfaces": [
+                n for n in str(obj.FreeSolidSources).split(";") if n]}
+        if getattr(obj, "FreeSolidMidbase", ""):
+            # Médiane : ses deux faces (base 0, sur la fonction d'avant),
+            # ou toutes les parois plus minces qu'une épaisseur.
+            spec = str(getattr(obj, "FreeSolidMidfaces", ""))
+            if spec.startswith("auto:"):
+                return {"kind": "mid", "auto": True,
+                        "thickness": float(spec[5:])}
+            return {"kind": "mid",
+                    "faces": [int(f) for f in spec.split(";") if f]}
         if getattr(obj, "FreeSolidCapedges", ""):
             doc = self._require_doc()
             links = []

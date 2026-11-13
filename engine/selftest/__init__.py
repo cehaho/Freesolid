@@ -249,6 +249,7 @@ def _etapes():
         fonctions.p130_aplatir_rechoisit_sa_face,
         fonctions.p131_repetition_variable_rechoisit,
         fonctions.p132_surfaces_a_liens_rechoisissent,
+        fonctions.p133_formes_figees_rechoisissent,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

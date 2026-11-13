@@ -36,6 +36,8 @@ class SurfaceReeditMixin:
         "split": ("source", "tool"),
         "untrim": ("source", "face"),
         "deleteface": ("source", "faces"),
+        "sew": ("surfaces",),
+        "mid": ("faces", "thickness"),
     }
 
     #: Genres re-choisis par leurs propriétés de liens, sans autre réglage.
@@ -65,6 +67,10 @@ class SurfaceReeditMixin:
             return "composite"
         if getattr(obj, "FreeSolidKind", "") in ("split", "deleteface"):
             return obj.FreeSolidKind
+        if getattr(obj, "FreeSolidSources", ""):
+            return "sew"
+        if getattr(obj, "FreeSolidMidbase", ""):
+            return "mid"
         if obj.TypeId == "Part::Fillet":
             return "fillet"
         if obj.TypeId == "Part::Section":
@@ -138,6 +144,10 @@ class SurfaceReeditMixin:
                 self._set_split_params(obj, values)
             elif kind in ("untrim", "deleteface"):
                 self._set_face_source_params(obj, kind, values)
+            elif kind == "sew":
+                self._set_sew_params(obj, values)
+            elif kind == "mid":
+                self._set_mid_params(obj, values)
             else:
                 self._set_projection_params(obj, values)
             self._recompute()
@@ -162,9 +172,14 @@ class SurfaceReeditMixin:
     @staticmethod
     def _surface_saved(obj, kind):
         """Ce qu'il faut remettre sur refus : (objet, propriété, valeur)."""
+        frozen = {"sew": ("FreeSolidSources", "Label"),
+                  "mid": ("FreeSolidMidfaces",)}.get(kind)
         if kind == "fill" and getattr(obj, "FreeSolidCapedges", ""):
-            return [(obj, "Shape", obj.Shape.copy()),
-                    (obj, "FreeSolidCapedges", obj.FreeSolidCapedges)]
+            frozen = ("FreeSolidCapedges",)
+        if frozen:
+            # Une forme figée : sa forme et ce qu'elle garde de ses sources.
+            return [(obj, "Shape", obj.Shape.copy())] + [
+                (obj, prop, getattr(obj, prop)) for prop in frozen]
         if kind == "trim":
             slicer = obj.Base
             return [(slicer, "Base", slicer.Base),

@@ -302,6 +302,46 @@ export function deletedFacesValues(sel, spec) {
   return same ? {} : { faces };
 }
 
+/** Couture rééditée : `{}` si ce sont les mêmes surfaces (dans n'importe
+ *  quel ordre), `{ surfaces }` sinon, null s'il en reste moins de deux. */
+export function sewEditValues(sel, spec) {
+  const names = [...new Set((sel?.items ?? []).map((i) => i.name)
+    .filter(Boolean))];
+  if (names.length < 2) return null;
+  const before = new Set(spec?.surfaces ?? []);
+  const same = names.length === before.size
+    && names.every((name) => before.has(name));
+  return same ? {} : { surfaces: names };
+}
+
+/** Médiane rééditée : ses deux faces, ou toutes les parois et une
+ *  épaisseur ; seulement ce qui change, null s'il manque quelque chose. */
+export function midEditValues(v, spec) {
+  if (v.auto) {
+    const thickness = num(v.thickness);
+    if (!(thickness > 0)) return null;
+    return spec?.auto && Math.abs(thickness - spec.thickness) < 1e-9
+      ? {} : { thickness };
+  }
+  const faces = [...new Set((v.faces?.items ?? []).map((i) => i.face)
+    .filter((face) => Number.isInteger(face)))];
+  if (faces.length !== 2) return null;
+  const before = spec?.faces ?? [];
+  return !spec?.auto && faces.every((face) => before.includes(face))
+    ? {} : { faces };
+}
+
+/** Face remplacée rééditée : la face du solide et la surface, si elles
+ *  changent ; null s'il en manque une. */
+export function replaceFaceValues(v, spec) {
+  const face = v.face?.face;
+  if (!Number.isInteger(face) || !v.surface?.name) return null;
+  const out = {};
+  if (face !== spec.face) out.face = face;
+  if (v.surface.name !== spec.surface) out.surface = v.surface.name;
+  return out;
+}
+
 /** Coupe par surface rééditée : le côté et la bande, seulement ce qui
  *  change ; `thickness: null` la repasse à tout un côté. */
 export function cutOptionValues(v, spec) {

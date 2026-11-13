@@ -6286,3 +6286,132 @@ def p132_surfaces_a_liens_rechoisissent(self, mark, report, etat):
         and seen["untrim"][3] and seen["untrim"][4] is False
         and seen["untrim"][5] == 300,
     ))
+
+
+def p133_formes_figees_rechoisissent(self, mark, report, etat):
+    mark("p133: les formes figées re-choisissent ce qu'elles prennent")
+    from engine.kernel import dispatch
+    seen = etat.p133 = {}
+
+    def edit(name, **values):
+        return dispatch(self, "set_params",
+                        {"feature": name, "values": values}).get("ok")
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def sketch(fill, plane="XY", datum=None):
+        name = (self.sketch_start(datum=datum) if datum
+                else self.sketch_start(plane=plane))["sketch"]
+        fill(name)
+        self.sketch_finish(name)
+        return name
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    # Supprimer la face : un bloc 40×40×10, un bossage 10×10×10 dans un
+    # coin, un trou 8×8 au centre. Le trou bouché (un ajout), puis le
+    # bossage retiré (une intersection), puis les deux (ajout et
+    # intersection), puis le trou seul de nouveau.
+    self.new_part("Formes figées re-choisies")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    boss = sketch(lambda s: self.sketch_add_rectangle(s, 10, 10, 20, 20))
+    self.add_pad(20, sketch=boss)
+    self.add_rect_sketch(8, 8, face=self._top_face_id())
+    self.add_pocket(through=True)
+    shape = self._require_body().Shape
+
+    def faces_where(test):
+        return [i for i, f in enumerate(shape.Faces) if test(f.BoundBox)]
+
+    hole = faces_where(lambda b: b.XMax < 4.01 and b.XMin > -4.01
+                       and b.YMax < 4.01 and b.YMin > -4.01
+                       and b.ZLength > 1)
+    bump = faces_where(lambda b: b.XMin > 9.99 and b.YMin > 9.99
+                       and b.ZMax > 10.01)
+    holed = volume()
+    tree = self.add_delete_face(hole)
+    owner = next(f["name"] for f in tree["features"] if f.get("delete_face"))
+    obj = self._doc.getObject(owner)
+
+    def helpers():
+        return [o.Name for o in self._require_body().Group
+                if getattr(o, "FreeSolidThinOwner", "") == owner]
+
+    seen["delete"] = (holed, volume(), obj.Type, edit(owner, faces=bump),
+                      volume(), obj.Type, helpers(),
+                      edit(owner, faces=hole + bump), volume(), obj.Type,
+                      len(helpers()), edit(owner, faces=hole), volume(),
+                      len(helpers()), edit(owner, faces=[]), volume(),
+                      next(f for f in self.get_tree()["features"]
+                           if f["name"] == owner)["delete_face"]["faces"]
+                      == sorted(hole))
+    seen["delete_clean"] = not any(f["error"]
+                                   for f in self.get_tree()["features"])
+    # Remplacer la face : un bloc 20×20×10 dont le dessus monte à une
+    # surface plane à 15, puis descend à une autre à 5.
+    self.new_part("Face remplacée re-choisie")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    top = self._top_face_id()
+    planes = []
+    for z in (15, 5):
+        tree = self.add_datum_plane(base="XY", offset=z)
+        datum = [f for f in tree["features"]
+                 if f["type"] == "PartDesign::Plane"][-1]["name"]
+        square = sketch(lambda s: self.sketch_add_rectangle(
+            s, -30, -30, 30, 30), datum=datum)
+        planes.append(last(self.surface_planar(sketch=square)).Name)
+    face = int(str(top).rsplit("Face", 1)[-1]) - 1 if isinstance(
+        top, str) else int(top)
+    tree = self.add_replace_face(face, planes[0])
+    owner2 = next(f["name"] for f in tree["features"]
+                  if f.get("replace_face"))
+    seen["replace"] = (volume(), self._doc.getObject(owner2).Type,
+                       edit(owner2, surface=planes[1]), volume(),
+                       self._doc.getObject(owner2).Type,
+                       next(f for f in self.get_tree()["features"]
+                            if f["name"] == owner2)["replace_face"]
+                       ["surface"] == planes[1])
+    # Couture : deux bandes qui se touchent, puis deux autres.
+
+    def band(x1, y1, x2, y2):
+        return last(self.surface_extrude(10, sketch=sketch(
+            lambda s: self.sketch_add_line(s, x1, y1, x2, y2)))).Name
+
+    a, b, c = (band(100, 0, 110, 0), band(110, 0, 110, 10),
+               band(100, 0, 100, 20))
+    sewn = last(self.surface_sew([a, b]))
+    seen["sew"] = (round(sewn.Shape.Area), edit(sewn.Name, surfaces=[a, c]),
+                   round(sewn.Shape.Area), sewn.FreeSolidSources,
+                   edit(sewn.Name, surfaces=[a]), round(sewn.Shape.Area))
+    # Médiane d'un bloc 40×40×10 (mis à part) : dessus et dessous, puis
+    # gauche et droite, puis les parois plus minces que 15.
+    self.new_part("Médiane re-choisie")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    block = self._require_body().Shape
+    tops = [i for i, f in enumerate(block.Faces)
+            if f.BoundBox.ZLength < 1e-6]
+    sides = [i for i, f in enumerate(block.Faces)
+             if f.BoundBox.XLength < 1e-6]
+    mid = last(self.surface_mid(faces=tops))
+    seen["mid"] = (round(mid.Shape.Area), edit(mid.Name, faces=sides),
+                   round(mid.Shape.Area), edit(mid.Name, thickness=15),
+                   round(mid.Shape.Area), edit(mid.Name, faces=tops[:1]),
+                   round(mid.Shape.Area))
+    report["p133_formes_figees_rechoisissent"] = all((
+        seen["delete"][:3] == (16360.0, 17000.0, "Fuse"),
+        seen["delete"][3:7] == (True, 15360.0, "Common", []),
+        seen["delete"][7:11] == (True, 16000.0, "Common", 1),
+        seen["delete"][11:14] == (True, 17000.0, 1),
+        seen["delete"][14:] == (False, 17000.0, True),
+        seen["delete_clean"],
+        seen["replace"] == (6000.0, "Fuse", True, 2000.0, "Common", True),
+        seen["sew"][0] == 200 and seen["sew"][1] is True
+        and seen["sew"][2] == 300 and seen["sew"][3] == ";".join((a, c))
+        and seen["sew"][4] is False and seen["sew"][5] == 300,
+        seen["mid"] == (1600, True, 400, True, 1600, False, 1600),
+    ))
