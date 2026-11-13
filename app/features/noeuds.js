@@ -47,10 +47,7 @@ export const NOEUDS = [
     preview: false,
     groups: (ctx) => [
       { label: "Fonctions",
-        rows: [{ type: "selection", key: "features", accepts: ["feature"],
-                 multiple: true, value: ctx?.selection?.(["feature"]) ?? null,
-                 hint: "Cliquez les fonctions dans l'arbre, dans "
-                       + "l'ordre du groupe" }] },
+        rows: [repeatFeaturesRow(ctx?.selection?.(["feature"]) ?? null)] },
       { label: "Opération",
         rows: [
           { type: "select", key: "mode", value: "fuse",
@@ -77,3 +74,23 @@ export const NOEUDS = [
     openGraphEditor: true,
   },
 ];
+
+/** La zone des fonctions d'une répétition variable : à la création, et à
+ *  la réédition, remplie de celles qu'elle répète. */
+export function repeatFeaturesRow(value) {
+  return { type: "selection", key: "features", accepts: ["feature"],
+           multiple: true, value,
+           hint: "Cliquez les fonctions dans l'arbre, dans l'ordre du groupe" };
+}
+
+/** Les fonctions re-choisies d'une répétition variable : `{}` si ce sont
+ *  les mêmes dans le même ordre (le groupe se rejoue dans cet ordre),
+ *  `{ features }` sinon, null si la zone est vide. */
+export function repeatFeaturesValues(sel, repeat) {
+  const names = [...new Set((sel?.items ?? []).map((item) => item.name))];
+  if (!names.length) return null;
+  const before = repeat?.features ?? [];
+  const same = names.length === before.length
+    && names.every((name, index) => name === before[index]);
+  return same ? {} : { features: names };
+}

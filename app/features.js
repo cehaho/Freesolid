@@ -46,6 +46,10 @@ export {
   holePositionsPick,
   holePositionsRow,
   holeSamePosition,
+  loftOptionRows,
+  loftOptionValues,
+  loftProfilesPick,
+  loftProfilesValues,
   mergeGroups,
   mergeParams,
   mergeProblem,
@@ -54,6 +58,8 @@ export {
   revolutionEditValues,
   revolutionGroups,
   revolutionProblem,
+  sweepEditValues,
+  sweptPick,
   textEditValues,
   textRows,
 } from "./features/volumes.js";
@@ -96,6 +102,9 @@ export {
   patternSourcesValues,
 } from "./features/repetitions.js";
 export {
+  repeatFeaturesRow, repeatFeaturesValues,
+} from "./features/noeuds.js";
+export {
   REMOVE_BODIES_NOTE, removalCandidates, removalItem, removalMatch,
   removeBodiesGroups, removeBodiesParams,
   COMBINE_TYPES, combineEditOptions, combineEditValues,
@@ -110,6 +119,7 @@ export {
   extendTargetValues,
   filletEdgesPick,
   filletEdgesValues,
+  flattenEditValues,
   freeformEditValues,
   freeformParams,
   intersectionEditValues,

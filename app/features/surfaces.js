@@ -157,6 +157,15 @@ export function projectTargetPick(tree, spec) {
            face: spec.face ?? 0 };
 }
 
+/** Patron à plat réédité : sa surface et sa face, si elles changent ;
+ *  null si la zone est vide. Une autre surface emporte sa face. */
+export function flattenEditValues(target, spec) {
+  if (!target?.name) return null;
+  const face = target.face ?? 0;
+  if (target.name !== spec.surface) return { surface: target.name, face };
+  return face === (spec.face ?? 0) ? {} : { face };
+}
+
 /** Courbe projetée rééditée : son esquisse, sa surface et sa face, si
  *  elles changent ; null s'il en manque une. */
 export function projectEditValues(v, spec) {

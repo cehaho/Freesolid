@@ -318,12 +318,14 @@ class SolidsMixin:
     def _combine_spec(self, obj):
         """Ce qu'un « Combiner » prend (ligne d'arbre) : son opération et
         son corps outil (None s'il vient d'un module), ou None pour un
-        autre booléen."""
+        autre booléen — une fonction graphe ou une répétition variable,
+        dont l'opération est enregistrée avec leur graphe."""
         if (obj.TypeId != "PartDesign::Boolean"
                 or any(getattr(obj, prop, "") for prop in (
                     "FreeSolidCutsurface", "FreeSolidVchamferspec",
                     "FreeSolidDeletefaces", "FreeSolidReplacedby",
-                    "FreeSolidScopeOf", self._THIN_HELPER))):
+                    "FreeSolidScopeOf", "FreeSolidGraphJson",
+                    "FreeSolidRepeatJson", self._THIN_HELPER))):
             return None
         kind = {v: k for k, v in self._COMBINE_TYPES.items()}.get(
             str(obj.Type))
@@ -1180,6 +1182,217 @@ class SolidsMixin:
                              + ([pipe] if pipe is not None else []))
             raise
         self._body = body
+        return self.get_tree()
+
+    #: Lissages et balayages : leurs profils, leur trajectoire, se
+    #: re-choisissent à la réédition (``_set_swept_params``).
+    _SWEPT_TYPES = ("PartDesign::AdditiveLoft", "PartDesign::SubtractiveLoft",
+                    "PartDesign::AdditivePipe", "PartDesign::SubtractivePipe")
+
+    def _swept_source(self, obj, link):
+        """L'esquisse ou la courbe 3D derrière un lien de ``obj`` : à
+        travers le liant caché qui la fait entrer dans son corps."""
+        target = self._as_object(link)
+        if (getattr(target, "TypeId", "") == "PartDesign::SubShapeBinder"
+                and getattr(target, "FreeSolidThinOwner", "") == obj.Name):
+            support = getattr(target, "Support", None) or []
+            first = support[0] if isinstance(support, list) else support
+            return self._as_object(first)
+        return target
+
+    def _swept_spec(self, obj):
+        """Ce que l'arbre dit d'un lissage (``profiles`` dans l'ordre,
+        ``ruled``, ``closed``) ou d'un balayage (``profile``, ``spine``) :
+        ``{name, label}`` de chaque esquisse, à travers ses liants. None
+        pour une autre fonction, ou un balayage à plusieurs sections."""
+        if obj.TypeId not in self._SWEPT_TYPES:
+            return None
+
+        def entry(link):
+            source = self._swept_source(obj, link)
+            if source is None:
+                return None
+            out = {"name": source.Name, "label": source.Label}
+            if source.TypeId == "Part::Feature":
+                out["curve"] = True   # une courbe 3D, du dossier des surfaces
+            return out
+
+        if "Loft" in obj.TypeId:
+            profiles = [entry(link) for link in
+                        [obj.Profile] + list(obj.Sections or [])]
+            if None in profiles:
+                return None
+            return {"kind": "loft", "profiles": profiles,
+                    "ruled": bool(obj.Ruled), "closed": bool(obj.Closed)}
+        if getattr(obj, "Sections", None):
+            return None
+        profile, spine = entry(obj.Profile), entry(obj.Spine)
+        if profile is None or spine is None:
+            return None
+        return {"kind": "sweep", "profile": profile, "spine": spine}
+
+    def _swept_helpers(self, obj):
+        """Les liants cachés de ``obj`` : esquisse d'un autre corps, courbe
+        3D d'une trajectoire."""
+        body = obj.getParentGeoFeatureGroup()
+        return [o for o in (getattr(body, "Group", None) or [])
+                if o.TypeId == "PartDesign::SubShapeBinder"
+                and getattr(o, "FreeSolidThinOwner", "") == obj.Name]
+
+    def _swept_link(self, obj, name, label, spine=False):
+        """Le lien de ``obj`` vers l'esquisse ``name`` (ou, pour une
+        trajectoire, une courbe 3D) : elle-même dans son corps, sinon un
+        liant caché — celui qu'elle a déjà, ou un neuf posé juste avant
+        elle. Renvoie ``(cible, liant neuf ou None)``."""
+        from engine.kernel import KernelError
+        doc = self._require_doc()
+        source = doc.getObject(str(name)) if name else None
+        kinds = (("Sketcher::SketchObject", "Part::Feature") if spine
+                 else ("Sketcher::SketchObject",))
+        if (source is None or source.TypeId not in kinds
+                or not getattr(source, "Shape", None)
+                or not source.Shape.Edges):
+            raise KernelError(
+                "trajectoire inconnue : {} (esquisse ou courbe 3D)".format(name)
+                if spine else "esquisse inconnue : {}".format(name))
+        self._refuse_later_source(obj, source)
+        body = obj.getParentGeoFeatureGroup()
+        if source.getParentGeoFeatureGroup() is body:
+            return source, None
+        for helper in self._swept_helpers(obj):
+            if self._swept_source(obj, helper) is source:
+                return helper, None
+        if source.TypeId == "Part::Feature":
+            # Comme à la création : la courbe 3D entre par un liant.
+            helper = body.newObject("PartDesign::SubShapeBinder",
+                                    "SpineBinder")
+            try:
+                helper.Support = [(source, ("",))]
+            except TypeError:
+                helper.Support = (source, [""])
+            helper.Label = self._t("Trajectoire — {}").format(source.Label)
+        else:
+            helper = self._profile_copy(body, source, label)
+        self._own_thin_helpers(obj, [helper])
+        # Avant la fonction, comme à la création ; la pointe ne bouge pas.
+        tip = body.Tip
+        body.removeObject(helper)
+        body.insertObject(helper, obj, False)
+        body.Tip = tip
+        return helper, helper
+
+    def _set_swept_params(self, obj, values):
+        """``set_params`` d'un lissage — ``profiles`` (noms d'esquisses, dans
+        l'ordre du lissage), ``ruled``, ``closed`` — ou d'un balayage —
+        ``profile``, ``spine``. Une esquisse d'un autre corps entre par un
+        liant caché, comme à la création ; celui d'un profil retiré part.
+        Les autres clés (corps concernés, « Fusionner ») suivent par
+        ``set_params``. Tout ou rien."""
+        from engine.kernel import KernelError, _explain
+        loft = "Loft" in obj.TypeId
+        keys = ("profiles", "ruled", "closed") if loft else ("profile",
+                                                             "spine")
+        values = dict(values)
+        picks = {key: values.pop(key) for key in keys if key in values}
+        doc = self._require_doc()
+        props = (("Profile", "Sections", "Ruled", "Closed") if loft
+                 else ("Profile", "Spine"))
+        saved = [(prop, getattr(obj, prop)) for prop in props]
+        made = []
+        try:
+            if loft:
+                names = picks.get("profiles")
+                if names is not None:
+                    if (not isinstance(names, (list, tuple))
+                            or len(names) < 2):
+                        raise KernelError(
+                            "un lissage demande au moins deux profils")
+                    if len(set(map(str, names))) != len(names):
+                        raise KernelError(
+                            "lissage : un profil ne se prend qu'une fois")
+                    links = []
+                    for name in names:
+                        link, new = self._swept_link(obj, name, "Profil lié")
+                        made += [new] if new is not None else []
+                        links.append(link)
+                    obj.Profile = links[0]
+                    try:
+                        obj.Sections = links[1:]
+                    except TypeError:
+                        obj.Sections = [(p, ("",)) for p in links[1:]]
+                for key, prop in (("ruled", "Ruled"), ("closed", "Closed")):
+                    if key in picks:
+                        if not isinstance(picks[key], bool):
+                            raise KernelError(
+                                "{} : booléen attendu".format(key))
+                        setattr(obj, prop, picks[key])
+            else:
+                spec = self._swept_spec(obj) or {}
+                profile = str(picks.get("profile")
+                              or spec.get("profile", {}).get("name", ""))
+                spine = str(picks.get("spine")
+                            or spec.get("spine", {}).get("name", ""))
+                if profile == spine:
+                    raise KernelError("profil et trajectoire doivent être "
+                                      "différents")
+                if "profile" in picks:
+                    link, new = self._swept_link(obj, profile, "Profil lié")
+                    if new is not None:
+                        made.append(new)
+                    if link.TypeId == "PartDesign::SubShapeBinder":
+                        # D'un liant, FreeCAD ne balaie qu'une face : le
+                        # profil doit être d'un seul tenant.
+                        doc.recompute()
+                        if len(link.Shape.Faces) != 1:
+                            raise KernelError(
+                                "balayage dans un autre corps : le profil "
+                                "doit être d'un seul tenant")
+                        link = (link, ["Face1"])
+                    obj.Profile = link
+                if "spine" in picks:
+                    link, new = self._swept_link(obj, spine,
+                                                 "Trajectoire liée",
+                                                 spine=True)
+                    if new is not None:
+                        made.append(new)
+                    try:
+                        obj.Spine = link
+                    except TypeError:
+                        obj.Spine = (link, ("",))
+            if values:
+                self.set_params(obj.Name, values)
+            else:
+                self._recompute()
+        except Exception as exc:  # noqa: BLE001
+            for prop, value in saved:
+                try:
+                    setattr(obj, prop, value)
+                except Exception:  # noqa: BLE001
+                    pass
+            for helper in made:
+                try:
+                    doc.removeObject(helper.Name)
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                self._recompute()
+            except KernelError:
+                pass  # l'état d'avant était sain : ne pas masquer exc
+            message = (str(exc) if isinstance(exc, KernelError)
+                       else _explain(exc))
+            if message.endswith("la pièce n'a pas été modifiée"):
+                raise KernelError(message)
+            raise KernelError(
+                "{} — la pièce n'a pas été modifiée".format(message))
+        # Les liants des profils retirés partent.
+        used = {self._as_object(link) for link in
+                [obj.Profile] + list(getattr(obj, "Sections", None) or [])
+                + [getattr(obj, "Spine", None)]}
+        dropped = [h for h in self._swept_helpers(obj) if h not in used]
+        for helper in dropped:
+            doc.removeObject(helper.Name)
+        if dropped:
+            self._recompute()
         return self.get_tree()
 
     def add_helix(self, pitch, height, sketch=None):

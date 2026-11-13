@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  freeformEditValues, radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
+  flattenEditValues, freeformEditValues, radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
@@ -279,5 +279,25 @@ describe("forme libre rééditée", () => {
     assert.deepEqual(polesEditValues({ ...params, surface: "Surface001" },
                                      { source: "Surface" }),
                      { moves: params.moves, grid: 6, source: "Surface001" });
+  });
+});
+
+describe("patron à plat réédité", () => {
+  const spec = { kind: "flatten", surface: "Surface", face: 1 };
+  const face = (name, id) => ({ kind: "surfface", name, face: id });
+
+  it("sa face revient : rien à envoyer", () => {
+    assert.deepEqual(projectTargetPick({ surfaces: [] }, spec),
+                     { kind: "surfface", name: "Surface", label: "Surface",
+                       face: 1 });
+    assert.deepEqual(flattenEditValues(face("Surface", 1), spec), {});
+  });
+
+  it("une autre face, une autre surface ; zone vide : rien", () => {
+    assert.deepEqual(flattenEditValues(face("Surface", 2), spec),
+                     { face: 2 });
+    assert.deepEqual(flattenEditValues(face("Surface001", 0), spec),
+                     { surface: "Surface001", face: 0 });
+    assert.equal(flattenEditValues(null, spec), null);
   });
 });

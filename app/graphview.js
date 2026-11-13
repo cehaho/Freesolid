@@ -1306,6 +1306,8 @@ export function installGraphView(ctx) {
     graphView.classList.add("open", "fn");
     graphBtn.classList.add("on");
     graphFnBar.hidden = false;
+    // Une répétition variable re-choisit aussi ses fonctions répétées.
+    document.getElementById("graph-fn-features").hidden = kind !== "repetition";
     const hintEl = document.getElementById("graph-fn-hint");
     if (hintEl) {
       hintEl.textContent = kind === "repetition"
@@ -1518,6 +1520,18 @@ export function installGraphView(ctx) {
   document.getElementById("graph-fn-close").addEventListener("click", (event) => {
     event.stopPropagation();
     exitGraphFeature();
+  });
+  document.getElementById("graph-fn-features").addEventListener("click", (event) => {
+    event.stopPropagation();
+    const name = ctx.graphFn.feature?.name;
+    const item = (ctx.lastTree?.features ?? []).flatMap(
+      (feature) => [feature, ...(feature.children ?? [])],
+    ).find((feature) => feature.name === name);
+    if (!item) return;
+    // Un éditeur à la fois : le graphe se ferme (non appliqué, la question
+    // vient d'abord), puis la zone s'ouvre sur la pièce au rang.
+    closeGraph();
+    if (!ctx.graphFn.active) ctx.editRepeatFeatures?.(item);
   });
   document.getElementById("graph-fn-palette").addEventListener("click", (event) => {
     event.stopPropagation();

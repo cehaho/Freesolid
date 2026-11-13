@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import {
   BODY_PATTERN_TYPES, patternEditGroups, patternEditValues,
   patternFeaturesPick, patternFeaturesValues, patternSourcesPick,
-  patternSourcesValues,
+  patternSourcesValues, repeatFeaturesRow, repeatFeaturesValues,
 } from "../../app/features.js";
 import { featureEditor } from "../../app/editkind.js";
 
@@ -182,5 +182,30 @@ describe("répétition de corps rééditée", () => {
                  "edits");
     assert.equal(featureEditor({ type_key: "pocket", edits: "Mirrored",
                                  edits_has_params: false }), null);
+  });
+});
+
+describe("fonctions d'une répétition variable", () => {
+  const repeat = { features: ["Pad", "Pocket"], mode: "fuse" };
+  const zone = (names) => ({ items: names.map((name) => ({ name })) });
+
+  it("reviennent dans la zone de la création", () => {
+    const row = repeatFeaturesRow(patternFeaturesPick(repeat, tree));
+    assert.equal(row.key, "features");
+    assert.deepEqual(row.accepts, ["feature"]);
+    assert.equal(row.multiple, true);
+    assert.deepEqual(row.value.items.map((item) => item.name),
+                     ["Pad", "Pocket"]);
+  });
+
+  it("n'envoient que ce qui change, l'ordre compris", () => {
+    assert.deepEqual(repeatFeaturesValues(zone(["Pad", "Pocket"]), repeat),
+                     {});
+    // Le groupe se rejoue dans l'ordre de la zone.
+    assert.deepEqual(repeatFeaturesValues(zone(["Pocket", "Pad"]), repeat),
+                     { features: ["Pocket", "Pad"] });
+    assert.deepEqual(repeatFeaturesValues(zone(["Pad"]), repeat),
+                     { features: ["Pad"] });
+    assert.equal(repeatFeaturesValues(zone([]), repeat), null);
   });
 });

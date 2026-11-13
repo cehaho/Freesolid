@@ -65,6 +65,11 @@ describe("éditeur d'une fonction", () => {
                                  merged: true }), "params");
     assert.equal(featureEditor({ type_key: "loft", has_params: false,
                                  merged: false }), "params");
+    // Leurs profils (et la trajectoire) : le panneau de la création.
+    assert.equal(featureEditor({ type_key: "loft", has_params: false,
+      swept: { kind: "loft", profiles: [] } }), "loft");
+    assert.equal(featureEditor({ type_key: "sweep_cut", has_params: false,
+      swept: { kind: "sweep" } }), "sweep");
     assert.equal(featureEditor({ type_key: "pad" }), "params");
     assert.equal(featureEditor({ type_key: "body", active: true }), null);
     assert.equal(featureEditor(null), null);

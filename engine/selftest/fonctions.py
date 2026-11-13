@@ -5827,3 +5827,256 @@ def p128_face_d_arrivee_rechoisie(self, mark, report, etat):
                             .get("error") or "")
         and abs(body.Shape.Volume - before - 2000) < 1e-6
         and "Invalid" not in (stud.State or ()))
+
+
+def p129_lissage_balayage_rechoisissent(self, mark, report, etat):
+    mark("p129: un lissage re-choisit ses profils, un balayage son profil "
+         "et sa trajectoire")
+    import math
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def plane(z):
+        self.add_datum_plane(base="XY", offset=z)
+        return [o.Name for o in self._doc.Objects
+                if o.TypeId == "PartDesign::Plane"][-1]
+
+    def rect(x1, y1, x2, y2, datum=None):
+        name = (self.sketch_start(datum=datum) if datum
+                else self.sketch_start(plane="XY"))["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return name
+
+    def circle(r, plane="XY"):
+        name = self.sketch_start(plane=plane)["sketch"]
+        self.sketch_add_circle(name, 0, 0, r)
+        self.sketch_finish(name)
+        return name
+
+    def line(length):
+        name = self.sketch_start(plane="XZ")["sketch"]
+        self.sketch_add_line(name, 0, 0, 0, length)
+        self.sketch_finish(name)
+        return name
+
+    def spec(obj):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == obj.Name).get("swept")
+
+    def names(obj):
+        return [p["name"] for p in spec(obj)["profiles"]]
+
+    def clean():
+        return not any("Invalid" in (o.State or ()) for o in self._doc.Objects)
+
+    # Trois carrés : 20 au sol, 10 à z = 20, 20 à z = 40 ; un second corps
+    # a son carré de 16 à z = 20.
+    self.new_part("Lissage re-choisi")
+    body = self._require_body()
+    low, high = plane(20), plane(40)
+    a = rect(-10, -10, 10, 10)
+    b = rect(-5, -5, 5, 5, datum=low)
+    c = rect(-10, -10, 10, 10, datum=high)
+    self.add_body()
+    d = rect(-8, -8, 8, 8, datum=plane(20))
+    self.set_active_body(body.Name)
+    self.add_loft([a, b, c])
+    loft = body.Tip
+    waisted = body.Shape.Volume
+    listed = names(loft) == [a, b, c]
+    straight = edit(loft, profiles=[a, c])
+    straight_volume = body.Shape.Volume
+    flipped = edit(loft, profiles=[c, b, a])
+    flipped_names = names(loft)
+    # Le carré de l'autre corps entre par un liant caché, qui part quand
+    # le profil est retiré.
+    count = len(self._doc.Objects)
+    linked = edit(loft, profiles=[a, d, c])
+    helpers = len(self._swept_helpers(loft))
+    back = edit(loft, profiles=[a, b, c])
+    restored = (names(loft) == [a, b, c] and not self._swept_helpers(loft)
+                and len(self._doc.Objects) == count
+                and abs(body.Shape.Volume - waisted) < 1e-6)
+    later = rect(-3, -3, 3, 3, datum=high)
+    report["p129_lissage_rechoisit"] = (
+        listed and straight.get("ok") is True
+        and abs(straight_volume - 20 * 20 * 40) < 1e-6
+        and flipped.get("ok") is True and flipped_names == [c, b, a]
+        and linked.get("ok") is True and helpers == 1
+        and back.get("ok") is True and restored
+        and edit(loft, ruled=True).get("ok") is True
+        and spec(loft)["ruled"] is True
+        # Refus : un seul profil, deux fois le même, une esquisse d'après ;
+        # avec un corps inconnu, rien ne change.
+        and edit(loft, profiles=[a]).get("ok") is False
+        and edit(loft, profiles=[a, a]).get("ok") is False
+        and "vient après" in (edit(loft, profiles=[a, later])
+                              .get("error") or "")
+        and edit(loft, profiles=[a, c], bodies=["Inconnu"]).get("ok")
+        is False
+        and names(loft) == [a, b, c] and clean())
+
+    # Un cercle de 3 le long d'un trait de 30 ; un trait de 50, un cercle
+    # de 2, une courbe 3D.
+    self.new_part("Balayage re-choisi")
+    body = self._require_body()
+    short, long_ = line(30), line(50)
+    big, small = circle(3), circle(2)
+    curve = self.add_curve3d([[0, 0, 0], [0, 0, 30], [20, 0, 50]],
+                             spline=True)["surfaces"][-1]["name"]
+    self.add_sweep(big, short)
+    pipe = body.Tip
+    first = spec(pipe) == {"kind": "sweep",
+                           "profile": {"name": big, "label": self._doc
+                                       .getObject(big).Label},
+                           "spine": {"name": short, "label": self._doc
+                                     .getObject(short).Label}}
+    longer = edit(pipe, spine=long_)
+    longer_volume = body.Shape.Volume
+    thinner = edit(pipe, profile=small)
+    thinner_volume = body.Shape.Volume
+    curved = edit(pipe, spine=curve)
+    on_curve = (spec(pipe)["spine"].get("curve") is True
+                and len(self._swept_helpers(pipe)) == 1)
+    back = edit(pipe, profile=big, spine=short)
+    report["p129_balayage_rechoisit"] = (
+        first and longer.get("ok") is True
+        and abs(longer_volume - math.pi * 9 * 50) < 1e-6
+        and thinner.get("ok") is True
+        and abs(thinner_volume - math.pi * 4 * 50) < 1e-6
+        and curved.get("ok") is True and on_curve
+        and back.get("ok") is True and not self._swept_helpers(pipe)
+        and abs(body.Shape.Volume - math.pi * 9 * 30) < 1e-6
+        and "différents" in (edit(pipe, profile=short).get("error") or "")
+        and clean())
+
+
+def p130_aplatir_rechoisit_sa_face(self, mark, report, etat):
+    mark("p130: un patron à plat re-choisit sa surface et sa face")
+    import math
+    from engine.kernel import dispatch
+
+    def edit(obj, **values):
+        return dispatch(self, "set_params",
+                        {"feature": obj.Name, "values": values})
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def spec(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name)["surface"]
+
+    # Une équerre ouverte (20 puis 30) extrudée de 10, et un carré plan
+    # de 40 : le patron de la face de 20, puis de celle de 30, puis du
+    # carré.
+    self.new_part("Patron re-choisi")
+    name = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_line(name, 0, 100, 20, 100)
+    self.sketch_add_line(name, 20, 100, 20, 130)
+    self.sketch_finish(name)
+    corner = last(self.surface_extrude(10, sketch=name))
+    square = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(square, 200, 0, 240, 40)
+    self.sketch_finish(square)
+    plate = last(self.surface_planar(sketch=square))
+    short = next(i for i, f in enumerate(corner.Shape.Faces)
+                 if abs(f.Area - 200) < 1e-6)
+    tall = next(i for i, f in enumerate(corner.Shape.Faces)
+                if abs(f.Area - 300) < 1e-6)
+    flat = last(self.surface_flatten(corner.Name, face=short))
+    first = round(flat.Shape.Area, 3) == 200 and spec(flat) == {
+        "kind": "flatten", "face": short, "surface": corner.Name,
+        "area_error": 0.0, "edge_error": 0.0}
+    taller = edit(flat, face=tall)
+    taller_area = round(flat.Shape.Area, 3)
+    moved = edit(flat, surface=plate.Name)
+    report["p130_aplatir_rechoisit_sa_face"] = (
+        first and taller.get("ok") is True and taller_area == 300
+        and moved.get("ok") is True
+        and round(flat.Shape.Area, 3) == 1600
+        and spec(flat)["surface"] == plate.Name and spec(flat)["face"] == 0
+        # Une face inconnue : refusée, le patron reste.
+        and edit(flat, face=9).get("ok") is False
+        and round(flat.Shape.Area, 3) == 1600
+        and abs(flat.Shape.BoundBox.ZMax) < 1e-6
+        and not math.isnan(flat.Shape.Area))
+
+
+def p131_repetition_variable_rechoisit(self, mark, report, etat):
+    mark("p131: une répétition variable re-choisit ses fonctions")
+    from engine.kernel import dispatch
+    from engine.replay import _temp_bodies_left
+
+    def edit(name, features):
+        return dispatch(self, "set_params",
+                        {"feature": name, "values": {"features": features}})
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    def repeated(name):
+        line = next(f for f in self.get_tree()["features"]
+                    if f["name"] == name)
+        return (line.get("repeat") or {}).get("features")
+
+    # Un bloc 20×20×10 percé de 8×8, répété trois fois plus haut (10, 20,
+    # 30) : 3360 + 336 × 60 = 23520. Sans le perçage, les copies sont
+    # pleines : 3360 + 400 × 60 = 27360.
+    self.new_part("Répétition variable re-choisie")
+    self.add_rect_sketch(20, 20)
+    tree = self.add_pad(10)
+    pad = next(f["name"] for f in tree["features"]
+               if f["type"] == "PartDesign::Pad")
+    self.add_rect_sketch(8, 8, face=self._top_face_id())
+    tree = self.add_pocket(through=True)
+    pocket = next(f["name"] for f in tree["features"]
+                  if f["type"] == "PartDesign::Pocket")
+    tree = self.add_repeat_feature(
+        [pad, pocket],
+        [{"offset": [20 * k, 0, 0], "params": {pad: {"Length": 10 * k}}}
+         for k in (1, 2, 3)],
+        mode="fuse")
+    repeat = next(f["name"] for f in tree["features"] if f.get("repeat"))
+    holed = volume()
+    full = edit(repeat, [pad])
+    full_volume = volume()
+    full_features = repeated(repeat)
+    full_stored = self.get_repeat_feature(repeat)
+    back = edit(repeat, [pad, pocket])
+    back_volume = volume()
+    back_features = repeated(repeat)
+    # Des cotes d'instance qui visent une fonction retirée, une zone vide :
+    # refusées, la répétition reste.
+    orphan = edit(repeat, [pocket])
+    empty = edit(repeat, [])
+    kept_volume = volume()
+    # Une fonction qui vient après la répétition est refusée : elle en
+    # dépend, comme toute fonction plus bas dans le corps.
+    state = self.sketch_start(plane="XY")
+    self.sketch_add_rectangle(state["sketch"], -10, -10, -6, -6)
+    self.sketch_finish(state["sketch"])
+    self.add_pad(5, sketch=state["sketch"])
+    later = self._thin_owner(self._require_body().Tip).Name
+    before_later = volume()
+    refused = edit(repeat, [pad, pocket, later])
+    report["p131_repetition_variable_rechoisit"] = (
+        holed == 23520 and full.get("ok") is True
+        and full_volume == 27360 and full_features == [pad]
+        and full_stored.get("features") == [pad]
+        and len(full_stored.get("instances") or []) == 3
+        and back.get("ok") is True and back_volume == 23520
+        and back_features == [pad, pocket]
+        and orphan.get("ok") is False and empty.get("ok") is False
+        and kept_volume == 23520 and repeated(repeat) == [pad, pocket]
+        and refused.get("ok") is False
+        and self._doc.getObject(later).Label in (refused.get("error") or "")
+        and volume() == before_later
+        and repeated(repeat) == [pad, pocket]
+        and sum(1 for f in self.get_tree()["features"]
+                if f.get("repeat")) == 1
+        and _temp_bodies_left(self) == [])
