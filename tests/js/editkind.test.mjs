@@ -15,6 +15,14 @@ describe("éditeur d'une fonction", () => {
     assert.equal(featureEditor({ type_key: "sketch" }), "sketch");
     assert.equal(featureEditor({ type_key: "feature", vertex_chamfer: [1] }),
       "vertex_chamfer");
+    // Plan, axe, point, repère : ce qui les porte (sans cote).
+    assert.equal(featureEditor({ type_key: "datum_plane", has_params: false,
+      reference: { kind: "plane", base: "XY" } }), "reference");
+    assert.equal(featureEditor({ type_key: "datum_cs", has_params: false,
+      reference: { kind: "cs", point: [0, 0, 0] } }), "reference");
+    // Posée autrement (un fichier d'ailleurs) : rien à rouvrir.
+    assert.equal(featureEditor({ type_key: "datum_axis", has_params: false }),
+      null);
     assert.equal(featureEditor({ type_key: "pocket", text: {} }), "text");
     assert.equal(featureEditor({ type_key: "feature", surface_cut: {} }),
       "surface_cut");

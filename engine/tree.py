@@ -534,13 +534,18 @@ class TreeMixin:
         doc = self._require_doc()
         history = self._history_lines()
         names = [line.Name for line in history]
-        obj = self._rank_line(doc.getObject(str(feature)), names)
-        if obj is None:
+        obj = doc.getObject(str(feature))
+        line = self._rank_line(obj, names)
+        if line is not None:
+            at = names.index(line.Name)
+            target = names[at - 1] if at else None
+        elif self._is_reference(obj):
+            # Une référence n'est pas une ligne : la pièce qui la précède.
+            target = self._reference_rank(obj, history)
+        else:
             raise KernelError("fonction inconnue : {}".format(feature))
-        at = names.index(obj.Name)
         saved = self._bar_state()
-        flags, tips = rollback_tips(self._history_rows(history),
-                                    names[at - 1] if at else None)
+        flags, tips = rollback_tips(self._history_rows(history), target)
         self._rank_view = saved
         try:
             self._apply_tips(tips)
@@ -580,11 +585,17 @@ class TreeMixin:
         doc = self._require_doc()
         history = self._history_lines()
         names = [line.Name for line in history]
-        obj = self._rank_line(
-            doc.getObject(str(feature)) if feature else None, names)
-        if obj is None:
+        obj = doc.getObject(str(feature)) if feature else None
+        line = self._rank_line(obj, names)
+        if line is not None:
+            target = line.Name
+        elif self._is_reference(obj):
+            # Une référence n'est pas une ligne : la barre reste où la vue
+            # au rang l'a posée, juste avant elle.
+            target = self._reference_rank(obj, history)
+        else:
             return
-        flags, tips = rollback_tips(self._history_rows(history), obj.Name)
+        flags, tips = rollback_tips(self._history_rows(history), target)
         self._apply_tips(tips)
         self._apply_rollback_flags(flags)
         self._set_bar_sketches()
@@ -1272,6 +1283,13 @@ class TreeMixin:
                 item["placement"] = [
                     float(v) for v in obj.Placement.Matrix.A]
                 item["rolled_back"] = self._is_rolled_back(obj)
+                # Ce qui la porte : sa réédition le re-choisit au rang.
+                try:
+                    reference = self._reference_spec(obj)
+                except Exception:  # noqa: BLE001
+                    reference = None
+                if reference is not None:
+                    item["reference"] = reference
             if obj.TypeId == "Sketcher::SketchObject":
                 item["rolled_back"] = self._is_rolled_back(obj)
                 item["definition"] = self._sketch_definition(obj)

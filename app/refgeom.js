@@ -11,6 +11,10 @@ const KINDS = {
   datum_cs: "cs",
 };
 
+/** Icône de chaque genre, à la création comme à la réédition. */
+export const REFERENCE_ICONS = { plane: "PartDesign_Plane",
+  axis: "datum_axis", point: "datum_point", cs: "datum_cs" };
+
 /** Axes, points et repères à dessiner : placés, pas derrière la barre de
  *  retour. */
 export function referenceItems(tree) {
@@ -25,6 +29,130 @@ export function referenceItems(tree) {
   };
   visit(tree?.features);
   return out;
+}
+
+/** Groupes du panneau d'un plan de référence, à la création comme à la
+ *  réédition : sa face (zone vide : un plan d'origine), son décalage, son
+ *  angle. `face` : la valeur de la zone. */
+export function datumPlaneGroups({ face = null, base = "XY", offset = 20,
+  angle = 0 } = {}) {
+  return [
+    { label: "Référence", rows: [
+      { type: "selection", key: "sel", accepts: ["face"],
+        hint: "Cliquez une face — ou choisissez un plan ci-dessous",
+        value: face },
+      // Choisir un plan d'origine vide la zone : la face ne l'emporte plus.
+      { type: "select", key: "base", value: base, label: "Plan",
+        clears: "sel",
+        options: [["XZ", "Plan de face"], ["XY", "Plan de dessus"],
+                  ["YZ", "Plan de droite"]] },
+    ] },
+    { label: "Position", rows: [
+      { type: "number", key: "offset", label: "Décalage", value: offset,
+        unit: "mm" },
+      { type: "number", key: "angle", label: "Angle", value: angle,
+        unit: "°" },
+    ] },
+  ];
+}
+
+/** Panneau d'un plan de référence → { op, params } de sa création. */
+export function datumPlaneBuild(v) {
+  const params = {
+    offset: num(v.offset) ?? 0,
+    angle: num(v.angle) ?? 0,
+  };
+  if (v.sel && v.sel.face != null) params.face = v.sel.face;
+  else params.base = v.base;
+  return { op: "add_datum_plane", params };
+}
+
+/** Valeurs du panneau d'un plan réédité (`spec` : sa ligne `reference`
+ *  de l'arbre) : ce qui le porte, son décalage, son angle.
+ *  ⚠ Moteur : `_set_reference_params` (engine/refgeom.py). */
+export function datumPlaneSpecValues(spec) {
+  return {
+    face: Number.isInteger(spec?.face) ? { kind: "face", face: spec.face } : null,
+    base: spec?.base ?? "XY",
+    offset: spec?.offset ?? 0,
+    angle: spec?.angle ?? 0,
+  };
+}
+
+/** Ce qui change à la réédition d'un plan : `{}` si rien, les clés qui
+ *  changent sinon ; null si une cote n'est pas un nombre. Une zone vidée
+ *  le pose sur le plan d'origine choisi, comme à la création. */
+export function datumPlaneEditValues(v, spec) {
+  const offset = num(v.offset);
+  const angle = num(v.angle);
+  if (offset === null || angle === null) return null;
+  const out = {};
+  if (v.sel?.face != null) {
+    if (v.sel.face !== spec.face) out.face = v.sel.face;
+  } else if (v.base !== spec.base) {
+    out.base = v.base;
+  }
+  if (offset !== spec.offset) out.offset = offset;
+  if (angle !== spec.angle) out.angle = angle;
+  return out;
+}
+
+/** Groupe du panneau d'un axe, d'un point ou d'un repère, à la création
+ *  comme à la réédition : ce qui le porte (`by`), l'arête, le sommet ou
+ *  les coordonnées. */
+export function referenceGroups(kind, { by, edge = null, vertex = null,
+  point = [0, 0, 0] } = {}) {
+  const isAxis = kind === "axis";
+  const byOptions = isAxis
+    ? [["X", "Axe X de l'origine"], ["Y", "Axe Y de l'origine"],
+       ["Z", "Axe Z de l'origine"], ["edge", "Arête du solide"]]
+    : [["vertex", "Sommet cliqué"],
+       ...(kind === "point" ? [["center", "Centre d'une arête circulaire"]] : []),
+       ["xyz", "Coordonnées"]];
+  return [{ label: "Référence", rows: [
+    { type: "select", key: "by", options: byOptions,
+      value: by ?? (isAxis ? (edge ? "edge" : "Z") : "vertex") },
+    { type: "selection", key: "edge", accepts: ["edges"], value: edge,
+      hint: isAxis ? "Cliquez une arête droite ou circulaire"
+        : "Cliquez une arête circulaire",
+      showIf: (v) => v.by === "edge" || v.by === "center" },
+    { type: "selection", key: "vertex", accepts: ["vertex"], value: vertex,
+      hint: "Cliquez près d'un coin de la pièce",
+      showIf: (v) => v.by === "vertex" },
+    ...["x", "y", "z"].map((axis, i) => ({
+      type: "number", key: axis, label: axis.toUpperCase(), value: point[i],
+      unit: "mm", showIf: (v) => v.by === "xyz" })),
+  ] }];
+}
+
+/** Valeurs du panneau d'un axe, d'un point ou d'un repère réédité
+ *  (`spec` : sa ligne `reference` de l'arbre). */
+export function referenceSpecValues(spec) {
+  const edge = Number.isInteger(spec?.edge)
+    ? { kind: "edges", edges: [spec.edge] } : null;
+  if (spec?.kind === "axis") {
+    return { by: spec.axis ?? "edge", edge };
+  }
+  if (Array.isArray(spec?.vertex)) {
+    const [x, y, z] = spec.vertex;
+    return { by: "vertex", vertex: { kind: "vertex", x, y, z } };
+  }
+  if ("edge" in (spec ?? {})) return { by: "center", edge };
+  return { by: "xyz", point: spec?.point ?? [0, 0, 0] };
+}
+
+/** Ce qui change à la réédition d'un axe, d'un point ou d'un repère : `{}`
+ *  si c'est le même appui, `{ clé: valeur }` sinon, null s'il manque le
+ *  choix. */
+export function referenceEditValues(kind, v, spec) {
+  const built = referenceBuild(kind, v);
+  if (!built) return null;
+  const [[key, value]] = Object.entries(built.params);
+  const was = spec?.[key];
+  const same = Array.isArray(value)
+    ? Array.isArray(was) && value.every((c, i) => Math.abs(c - was[i]) < 1e-9)
+    : value === was;
+  return same ? {} : { [key]: value };
 }
 
 /** Paramètres d'un panneau → { op, params }, ou null s'il manque le choix. */
@@ -108,33 +236,12 @@ export function installRefGeometry(ctx) {
 
   function open(kind) {
     const edges = ctx.currentSelection(["edges"]);
-    const isAxis = kind === "axis";
-    const byOptions = isAxis
-      ? [["X", t("Axe X de l'origine")], ["Y", t("Axe Y de l'origine")],
-         ["Z", t("Axe Z de l'origine")], ["edge", t("Arête du solide")]]
-      : [["vertex", t("Sommet cliqué")],
-         ...(kind === "point" ? [["center", t("Centre d'une arête circulaire")]] : []),
-         ["xyz", t("Coordonnées")]];
     const titles = { axis: "Axe de référence", point: "Point de référence",
                      cs: "Repère" };
-    const icons = { axis: "datum_axis", point: "datum_point", cs: "datum_cs" };
     ctx.featureCommand(() => ctx.panel.open({
-      icon: icons[kind],
+      icon: REFERENCE_ICONS[kind],
       title: t(titles[kind]),
-      groups: [{ label: t("Référence"), rows: [
-        { type: "select", key: "by", options: byOptions,
-          value: isAxis ? (edges ? "edge" : "Z") : "vertex" },
-        { type: "selection", key: "edge", accepts: ["edges"], value: edges,
-          hint: t(isAxis ? "Cliquez une arête droite ou circulaire"
-            : "Cliquez une arête circulaire"),
-          showIf: (v) => v.by === "edge" || v.by === "center" },
-        { type: "selection", key: "vertex", accepts: ["vertex"],
-          hint: t("Cliquez près d'un coin de la pièce"),
-          showIf: (v) => v.by === "vertex" },
-        ...["x", "y", "z"].map((axis) => ({
-          type: "number", key: axis, label: axis.toUpperCase(), value: 0,
-          unit: "mm", showIf: (v) => v.by === "xyz" })),
-      ] }],
+      groups: referenceGroups(kind, { edge: edges }),
       onApply: (v) => {
         const built = referenceBuild(kind, v);
         if (!built) {

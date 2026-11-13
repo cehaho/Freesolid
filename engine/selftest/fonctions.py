@@ -6415,3 +6415,132 @@ def p133_formes_figees_rechoisissent(self, mark, report, etat):
         and seen["sew"][4] is False and seen["sew"][5] == 300,
         seen["mid"] == (1600, True, 400, True, 1600, False, 1600),
     ))
+
+
+def p134_references_rechoisissent(self, mark, report, etat):
+    mark("p134: plan, axe, point et repère re-choisissent ce qui les porte")
+    from engine.kernel import dispatch
+    seen = etat.p134 = {}
+
+    def edit(name, **values):
+        return dispatch(self, "set_params",
+                        {"feature": name, "values": values}).get("ok")
+
+    def spec(name):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == name).get("reference")
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    def newest(tree, type_id):
+        return [f["name"] for f in tree["features"]
+                if f["type"] == type_id][-1]
+
+    # Un bloc 40×40×10 percé d'un trou de rayon 5 ; un plan sur le dessus,
+    # un bossage 10×10×5 esquissé sur ce plan.
+    self.new_part("Références re-choisies")
+    base = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(base, -20, -20, 20, 20)
+    self.sketch_add_circle(base, 0, 0, 5)
+    self.sketch_finish(base)
+    pad = self.add_pad(10, sketch=base)["features"][-1]["name"]
+    block = self._doc.getObject(pad).Shape
+    top = next(i for i, f in enumerate(block.Faces)
+               if f.BoundBox.ZMin > 9.99 and f.BoundBox.ZLength < 1e-6)
+    bottom = next(i for i, f in enumerate(block.Faces)
+                  if f.BoundBox.ZMax < 1e-6 and f.BoundBox.ZLength < 1e-6)
+    plane = newest(self.add_datum_plane(face=top, offset=0),
+                   "PartDesign::Plane")
+    boss = self.sketch_start(datum=plane)["sketch"]
+    self.sketch_add_rectangle(boss, 10, 10, 20, 20)
+    self.sketch_finish(boss)
+    self.add_pad(5, sketch=boss)
+    boss_pad = self._require_body().Tip
+    seen["plane_spec"] = spec(plane) == {"kind": "plane", "face": top,
+                                         "offset": 0.0, "angle": 0.0}
+    # La vue au rang du plan : la pièce d'avant lui, sans le bossage.
+    self.rank_view(plane)
+    seen["rank"] = self._require_body().Tip.Name == pad
+    self.rank_view_end()
+    seen["rank_back"] = self._require_body().Tip.Name == boss_pad.Name
+    full = volume()
+    # Le plan s'enfonce de 2 : le bossage avec lui. Puis le plan d'origine
+    # XY décalé de 10 (le dessus), puis la face de dessous.
+    seen["offset"] = (full, edit(plane, offset=-2), volume(),
+                      spec(plane)["offset"])
+    seen["base"] = (edit(plane, base="XY", offset=10), volume(),
+                    spec(plane).get("base"))
+    seen["face"] = (edit(plane, face=bottom, offset=0), volume(),
+                    round(boss_pad.Shape.BoundBox.ZMin, 6),
+                    spec(plane).get("face") == bottom)
+    # Aperçu : où le plan se poserait ; la pièce ne change pas.
+    undo = self._doc.UndoCount
+    preview = dispatch(self, "preview", {"op": "set_params", "params": {
+        "feature": plane, "values": {"offset": 3, "angle": 30}}})
+    matrix = (preview.get("result") or {}).get("plane") or []
+    seen["preview"] = (len(matrix) == 16, self._doc.UndoCount == undo,
+                       spec(plane)["offset"] == 0.0)
+    # Refusés, la pièce restant telle quelle : une face inconnue, une clé
+    # d'ailleurs, un plan d'origine inconnu.
+    seen["refused"] = (edit(plane, face=999), edit(plane, Length=5),
+                       edit(plane, base="AB", offset=4), volume(),
+                       spec(plane).get("face") == bottom
+                       and spec(plane)["offset"] == 0.0)
+    seen["angle"] = (edit(plane, angle=30), spec(plane)["angle"])
+    edit(plane, angle=0)
+    # Les arêtes de la pièce au rang des références qui suivent : le
+    # bossage, dernière fonction avant elles.
+    solid = self._require_body().Tip.Shape
+    straight = next(i for i, e in enumerate(solid.Edges)
+                    if e.Curve.TypeId == "Part::GeomLine")
+    circle = next(i for i, e in enumerate(solid.Edges)
+                  if e.Curve.TypeId == "Part::GeomCircle"
+                  and e.BoundBox.ZMin > 9.99)
+    # Axe : une arête droite, puis le trou (son axe), puis l'axe X.
+    axis = newest(self.add_datum_axis(edge=straight), "PartDesign::Line")
+    line = self._doc.getObject(axis)
+    seen["axis"] = (spec(axis) == {"kind": "axis", "edge": straight},
+                    edit(axis, edge=circle), line.MapMode,
+                    spec(axis) == {"kind": "axis", "edge": circle},
+                    [round(c, 6) for c in line.Placement.Base][:2],
+                    edit(axis, axis="X"), spec(axis))
+    # Point : un coin, puis le centre du trou, puis des coordonnées ; une
+    # arête droite n'a pas de centre.
+    point = newest(self.add_datum_point(vertex=[20, 20, 10]),
+                   "PartDesign::Point")
+    dot = self._doc.getObject(point)
+    seen["point"] = (spec(point) == {"kind": "point",
+                                     "vertex": [20.0, 20.0, 10.0]},
+                     edit(point, edge=circle), dot.MapMode,
+                     [round(c, 6) for c in dot.Placement.Base],
+                     edit(point, edge=straight), dot.MapMode,
+                     edit(point, point=[4, 5, 6]), dot.MapMode,
+                     spec(point))
+    # Repère : des coordonnées, puis un coin.
+    frame = newest(self.add_datum_cs(point=[1, 2, 3]),
+                   "PartDesign::CoordinateSystem")
+    cs = self._doc.getObject(frame)
+    seen["cs"] = (spec(frame), edit(frame, vertex=[-20, -20, 0]), cs.MapMode,
+                  [round(c, 6) for c in cs.Placement.Base], spec(frame))
+    seen["clean"] = not any(f["error"] for f in self.get_tree()["features"])
+    report["p134_references_rechoisissent"] = all((
+        seen["plane_spec"], seen["rank"], seen["rank_back"],
+        seen["offset"][1:] == (True, round(full - 200, 3), -2.0),
+        seen["base"] == (True, full, "XY"),
+        seen["face"][:3] == (True, full, -5.0) and seen["face"][3],
+        seen["preview"] == (True, True, True),
+        seen["refused"] == (False, False, False, full, True),
+        seen["angle"] == (True, 30.0),
+        seen["axis"] == (True, True, "AxisOfCurvature", True, [0.0, 0.0],
+                         True, {"kind": "axis", "axis": "X"}),
+        seen["point"][:4] == (True, True, "CenterOfCurvature",
+                              [0.0, 0.0, 10.0])
+        and seen["point"][4:] == (False, "CenterOfCurvature", True,
+                                  "Deactivated",
+                                  {"kind": "point", "point": [4.0, 5.0, 6.0]}),
+        seen["cs"] == ({"kind": "cs", "point": [1.0, 2.0, 3.0]}, True,
+                       "Translate", [-20.0, -20.0, 0.0],
+                       {"kind": "cs", "vertex": [-20.0, -20.0, 0.0]}),
+        seen["clean"],
+    ))

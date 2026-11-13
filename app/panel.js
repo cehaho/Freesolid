@@ -25,7 +25,9 @@
 // Rows: { type: "number", key, label, value, unit?, min?, step?, showIf?,
 //         lazy? — la valeur ne part qu'à la validation du champ (Entrée,
 //         sortie), pas à chaque frappe }
-//       { type: "select", key, options: [[value, label]…], value, label? }
+//       { type: "select", key, options: [[value, label]…], value, label?,
+//         clears? — clé d'une zone que ce choix vide (un plan d'origine
+//         choisi remplace la face) }
 //       { type: "check",  key, label, value }
 //       { type: "selection", key, label?, hint?, value?, accepts?, multiple?,
 //         allows?(pick) — faux : la zone n'absorbe pas ce choix ;
@@ -758,6 +760,7 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
       select.value = values[row.key];
       select.addEventListener("change", () => {
         values[row.key] = select.value;
+        if (row.clears) values[row.clears] = null;
         render(); // showIf rows may appear/disappear
         changed();
       });
