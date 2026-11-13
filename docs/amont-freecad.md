@@ -90,7 +90,7 @@ l'accord de son auteur.
 |---|---|---|---|
 | **Nos propres lignes** | oui | **oui** — l'auteur les cède sous LGPL | `engine/guard.py`, `engine/replay.py` ; [OpenSW](https://github.com/Emilien-Etadam/OpenSW), même auteur |
 | **LGPL-2.1(-or-later)** | oui, sans effet de bord | **oui** | [`j8sr0230/Nodes`](https://github.com/j8sr0230/Nodes) et son modèle `awkward` |
-| **MIT / BSD** | oui, avec attribution | **oui** (relicenciable en LGPL) | [`pboyer/verb`](https://github.com/pboyer/verb) (NURBS), [`sandraschi/freecad-mcp`](https://github.com/sandraschi/freecad-mcp) |
+| **MIT / BSD** | oui, avec attribution | **oui** (relicenciable en LGPL) | [`pboyer/verb`](https://github.com/pboyer/verb) (NURBS), [`sandraschi/freecad-mcp`](https://github.com/sandraschi/freecad-mcp), [SolidNode](https://github.com/malandereideen/solidnode) (nœuds) |
 | **Apache-2.0** | oui — Apache-2.0 entre dans l'AGPL-3.0 | **non** | [`vcad`](https://github.com/ecto/vcad) |
 | **GPL-2.0** | non si « GPL-2.0 seule » (incompatible avec l'AGPL-3.0) ; oui si « or later » | **non** | [Oblikovati](https://github.com/Oblikovati/Oblikovati) (l'application ; son contrat d'API, lui, est en Apache-2.0) |
 | **GPL-3.0** | oui — GPL-3.0 et AGPL-3.0 se combinent (article 13) | **non** — un GPL-3 ne fusionne pas dans une bibliothèque LGPL-2.1 | [FreeCAD-Ribbon](https://github.com/APEbbers/FreeCAD-Ribbon), [Dune3D](https://github.com/dune3d/dune3d) |
