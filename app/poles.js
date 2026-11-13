@@ -209,6 +209,17 @@ export function installPoles(ctx) {
     renderer.domElement.removeEventListener("pointerup", onUp);
   }
 
+  /** Appel d'aperçu (réédition ou création), null si saisie incomplète. */
+  function previewBuild(values) {
+    const params = polesParams(values);
+    if (!params) return null;
+    const spec = tool?.edit?.surface;
+    return tool?.edit
+      ? { op: "set_params", params: { feature: tool.edit.name,
+          values: polesEditValues(params, spec) } }
+      : { op: "surface_freeform", params };
+  }
+
   /** Ouvre l'outil ; `surface` (entrée d'arbre d'une forme libre à
    *  points de contrôle) le réédite. */
   function open(surface = null) {
@@ -243,12 +254,16 @@ export function installPoles(ctx) {
       ],
       note: t("Chaque point de contrôle déplacé tire la surface vers lui ; "
         + "les autres restent en place."),
-      onChange: (v) => {
+      onChange: (v, how) => {
         if (!tool) return;
         tool.values = { ...tool.values, ...v };
         loadGrid();
         draw();
+        ctx.schedulePreview(previewBuild(tool.values), how);
       },
+      // Œil de l'en-tête : couper l'aperçu, le rallumer.
+      onPreview: (on, v) => ctx.schedulePreview(
+        on ? previewBuild({ ...tool?.values, ...v }) : null),
       onClose: () => stop(),
       onApply: (v) => {
         const values = { ...tool?.values, ...v };

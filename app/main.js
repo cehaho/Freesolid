@@ -43,6 +43,7 @@ import {
   datumPlaneBuild,
   datumPlaneGroups,
   installRefGeometry,
+  referenceObject,
 } from "./refgeom.js";
 import { installGestures } from "./gestures.js";
 import { installHandles } from "./handles.js";
@@ -763,6 +764,8 @@ const ghostEdgeMaterial = new THREE.LineBasicMaterial({
 });
 let ghostMesh = null;
 let ghostEdges = null;
+// Traits d'une courbe en aperçu (une courbe n'a pas de face).
+let ghostLines = null;
 let previewTimer = null;
 let previewGen = 0;
 // Aperçus en route : voir schedulePreview.
@@ -775,11 +778,11 @@ let previewNext = null; // { built, gen } : attend la requête en cours
 /** Retire le fantôme de la vue, sans toucher aux aperçus demandés. */
 function hideGhost() {
   clearPlaneGhost();
-  for (const obj of [ghostMesh, ghostEdges]) {
+  for (const obj of [ghostMesh, ghostEdges, ghostLines]) {
     obj?.removeFromParent();
     obj?.geometry.dispose();
   }
-  ghostMesh = ghostEdges = null;
+  ghostMesh = ghostEdges = ghostLines = null;
   baseMaterial.opacity = 1;
   if (partBaseMaterial) partBaseMaterial.opacity = 1;
   for (const material of partFaceMaterials) material.opacity = 1;
@@ -824,12 +827,33 @@ function showPlaneGhost(matrix) {
   scene.add(planeGhost);
 }
 
+/** Aperçu d'un axe, d'un point ou d'un repère : dessiné comme dans la
+ *  vue, là où le moteur le pose. */
+function showReferenceGhost(reference) {
+  clearPlaneGhost();
+  const { radius } = partCenterRadius();
+  planeGhost = referenceObject(THREE, reference, {
+    reach: Math.max(radius * 1.2, 40), color: sceneTheme.accent });
+  planeGhost.renderOrder = 15;
+  scene.add(planeGhost);
+}
+
 function showGhost(mesh) {
-  for (const obj of [ghostMesh, ghostEdges]) {
+  for (const obj of [ghostMesh, ghostEdges, ghostLines]) {
     obj?.removeFromParent();
     obj?.geometry.dispose();
   }
-  ghostMesh = ghostEdges = null;
+  ghostMesh = ghostEdges = ghostLines = null;
+  if (mesh.lines?.positions?.length) {
+    // Une courbe : ses traits, par-dessus la pièce.
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position",
+      new THREE.Float32BufferAttribute(mesh.lines.positions, 3));
+    geometry.setIndex(mesh.lines.indices);
+    ghostLines = new THREE.LineSegments(geometry, ghostEdgeMaterial);
+    ghostLines.renderOrder = 12;
+    volumesGroup.add(ghostLines);
+  }
   if (!mesh.indices.length) return;
   const geometry = new THREE.BufferGeometry();
   applyPackedGeometry(geometry, mesh);
@@ -958,6 +982,7 @@ function sendPreview(built, gen) {
     if (!fresh()) return;
     previewShown = gen;
     if (mesh.plane) showPlaneGhost(mesh.plane);
+    else if (mesh.reference) showReferenceGhost(mesh.reference);
     else showGhost(mesh);
     if (previewFailed) say("");
     previewFailed = false;

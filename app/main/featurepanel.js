@@ -117,8 +117,8 @@ export function installFeaturePanel(ctx) {
         }
       },
     };
-    const depthHandle = ["btn-pad", "btn-pocket"].includes(entry.button)
-      ? extrudeDepthHandle(entry, ctx) : null;
+    const depthHandle = ["btn-pad", "btn-pocket", "btn-surf-extrude"]
+      .includes(entry.button) ? extrudeDepthHandle(entry, ctx) : null;
     if (depthHandle) spec.onClose = () => depthHandle.close();
     if (entry.preview !== false) {
       spec.onChange = (v, how) => {
@@ -186,30 +186,45 @@ export function installFeaturePanel(ctx) {
   }
 
   /** Flèche au bout de l'extrusion (ou de l'enlèvement) qu'on crée.
-   *  Profondeur « borgne » ou « plan milieu » seulement. */
+   *  Profondeur « borgne » ou « plan milieu » seulement. Une surface
+   *  extrudée part de son esquisse dans le sens de sa normale ; son
+   *  profil se change dans le panneau (`profile`) : la flèche le suit. */
   function extrudeDepthHandle(entry, featureCtx) {
     const pocket = entry.button === "btn-pocket";
-    const sketch = resolveProfileSketch(featureCtx)?.name;
-    let frame = null;
+    const surface = entry.button === "btn-surf-extrude";
+    const initial = resolveProfileSketch(featureCtx)?.name;
+    const frames = new Map(); // esquisse → cadre (centre, normale)
+    const sketchOf = (v) => (surface ? v.profile?.name : null) ?? initial;
     const arrow = depthArrow((v) => {
+      const frame = frames.get(sketchOf(v));
       const length = num(v.length);
-      if (!(length > 0) || (v.cond !== "borgne" && v.cond !== "milieu")) {
+      const cond = surface ? "borgne" : v.cond;
+      if (!frame || !(length > 0) || (cond !== "borgne" && cond !== "milieu")) {
         return null;
       }
-      const half = v.cond === "milieu";
+      const half = cond === "milieu";
       const sign = (pocket ? -1 : 1) * (v.reversed && !half ? -1 : 1);
       const dir = frame.normal.map((c) => c * sign);
       const reach = half ? length / 2 : length;
       return { origin: frame.center.map((c, i) => c + dir[i] * reach), dir,
                length, factor: half ? 2 : 1, key: "length" };
     });
-    if (sketch) {
+    function load(sketch) {
+      if (!sketch || frames.has(sketch)) return;
+      frames.set(sketch, null);
       call("sketch_frame", { sketch }).then((result) => {
-        frame = result;
+        frames.set(sketch, result);
         arrow.ready();
       }).catch(() => {});
     }
-    return arrow;
+    load(initial);
+    return {
+      ...arrow,
+      update: (v) => {
+        load(sketchOf(v));
+        arrow.update(v);
+      },
+    };
   }
 
   /** Flèche de la fonction qu'on réédite : le moteur la pose au bout de

@@ -2555,6 +2555,8 @@ export function installTree(ctx) {
                  rows: filletEditRows(feature) }],
       values: (v) => filletEditValues(v, feature),
       problem: () => "Valeur invalide",
+      // La bulle de rayon suit la saisie, comme à la création.
+      onValues: (v) => ctx.updateFilletRadiusBubble?.(v),
     });
   }
 
@@ -2689,9 +2691,11 @@ export function installTree(ctx) {
    *
    *  `zone` : `{ label, row, changed(v), missing, select?() }` — `changed`
    *  rend `{}` (inchangée), les valeurs `set_params` du re-choix, ou null
-   *  (vide) ; `select` donne à la vue ce que la zone contient. */
+   *  (vide) ; `select` donne à la vue ce que la zone contient.
+   *  `onValues(v)` : appelé à chaque saisie (la bulle de rayon d'un
+   *  congé). */
   async function editAtRank(feature, { icon, title, note, zone, groups,
-    values, problem, preview = true }) {
+    values, problem, preview = true, onValues }) {
     const atRank = zone
       ? await call("rank_view", { feature: feature.name }).catch(() => null)
       : null;
@@ -2720,6 +2724,7 @@ export function installTree(ctx) {
         : [...zoneGroups, ...groups],
       hint: (v) => (build(v) ? null : missing(v)),
       onChange: (v, how) => {
+        onValues?.(v);
         // Sans aperçu (un booléen, qui peut durer) : comme à la création.
         if (!preview) return;
         const changed = build(v);
@@ -2900,8 +2905,7 @@ export function installTree(ctx) {
   /** Plan, axe, point, repère : le panneau de leur création, ce qui les
    *  porte re-choisi sur la pièce à leur rang — la face, l'arête ou le
    *  sommet de la fonction qui les précède, un élément d'origine, des
-   *  coordonnées. Le plan garde son aperçu ; les autres, comme à leur
-   *  création, n'en ont pas. */
+   *  coordonnées —, avec leur aperçu. */
   function editReference(feature) {
     const spec = feature.reference;
     if (spec.kind === "plane") {
@@ -2936,7 +2940,6 @@ export function installTree(ctx) {
       groups: [],
       values: () => ({}),
       problem: () => missing,
-      preview: false,
     });
   }
 

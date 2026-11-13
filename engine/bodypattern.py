@@ -857,19 +857,37 @@ class BodyPatternMixin:
 
     def _bodies_mesh(self, bodies):
         """Maillage de ``bodies`` réunis : le fantôme d'un réseau de
-        corps."""
+        corps, d'une surface. Une courbe (sans face) y entre par ses
+        traits, ``lines`` (segments comme ``pack_edges``)."""
         from engine import protocol
         deviation, angle, _edges = self._display_mesh()
         faces = []
+        lines = []
         for body in bodies:
             shape = getattr(body, "Shape", None)
-            if shape is None or not shape.Faces:
+            if shape is None:
+                continue
+            if not shape.Faces:
+                for edge in shape.Edges:
+                    try:
+                        points = edge.discretize(
+                            QuasiDeflection=float(deviation))
+                    except Exception:  # noqa: BLE001
+                        try:
+                            points = edge.discretize(Number=24)
+                        except Exception:  # noqa: BLE001
+                            continue
+                    lines.append((len(lines),
+                                  [(p.x, p.y, p.z) for p in points]))
                 continue
             for face in self._meshed(shape, deviation, angle).Faces:
                 vertices, triangles = face.tessellate(float(deviation))
                 faces.append((len(faces),
                               [(v.x, v.y, v.z) for v in vertices], triangles))
-        return protocol.pack_mesh(faces)
+        mesh = protocol.pack_mesh(faces)
+        if lines:
+            mesh["lines"] = protocol.pack_edges(lines)
+        return mesh
 
     def _refresh_repetitions(self):
         """Après une reconstruction : copies et outils à jour ; vrai si

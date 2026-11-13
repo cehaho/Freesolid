@@ -8,14 +8,14 @@ from engine.ops._base import Op, Req
 
 OPS = (
     # Phase D — surfacique (API Part, hors historique PartDesign) + courbes.
-    Op("surface_extrude", Req(("length", float)), undo=True),
+    Op("surface_extrude", Req(("length", float)), undo=True, preview=True),
                                        # optional: sketch — profil ouvert OK
-    Op("surface_revolve", undo=True),  # optional: angle, sketch
-    Op("surface_loft", Req(("sketches", list)), undo=True),
-    Op("surface_sew", Req(("surfaces", list)), undo=True),
+    Op("surface_revolve", undo=True, preview=True),  # optional: angle, sketch
+    Op("surface_loft", Req(("sketches", list)), undo=True, preview=True),
+    Op("surface_sew", Req(("surfaces", list)), undo=True, preview=True),
                                        # coudre ; solidifie si fermé
     Op("surface_thicken", Req(("surface", str), ("thickness", float)),
-       undo=True),
+       undo=True, preview=True),
     Op("add_curve3d", Req(("points", list)), undo=True,
        no_replay="liste de points"),
                                        # optional: spline, closed,
@@ -31,36 +31,36 @@ OPS = (
     Op("edit_curve3d", Req(("curve", str), ("points", list)), undo=True),
                                        # optional: spline, closed, rules,
                                        # links, tangents
-    Op("surface_planar", undo=True),   # optional: sketch — contour fermé
-    Op("surface_sweep", Req(("profile", str), ("spine", str)), undo=True),
+    Op("surface_planar", undo=True, preview=True),   # optional: sketch — contour fermé
+    Op("surface_sweep", Req(("profile", str), ("spine", str)), undo=True, preview=True),
     Op("surface_offset", Req(("surface", str), ("distance", float)),
-       undo=True),
-    Op("surface_fill", Req(("boundary", list)), undo=True),
+       undo=True, preview=True),
+    Op("surface_fill", Req(("boundary", list)), undo=True, preview=True),
                                        # [{name, edge?} | {body: true, edge}]
                                        # optional: tangent
-    Op("surface_boundary", Req(("boundary", list)), undo=True),
+    Op("surface_boundary", Req(("boundary", list)), undo=True, preview=True),
                                        # 2 à 4 courbes
-    Op("surface_ruled", Req(("boundary", list)), undo=True),
+    Op("surface_ruled", Req(("boundary", list)), undo=True, preview=True),
                                        # exactement 2 courbes
     Op("surface_delete_faces", Req(("surface", str), ("faces", list)),
        undo=True, preview=True),
-    Op("surface_untrim", Req(("surface", str)), undo=True),  # optional: face
-    Op("surface_split", Req(("surface", str), ("tool", str)), undo=True),
+    Op("surface_untrim", Req(("surface", str)), undo=True, preview=True),  # optional: face
+    Op("surface_split", Req(("surface", str), ("tool", str)), undo=True, preview=True),
     Op("surface_fillet", Req(("surface", str), ("edges", list),
-                             ("radius", float)), undo=True),
+                             ("radius", float)), undo=True, preview=True),
     Op("edit_surface_fillet", Req(("surface", str), ("radius", float)),
        undo=True),
-    Op("curve_intersection", Req(("first", str)), undo=True),
+    Op("curve_intersection", Req(("first", str)), undo=True, preview=True),
                                        # optional: second, body
-    Op("curve_project", Req(("sketch", str), ("surface", str)), undo=True),
+    Op("curve_project", Req(("sketch", str), ("surface", str)), undo=True, preview=True),
                                        # optional: face
-    Op("curve_composite", Req(("boundary", list)), undo=True),
+    Op("curve_composite", Req(("boundary", list)), undo=True, preview=True),
     Op("surface_radiate", Req(("boundary", list), ("distance", float)),
-       undo=True),
+       undo=True, preview=True),
     Op("surface_mid", undo=True),      # optional: faces (deux, base 0) |
                                        # thickness (paires automatiques)
-    Op("surface_flatten", Req(("surface", str)), undo=True),  # optional: face
-    Op("surface_freeform", Req(("surface", str)), undo=True),
+    Op("surface_flatten", Req(("surface", str)), undo=True, preview=True),  # optional: face
+    Op("surface_freeform", Req(("surface", str)), undo=True, preview=True),
                                        # radius + pushes [[x,y,z,h]…] |
                                        # point + height ; ou moves
                                        # [[i,j,dx,dy,dz]…] + grid ;
@@ -71,15 +71,15 @@ OPS = (
     Op("surface_control_points", Req(("surface", str))),
                                        # optional: face, grid — lecture seule
     Op("curve_helix", Req(("pitch", float), ("height", float),
-                          ("radius", float)), undo=True),
+                          ("radius", float)), undo=True, preview=True),
                                        # optional: angle, left, axis (X|Y|Z)
     Op("surface_extend", Req(("surface", str), ("distance", float)),
-       undo=True),
+       undo=True, preview=True),
                                        # optional: edge (bord prolongé)
     Op("edit_surface_extend", Req(("surface", str), ("distance", float)),
        undo=True),
                                        # optional: edge
-    Op("surface_trim", Req(("surface", str), ("tool", str)), undo=True),
+    Op("surface_trim", Req(("surface", str), ("tool", str)), undo=True, preview=True),
                                        # optional: point — partie gardée,
                                        # tool_point — ajustement mutuel
     Op("add_surface_cut", Req(("surface", str)), undo=True, preview=True,

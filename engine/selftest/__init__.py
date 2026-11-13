@@ -251,6 +251,7 @@ def _etapes():
         fonctions.p132_surfaces_a_liens_rechoisissent,
         fonctions.p133_formes_figees_rechoisissent,
         fonctions.p134_references_rechoisissent,
+        fonctions.p135_apercu_des_surfaces_a_la_creation,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

@@ -59,7 +59,7 @@ from engine.docprops import DocPropsMixin
 from engine.vertexchamfer import VertexChamferMixin
 from engine.selectchain import SelectChainMixin
 from engine.materials import MaterialsMixin
-from engine.refgeom import RefGeomMixin
+from engine.refgeom import REFERENCE_TYPES, RefGeomMixin
 from engine.clipboard import ClipboardMixin
 from engine.templates import TemplatesMixin
 from engine.treeorg import TreeOrgMixin
@@ -1041,6 +1041,11 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
                   if o.TypeId == "PartDesign::Plane"}
         bodies = {o.Name for o in doc.Objects
                   if o.TypeId == "PartDesign::Body"}
+        # Surfaces, courbes et références d'avant : le fantôme d'une
+        # création montre celles qui apparaissent.
+        surfaces = {o.Name for o in doc.Objects if self._is_surface_obj(o)}
+        references = {o.Name for o in doc.Objects
+                      if o.TypeId in REFERENCE_TYPES}
         try:
             if (op == "set_params"
                     and getattr(self, "_rank_view", None) is not None):
@@ -1056,6 +1061,23 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
                 if not made:
                     raise KernelError("plan de référence introuvable")
                 return {"plane": list(made[-1].Placement.Matrix.A)}
+            if op in _REFERENCE_PREVIEWS:
+                # Axe, point, repère : où il se pose, dessiné comme dans
+                # la vue.
+                made = [o for o in doc.Objects
+                        if o.TypeId in REFERENCE_TYPES
+                        and o.Name not in references]
+                if not made:
+                    raise KernelError("élément de référence introuvable")
+                return {"reference": self._reference_ghost(made[-1])}
+            if op.startswith(("surface_", "curve_")):
+                # Une surface ou une courbe : celles qui apparaissent (une
+                # division, un ajustement mutuel en font deux), pas le
+                # corps actif.
+                return self._bodies_mesh([
+                    o for o in doc.Objects
+                    if o.Name not in surfaces and self._is_surface_obj(o)
+                    and not self._is_internal_tool(o)])
             if op == "add_body_pattern":
                 # Le fantôme : les corps qui apparaissent, pas le corps actif.
                 return self._bodies_mesh([
@@ -1066,6 +1088,9 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
             if getattr(edited, "TypeId", "") == "PartDesign::Plane":
                 # Réédition d'un plan : où il se pose, comme à la création.
                 return {"plane": list(edited.Placement.Matrix.A)}
+            if getattr(edited, "TypeId", "") in REFERENCE_TYPES:
+                # D'un axe, d'un point, d'un repère aussi.
+                return {"reference": self._reference_ghost(edited)}
             if "FreeSolidBodyPattern" in getattr(edited, "PropertiesList", ()):
                 # Réédition d'un réseau de corps : ses copies, telles
                 # qu'elles deviennent.
@@ -1098,6 +1123,11 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         else:
             obj.Label = label
         return self._current_tree()
+
+
+#: Créations dont l'aperçu est une référence (axe, point, repère).
+_REFERENCE_PREVIEWS = frozenset({"add_datum_axis", "add_datum_point",
+                                 "add_datum_cs"})
 
 
 #: Ops recorded as one undo step each. Left out on purpose: document

@@ -125,6 +125,8 @@ class DirectEditMixin:
         obj = self._require_doc().getObject(str(feature))
         if obj is None:
             raise KernelError("fonction inconnue : {}".format(feature))
+        if obj.TypeId == "Part::Extrusion":
+            return {"drag": self._surface_extrude_drag(obj)}
         # L'axe caché qui suit la normale de l'esquisse (profil par un
         # liant) ne change pas la direction : la flèche reste juste.
         axis = getattr(obj, "ReferenceAxis", None)
@@ -150,3 +152,35 @@ class DirectEditMixin:
             "value": length, "point": point, "normal": direction,
             "factor": factor,
         }}
+
+    def _surface_extrude_drag(self, obj):
+        """La flèche d'une surface extrudée : au bout de son esquisse, le
+        long de sa direction, comme à la création. None si elle n'est pas
+        d'un seul côté, si sa longueur suit une équation ou si son profil
+        n'est pas une esquisse."""
+        from engine.vocab import param_key_for
+
+        def number(value):
+            return float(getattr(value, "Value", value))
+
+        base = getattr(obj, "Base", None)
+        direction = getattr(obj, "Dir", None)
+        if (base is None or base.TypeId != "Sketcher::SketchObject"
+                or direction is None or direction.Length < 1e-9
+                or bool(getattr(obj, "Symmetric", False))
+                or bool(getattr(obj, "Reversed", False))
+                or abs(number(getattr(obj, "LengthRev", 0))) > 1e-9
+                or abs(number(getattr(obj, "TaperAngle", 0))) > 1e-9
+                or "LengthFwd" in dict(obj.ExpressionEngine or [])):
+            return None
+        frame = self.sketch_frame(base.Name)
+        unit = direction.normalize()
+        length = number(obj.LengthFwd)
+        normal = [unit.x, unit.y, unit.z]
+        return {
+            "feature": obj.Name, "label": obj.Label,
+            "key": param_key_for("surface_extrude", "LengthFwd"),
+            "value": length,
+            "point": [c + d * length for c, d in zip(frame["center"], normal)],
+            "normal": normal, "factor": 1.0,
+        }

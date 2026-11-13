@@ -436,9 +436,8 @@ function surface({ button, op, icon, title, groups, note, build, invalid }) {
     // Une consigne, pas une erreur : tant qu'une case de sélection est
     // vide, elle dit déjà quoi cliquer et le bandeau s'efface.
     invalid: () => ({ text: invalid ?? "Valeurs invalides", tone: "guide" }),
-    // Les ops surfaciques ne sont pas dans _PREVIEWABLE : pas d'aperçu
-    // aujourd'hui, donc pas d'onChange (zéro changement de comportement).
-    preview: false,
+    // Aperçu : le moteur rend les surfaces (ou les traits des courbes)
+    // qui apparaissent.
     refresh: "part",
   };
 }
