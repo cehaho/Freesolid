@@ -307,6 +307,10 @@ class SurfaceReeditMixin:
                 raise KernelError("propriété non éditable : {}".format(key))
         if "source" in values:
             src = self._picked_surface(obj, values["source"])
+            if poles and src.Name != obj.FreeSolidFreesource:
+                # Les repères décrivaient l'autre surface : les indices
+                # restent, et de nouveaux repères seront pris.
+                self._stamp(obj, freeanchors="")
             self._stamp(obj, freesource=src.Name)
         if poles:
             self._apply_freeform_edit(obj, moves=values.get("moves"),

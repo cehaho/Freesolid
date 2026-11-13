@@ -5670,3 +5670,96 @@ def p126_combiner_rechoisit(self, mark, report, etat):
         and edit(combine, tool=plate.Name).get("ok") is False
         and spec(combine)["tool"] == large.Name
         and clean())
+
+
+def p127_indices_suivent_leur_cible(self, mark, report, etat):
+    mark("p127: les indices de face et d'arête suivent leur cible quand "
+         "l'esquisse amont change")
+    import FreeCAD as App
+    import Part
+
+    def last(tree):
+        return self._doc.getObject(tree["surfaces"][-1]["name"])
+
+    def inside(shape, x, y, z):
+        return shape.isInside(App.Vector(x, y, z), 1e-6, True)
+
+    def valid(obj):
+        return "Invalid" not in (obj.State or ())
+
+    def spec(obj):
+        return next(s for s in self.get_tree()["surfaces"]
+                    if s["name"] == obj.Name)["surface"]
+
+    def grow(sketch, *segment):
+        # Un segment de plus dans l'esquisse amont : l'ordre de ses
+        # arêtes — et des faces et arêtes qu'on en tire — change.
+        self.sketch_edit(sketch)
+        if len(segment) == 4:
+            self.sketch_add_line(sketch, *segment)
+        else:
+            self.sketch_add_rectangle(sketch, *segment[1:])
+        self.sketch_finish(sketch)
+        self._recompute()
+
+    # Une plaque 40 × 40 × 10, son arête du haut à y = +20 arrondie de 3,
+    # celle à y = -20 chanfreinée de 2, puis une surface radiée de 5 sur
+    # ses arêtes longues du haut.
+    self.new_part("Indices suivis")
+    self.add_rect_sketch(40, 40)
+    self.add_pad(10)
+    body = self._require_body()
+    sketch = body.Tip.Profile[0].Name
+    edge = next(i for i, e in enumerate(body.Shape.Edges)
+                if abs(e.CenterOfMass.z - 10) < 1e-6
+                and abs(e.CenterOfMass.y - 20) < 1e-6)
+    self.add_fillet(3, edges=[edge])
+    edge = next(i for i, e in enumerate(body.Shape.Edges)
+                if abs(e.CenterOfMass.z - 10) < 1e-6
+                and abs(e.CenterOfMass.y + 20) < 1e-6)
+    self.add_chamfer(2, edges=[edge])
+    top = [i for i, e in enumerate(body.Shape.Edges)
+           if abs(e.CenterOfMass.z - 10) < 1e-6 and e.Length > 30]
+    rad = last(self.surface_radiate([{"body": True, "edge": i}
+                                     for i in top], 5))
+    rad_area = rad.Shape.Area
+    # Une équerre ouverte (20 puis 30), extrudée de 10 : son arête commune
+    # arrondie de 3, un pôle de sa face de 30 tiré de 5 en x, et le patron
+    # à plat de cette même face.
+    corner_sketch = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_line(corner_sketch, 0, 100, 20, 100)
+    self.sketch_add_line(corner_sketch, 20, 100, 20, 130)
+    self.sketch_finish(corner_sketch)
+    corner = last(self.surface_extrude(10, sketch=corner_sketch))
+    shared = [i for i, e in enumerate(corner.Shape.Edges)
+              if len(corner.Shape.ancestorsOfType(e, Part.Face)) == 2]
+    fillet = last(self.surface_fillet(corner.Name, shared, 3))
+    fillet_area = fillet.Shape.Area
+    tall = next(i for i, f in enumerate(corner.Shape.Faces)
+                if abs(f.Area - 300) < 1e-6)
+    pole = last(self.surface_freeform(corner.Name,
+                                      moves=[[tall, 2, 2, 5, 0, 0]]))
+    flat = last(self.surface_flatten(corner.Name, face=tall))
+    before = (round(pole.Shape.BoundBox.XMax, 3), round(flat.Shape.Area, 3))
+    # Un trou au milieu de la plaque, un segment au début de l'équerre.
+    grow(sketch, "rect", -5, -5, 5, 5)
+    grow(corner_sketch, -20, 100, 0, 100)
+    tall_now = next(i for i, f in enumerate(corner.Shape.Faces)
+                    if abs(f.Area - 300) < 1e-6)
+    filleted = [int(e[0]) - 1 for e in fillet.Edges]
+    report["p127_indices_suivent_leur_cible"] = (
+        before == (25, 300) and tall_now != tall
+        and valid(body.Tip) and valid(body.Tip.BaseFeature)
+        and not inside(body.Shape, 0, 19.9, 9.9)
+        and not inside(body.Shape, 0, -19.9, 9.9)
+        and inside(body.Shape, 19.9, 0, 9.9)
+        and valid(rad) and abs(rad.Shape.Area - rad_area) < 1e-6
+        # Le congé rend toute l'équerre : la face ajoutée (20 × 10) en plus.
+        and valid(fillet)
+        and abs(fillet.Shape.Area - fillet_area - 200) < 1e-6
+        and len(filleted) == 1
+        and abs(corner.Shape.Edges[filleted[0]].CenterOfMass.x - 20) < 1e-6
+        and round(pole.Shape.BoundBox.XMax, 3) == 25
+        and spec(pole)["moves"][0][0] == tall_now
+        and round(flat.Shape.Area, 3) == 300
+        and spec(flat)["face"] == tall_now)
