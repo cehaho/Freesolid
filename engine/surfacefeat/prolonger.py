@@ -41,9 +41,21 @@ class SurfaceExtendMixin:
     def surface_extend(self, surface, distance, edge=None):
         """Prolonger une surface d'une distance — au-delà d'un bord choisi,
         ou de tous ses bords."""
-        from engine.kernel import KernelError
         import Surface  # noqa: F401 — enregistre Surface::Extend
         src = self._get_surface(surface)
+        plan = self._extend_plan(src, distance, edge)
+
+        def configure(obj):
+            self._apply_extend(obj, src, *plan)
+
+        return self._add_part_surface(
+            "Surface::Extend", "Surface prolongée", configure)
+
+    def _extend_plan(self, src, distance, edge):
+        """(distance, bord, face, rapports) d'un prolongement de ``src`` :
+        au-delà du bord ``edge`` (base 0, comme les arêtes de la vue), ou
+        de tous les bords de sa première face."""
+        from engine.kernel import KernelError
         faces = src.Shape.Faces
         if not faces:
             raise KernelError("prolonger demande une surface, pas une courbe")
@@ -52,7 +64,7 @@ class SurfaceExtendMixin:
             raise KernelError("la distance doit être positive")
         face_index, edge_shape = 0, None
         if edge is not None:
-            edge = int(edge)  # base 0, comme les arêtes de la vue
+            edge = int(edge)
             if edge < 0 or edge >= len(src.Shape.Edges):
                 raise KernelError("arête inconnue : {}".format(edge))
             edge_shape = src.Shape.Edges[edge]
@@ -63,20 +75,18 @@ class SurfaceExtendMixin:
                     break
         face = faces[face_index]
         sides = self._extend_sides(face, edge_shape)
-        ratios = self._extend_ratios(face, distance, sides)
+        return (distance, edge, face_index,
+                self._extend_ratios(face, distance, sides))
 
-        def configure(obj):
-            obj.Face = (src, ["Face%d" % (face_index + 1)])
-            obj.ExtendUSymetric = False
-            obj.ExtendVSymetric = False
-            for side in ("UNeg", "UPos", "VNeg", "VPos"):
-                setattr(obj, "Extend" + side, ratios.get(side, 0.0))
-            # Stocké en base 1 : 0 veut dire « tous les bords ».
-            self._stamp(obj, distance=distance,
-                        edge=0 if edge is None else edge + 1)
-
-        return self._add_part_surface(
-            "Surface::Extend", "Surface prolongée", configure)
+    def _apply_extend(self, obj, src, distance, edge, face_index, ratios):
+        obj.Face = (src, ["Face%d" % (face_index + 1)])
+        obj.ExtendUSymetric = False
+        obj.ExtendVSymetric = False
+        for side in ("UNeg", "UPos", "VNeg", "VPos"):
+            setattr(obj, "Extend" + side, ratios.get(side, 0.0))
+        # Stocké en base 1 : 0 veut dire « tous les bords ».
+        self._stamp(obj, distance=distance,
+                    edge=0 if edge is None else edge + 1)
 
     def surface_trim(self, surface, tool, point=None, tool_point=None):
         """Ajuster une surface par une autre : la découpe garde la partie
@@ -162,18 +172,7 @@ class SurfaceExtendMixin:
         if obj is None or obj.TypeId != "Surface::Extend":
             raise KernelError("prolongement inconnu : {}".format(surface))
         src = obj.Face[0]
-        distance = float(distance)
-        if distance <= 0:
-            raise KernelError("la distance doit être positive")
-        face = src.Shape.Faces[int(obj.Face[1][0][4:]) - 1]
-        edge_shape = (src.Shape.Edges[int(edge)]
-                      if edge is not None else None)
-        ratios = self._extend_ratios(
-            face, distance, self._extend_sides(face, edge_shape))
-        for side in ("UNeg", "UPos", "VNeg", "VPos"):
-            setattr(obj, "Extend" + side, ratios.get(side, 0.0))
-        self._stamp(obj, distance=distance,
-                    edge=0 if edge is None else int(edge) + 1)
+        self._apply_extend(obj, src, *self._extend_plan(src, distance, edge))
         self._recompute()
         return self.get_tree()
 

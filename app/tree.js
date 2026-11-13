@@ -29,6 +29,9 @@ import {
   patternEditGroups, patternEditValues, patternFeaturesPick,
   patternFeaturesValues, patternSourcesPick, patternSourcesValues,
   BODY_PATTERN_TYPES, bodyZoneRow,
+  extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
+  planarEditValues, planarSketchPick, signedEditValues, sourceEditValues,
+  surfacePick,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -1727,6 +1730,8 @@ export function installTree(ctx) {
     extend: (surface) => editExtend(surface),
     trim: (surface) => editTrim(surface),
     offset: (surface) => editOffset(surface),
+    planar: (surface) => editPlanar(surface),
+    thicken: (surface) => editThicken(surface),
     radiate: (surface) => editRadiate(surface),
     surface_fillet: (surface) => editSurfaceFillet(surface),
     poles: (surface) => ctx.openPoles(surface),
@@ -1747,31 +1752,78 @@ export function installTree(ctx) {
     }
   }
 
-  // Prolongement : la distance (et le bord d'origine) se rééditent.
+  // Prolongement : son bord (la surface entière : tous ses bords) et sa
+  // distance, comme à la création, sur la pièce à son rang.
   function editExtend(surface) {
     const spec = surface.surface;
-    panel.open({
+    return editAtRank(surface, {
       icon: "surface_extend",
-      title: surface.label,
-      groups: [{
-        label: t("Paramètres"),
-        rows: [
-          { type: "number", key: "distance", label: t("Distance"),
-            value: spec.distance, unit: "mm", min: 0.01 },
-          { type: "check", key: "all", label: t("Tous les bords"),
-            value: spec.edge == null },
-        ],
-      }],
-      onApply: (v) => {
-        const distance = num(v.distance);
-        if (!(distance > 0)) {
-          say(t("Prolonger : une distance positive"), true);
-          return;
-        }
-        const params = { surface: surface.name, distance };
-        if (!v.all && spec.edge != null) params.edge = spec.edge;
-        refresh(call("edit_surface_extend", params));
+      zone: {
+        label: "Bord à prolonger",
+        row: { type: "selection", key: "target",
+               accepts: ["boundary", "surface"],
+               hint: "Cliquez un bord de la surface — ou la surface "
+                 + "entière pour tous ses bords",
+               value: extendPick(ctx.lastTree, spec) },
+        changed: (v) => extendTargetValues(v.target, spec),
+        missing: "Prolonger : un bord de surface et une distance positive",
       },
+      groups: [{ label: "Paramètres", rows: [
+        { type: "number", key: "distance", label: "Distance",
+          value: spec.distance, unit: "mm", min: 0.01 }] }],
+      values: (v) => {
+        const distance = num(v.distance);
+        if (!(distance > 0)) return null;
+        return Math.abs(distance - spec.distance) > 1e-9 ? { distance } : {};
+      },
+      problem: () => "Prolonger : une distance positive",
+    });
+  }
+
+  // Surface plane : l'esquisse de son contour, sur la pièce à son rang.
+  function editPlanar(surface) {
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "surface_planar",
+      note: "Le contour doit être fermé et plan.",
+      zone: {
+        label: "Contour",
+        row: { type: "selection", key: "profile", accepts: ["sketch"],
+               hint: "Cliquez l'esquisse du contour fermé",
+               value: planarSketchPick(surface) },
+        changed: (v) => planarEditValues(v.profile, spec),
+        missing: "Surface plane : une esquisse au contour fermé",
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => "Surface plane : une esquisse au contour fermé",
+    });
+  }
+
+  // Épaississement : sa surface et son épaisseur (signée), comme à la
+  // création, sur la pièce à son rang.
+  function editThicken(surface) {
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "thicken",
+      zone: {
+        label: "Surface",
+        row: { type: "selection", key: "surface", accepts: ["surface"],
+               hint: "Cliquez une surface dans l'arbre",
+               value: surfacePick(ctx.lastTree, spec.source) },
+        changed: (v) => sourceEditValues(v.surface, spec.source),
+        missing: "Épaissir : une surface et une épaisseur non nulle",
+      },
+      groups: [{ label: "Paramètres", rows: [
+        { type: "number", key: "thickness", label: "Épaisseur",
+          value: spec.distance, unit: "mm" }] }],
+      values: (v) => {
+        const thickness = num(v.thickness);
+        if (!thickness) return null;
+        return Math.abs(thickness - spec.distance) > 1e-9
+          ? { distance: thickness } : {};
+      },
+      problem: () => "Épaissir : une surface et une épaisseur non nulle",
     });
   }
 
@@ -1860,22 +1912,31 @@ export function installTree(ctx) {
     });
   }
 
-  // Congé de surface : son rayon.
+  // Congé de surface : ses arêtes et son rayon, comme à la création, sur
+  // la pièce à son rang.
   function editSurfaceFillet(surface) {
-    panel.open({
+    const spec = surface.surface;
+    return editAtRank(surface, {
       icon: "surface_fillet",
-      title: surface.label,
-      groups: [{
-        label: t("Paramètres"),
-        rows: [{ type: "number", key: "radius", label: t("Rayon"),
-                 value: surface.surface.radius, unit: "mm", min: 0.01 }],
-      }],
-      onApply: (v) => {
-        const radius = num(v.radius);
-        if (!(radius > 0)) return;
-        refresh(call("edit_surface_fillet",
-          { surface: surface.name, radius }));
+      note: "Deux surfaces séparées se cousent d'abord (Coudre).",
+      zone: {
+        label: "Arêtes",
+        row: { type: "selection", key: "edges", accepts: ["boundary"],
+               multiple: true,
+               hint: "Cliquez les arêtes entre deux faces d'une surface",
+               value: filletEdgesPick(ctx.lastTree, spec) },
+        changed: (v) => filletEdgesValues(v.edges, spec),
+        missing: "Congé : des arêtes d'une même surface et un rayon",
       },
+      groups: [{ label: "Paramètres", rows: [
+        { type: "number", key: "radius", label: "Rayon",
+          value: spec.radius, unit: "mm", min: 0.01 }] }],
+      values: (v) => {
+        const radius = num(v.radius);
+        if (!(radius > 0)) return null;
+        return Math.abs(radius - spec.radius) > 1e-9 ? { radius } : {};
+      },
+      problem: () => "Congé : des arêtes d'une même surface et un rayon",
     });
   }
 
@@ -1903,9 +1964,29 @@ export function installTree(ctx) {
     });
   }
 
+  // Surface décalée : sa surface, sa distance et son côté, comme à la
+  // création, sur la pièce à son rang.
   function editOffset(surface) {
-    editSignedDistance(surface, surface.surface.distance,
-      { icon: "surface_offset", side: t("Inverser le côté") });
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "surface_offset",
+      note: "Distance 0 : une copie de la surface.",
+      zone: {
+        label: "Surface",
+        row: { type: "selection", key: "surface", accepts: ["surface"],
+               hint: "Cliquez la surface à décaler",
+               value: surfacePick(ctx.lastTree, spec.source) },
+        changed: (v) => sourceEditValues(v.surface, spec.source),
+        missing: "Surface décalée : une surface et une distance",
+      },
+      groups: [{ label: "Paramètres", rows: [
+        { type: "number", key: "distance", label: "Distance",
+          value: Math.abs(spec.distance), unit: "mm" },
+        { type: "check", key: "flip", label: "Inverser le côté",
+          value: spec.distance < 0 }] }],
+      values: (v) => signedEditValues(v, spec.distance),
+      problem: () => "Surface décalée : une surface et une distance",
+    });
   }
 
   // Surface radiée : une distance pilotée par une équation garde le

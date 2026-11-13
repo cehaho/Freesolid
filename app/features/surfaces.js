@@ -104,6 +104,89 @@ export function extendParams(target, distance) {
   return { surface: target.name, distance };
 }
 
+// ---------- réédition : ce qu'une surface prend ----------
+
+/** Une surface de l'arbre comme choix d'une zone, sous son nom. */
+export function surfacePick(tree, name) {
+  if (!name) return null;
+  const known = (tree?.surfaces ?? []).find((s) => s.name === name);
+  return { kind: "surface", name, label: known?.label ?? name };
+}
+
+/** La zone d'une surface re-choisie : `{}` si c'est la même, `{ source }`
+ *  sinon, null si elle est vide. */
+export function sourceEditValues(sel, before) {
+  if (!sel?.name) return null;
+  return sel.name === before ? {} : { source: sel.name };
+}
+
+/** L'esquisse du contour d'une surface plane, prise parmi ses enfants. */
+export function planarSketchPick(surface) {
+  const name = surface?.surface?.sketch;
+  if (!name) return null;
+  const child = (surface.children ?? []).find((c) => c.name === name);
+  return { kind: "sketch", name, label: child?.label ?? name };
+}
+
+export function planarEditValues(sel, spec) {
+  if (!sel?.name) return null;
+  return sel.name === spec?.sketch ? {} : { sketch: sel.name };
+}
+
+/** Distance signée d'une surface décalée : la valeur et son côté, comme
+ *  à la création (0 : une copie de la surface). */
+export function signedEditValues(v, before) {
+  const size = num(v.distance);
+  if (size === null) return null;
+  const distance = v.flip ? -Math.abs(size) : Math.abs(size);
+  return Math.abs(distance - before) > 1e-9 ? { distance } : {};
+}
+
+/** Le bord d'un prolongement (ou sa surface entière : tous les bords). */
+export function extendPick(tree, spec) {
+  const surface = surfacePick(tree, spec?.source);
+  if (!surface) return null;
+  return Number.isInteger(spec.edge)
+    ? { ...surface, kind: "boundary", edge: spec.edge } : surface;
+}
+
+/** Bord re-choisi : `{}` si c'est le même, sinon `edge` (null : tous les
+ *  bords) et `source` quand la surface change ; null pour un bord de
+ *  courbe ou de solide. */
+export function extendTargetValues(target, spec) {
+  if (!target?.name) return null;
+  const boundary = target.kind === "boundary";
+  if (boundary && (target.curve || target.body)) return null;
+  const edge = boundary ? target.edge : null;
+  if (target.name !== spec?.source) return { source: target.name, edge };
+  return edge === (spec.edge ?? null) ? {} : { edge };
+}
+
+/** Les arêtes d'un congé de surface, dans sa zone. */
+export function filletEdgesPick(tree, spec) {
+  const surface = surfacePick(tree, spec?.source);
+  if (!surface) return null;
+  return { items: (spec.edges ?? []).map((edge) => ({
+    ...surface, kind: "boundary", edge })) };
+}
+
+/** Arêtes re-choisies, d'une même surface : `{}` si ce sont les mêmes,
+ *  `{ edges }` (et `source` si la surface change) sinon, null si la zone
+ *  est vide ou mêle des surfaces. */
+export function filletEdgesValues(sel, spec) {
+  const edges = (sel?.items ?? []).filter((i) => i.kind === "boundary"
+    && !i.body && !i.curve);
+  if (!edges.length) return null;
+  const name = edges[0].name;
+  if (edges.some((i) => i.name !== name)) return null;
+  const picked = [...new Set(edges.map((i) => i.edge))];
+  const before = new Set(spec?.edges ?? []);
+  if (name !== spec?.source) return { source: name, edges: picked };
+  const same = picked.length === before.size
+    && picked.every((e) => before.has(e));
+  return same ? {} : { edges: picked };
+}
+
 function surface({ button, op, icon, title, groups, note, build, invalid }) {
   return {
     button, op, icon, title,

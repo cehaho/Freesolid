@@ -69,11 +69,11 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Surface de révolution | non | angle ; plan de l'esquisse (« Changer de plan… ») | axe, sens | à vérifier | oui (drapeau) | non |
 | Surface lissée | non | rien | tout : profils et ordre | — | oui (drapeau) | non |
 | Surface cousue | non | rien (forme figée) | tout : liste des surfaces | — | oui (drapeau) | non |
-| Épaissir | non | épaisseur (signée) | surface source | à vérifier | oui (drapeau) | non |
+| Épaissir | non | le panneau de la création, au rang : surface (clic dans l'arbre), épaisseur (signée) | — | oui | oui (drapeau) | oui (surface, épaisseur) |
 | Couper avec une surface | oui | inverser le côté, épaisseur (si bande) | surface outil, passage entre un côté et une bande | non | oui | oui |
-| Surface plane | non | rien | esquisse du contour | — | oui (drapeau) | non |
+| Surface plane | non | le panneau de la création, au rang : esquisse du contour | — | oui | oui (drapeau) | oui (esquisse, refus d'une esquisse d'après) |
 | Surface balayée | non | rien | profil, trajectoire | — | oui (drapeau) | non |
-| Surface décalée | non | distance et « inverser le côté », comme à la création | surface source | non | oui (drapeau) | non |
+| Surface décalée | non | le panneau de la création, au rang : surface (clic dans l'arbre), distance et « inverser le côté » | — | oui | oui (drapeau) | oui (surface, refus d'elle-même et d'une surface d'après) |
 | Surface de remplissage | non | rien | contour, case « tangent » | — | oui (drapeau) | non |
 | Surface frontière | non | rien | 2 à 4 courbes | — | oui (drapeau) | non |
 | Surface radiée | non | distance et « vers l'intérieur », comme à la création (pilotée par une équation : la distance signée, dans le panneau des cotes) | contour | non | oui (drapeau) | non |
@@ -89,11 +89,11 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Supprimer la face (solide) | oui | rien | liste de faces | — | oui (Tip du corps) | non |
 | Supprimer la face (surface) | oui | rien | surface, faces | — | oui (drapeau) | non |
 | Annuler l'ajustement | non | rien | surface, face | — | oui (drapeau) | non |
-| Congé de surfaces | non | rayon | arêtes, surface de base, un rayon par arête | non | oui (drapeau) | oui |
+| Congé de surfaces | non | le panneau de la création, au rang : arêtes (d'une même surface, qui peut changer), rayon | un rayon par arête | oui | oui (drapeau) | oui (rayon, arêtes, autre surface) |
 | Aplatir | non | un panneau d'information, sans réglage | face, surface | — | oui (drapeau) | non |
 | Forme libre | non | points poussés, hauteurs, rayon, bords fixes | surface source, face | non | oui (drapeau) | oui |
 | Pôles | surcouche dans la vue | déplacements, pas de grille | surface source, face | non | oui (drapeau) | oui |
-| Prolonger | non | distance, « tous les bords » | surface source, bord choisi | non | oui (drapeau) | oui |
+| Prolonger | non | le panneau de la création, au rang : bord (ou la surface entière, pour tous ses bords ; un bord d'une autre surface la change), distance | — | oui | oui (drapeau) | oui (tous les bords, un bord, autre surface) |
 | Ajuster | non | « garder l'autre partie » | outil, surface, point cliqué, ajustement mutuel | non | oui (drapeau) | oui |
 | Courbe d'intersection | non | rien | les deux surfaces, option « avec le solide » | — | oui (drapeau) | non |
 | Projeter une courbe | non | rien | esquisse, face cible, direction | — | oui (drapeau) | non |
@@ -168,11 +168,12 @@ Répétitions de fonctions (linéaire, circulaire, symétrie) : le double-clic r
 
 Répétitions de corps (linéaire, circulaire, symétrie) : le même panneau, au rang. La zone « Corps à répéter » revient remplie ; un clic dans la vue ou dans le dossier ajoute un corps, la croix le retire. Un corps qui vient après la répétition, ou une de ses propres copies, est refusé. Retirer un corps fait partir ses copies : si l'une porte une esquisse ou une fonction, la question vient d'abord, comme quand on réduit le nombre. La direction revient sur son axe d'origine ou son arête, prise sur le corps actif tel qu'il est au rang ; une répétition d'avant ne gardait que le vecteur : il se relit sur les axes d'origine, sinon la zone d'arête reste vide et la direction telle quelle. La deuxième direction s'active et se retire sans refaire les copies de la première rangée : elles changent de repère et gardent ce qu'elles portent. L'aperçu montre les copies telles qu'elles deviennent. `set_params` prend `sources` (`bodies` y désigne déjà les corps concernés), `axis` ou `edge`, `reversed`, `plane`, `mode`, `dir2`, `axis2`, `edge2`, `reversed2`, et les cotes de l'hôte. Selftest p120.
 
+Surfaces qui prennent une surface, une esquisse, un bord ou des arêtes (Surface plane, Surface décalée, Épaissir, Prolonger, Congé de surfaces) : le double-clic rouvre le panneau de la création, au rang, sa zone remplie de ce que la surface prend, avec l'aperçu de la surface rééditée. La Surface plane re-choisit l'esquisse de son contour ; la décalée et l'épaississement, leur surface, d'un clic dans l'arbre ; le prolongement, son bord, ou la surface entière pour tous ses bords (un bord d'une autre surface fait changer de surface) ; le congé, ses arêtes, qui peuvent être celles d'une autre surface, toutes de la même. Une surface ou une esquisse qui vient après, ou qui dépend de la surface rééditée, est refusée en la nommant ; sur refus, la pièce reste telle quelle. `set_params` prend `sketch` (plane), `source` (décalée, épaississement, prolongement, congé), `edge` (None : tous les bords), `edges` et les cotes. Selftest p121.
+
 Reste :
 
-- **Profils et esquisses** : le contour de la Surface plane (une esquisse) ne se re-choisit pas à la réédition.
 - **Outils** : le corps outil de Combiner, la surface outil de Couper avec une surface, les deux surfaces de la Courbe d'intersection, l'esquisse source de Projeter.
-- **Surfaces d'origine** : Surface décalée, Épaissir, Surface radiée, Forme libre, Pôles, Prolonger (bord), Ajuster (outil, point cliqué), Congé de surfaces (arêtes, un seul rayon pour toutes).
+- **Surfaces d'origine** : Surface radiée, Forme libre, Pôles, Ajuster (outil, point cliqué) ; le Congé de surfaces n'a qu'un rayon pour toutes ses arêtes.
 - **Indices de face ou d'arête** : si la source change de topologie, la fonction peut pointer sur autre chose. Aucun test de décalage d'indice trouvé (comportement à vérifier).
 
 Où ça se décide : le panneau de réédition ne contient que les cotes (`app/tree.js`, `editFeature` ; `engine/equations.py`, `get_params` et `set_params`). Les sélections sont saisies par les panneaux de création (`app/features/habillage.js`, `repetitions.js`, `surfaces.js`, `combiner.js`, `volumes.js`) et le moteur ne sait pas les remplacer (`engine/ops/`). Piste : rouvrir le panneau de création rempli, comme `editRemoveBodies`.
@@ -195,15 +196,15 @@ Reste :
 - **Texte** : relief ou gravure, police. Le relief est dans la forme des lettres et dans le genre du booléen : il faut reconstruire.
 - **Couper avec une surface** : passer de « tout un côté » à « bande épaisse » change le genre de l'outil.
 - **Fonctions graphe et Répétition variable** : ajout ou enlèvement, fonctions répétées, nature de la fonction.
-- **Réédition partielle qui laisse croire à une réédition complète** : Congé de surfaces (rayon seul), Prolonger, Ajuster, Hélice 3D (ni axe ni sens), Forme libre.
+- **Réédition partielle qui laisse croire à une réédition complète** : Ajuster, Hélice 3D (ni axe ni sens), Forme libre.
 
 Où ça se décide : `engine/equations.py` (`set_params`, `_editable_props`) ; `engine/solids.py` (`_extrude_state`, `_set_extrude_options`, `_hole_state`) ; `engine/extrude.py` (`extrude_state`, `extrude_options`) ; `engine/vocab.py` (`PARAM_KEYS`) ; `app/features/volumes.js` et `habillage.js` (panneaux partagés entre création et réédition) ; `app/tree.js` (`editFeature`) ; `app/editkind.js`.
 
 ### 6. L'aperçu absent ou inégal
 
 - **À la création** : absent pour toutes les surfaces (sauf Couper avec une surface) et toutes les opérations sur surfaces et courbes (sauf Remplacer et Supprimer la face du solide, et Supprimer la face d'une surface), pour l'Axe, le Point et le Repère, pour les fonctions graphe et la Répétition variable. Les surfaces dont le résultat est le plus incertain (Ajuster, Diviser) sont celles sans aperçu. Deux absences sont voulues : Combiner (booléen lent) et la Surface médiane.
-- **À la réédition** : absent pour Couper avec une surface (le commentaire du code annonce l'aperçu, le panneau n'en branche pas), tous les panneaux d'édition des opérations sur surfaces (Prolonger, Ajuster, Congé de surfaces, Forme libre), Supprimer des corps, les fonctions graphe. La Répétition de corps passe par le même aperçu que les fonctions, sans le fantôme des seuls corps nouveaux de la création (à vérifier).
-- **Surfaces** : la réédition par la voie générique redessine l'aperçu du corps seul. Pour une surface sans solide, il est probablement vide ou trompeur (à vérifier).
+- **À la réédition** : absent pour Couper avec une surface (le commentaire du code annonce l'aperçu, le panneau n'en branche pas), les panneaux d'édition d'Ajuster et de la Forme libre, Supprimer des corps, les fonctions graphe. La Répétition de corps passe par le même aperçu que les fonctions, sans le fantôme des seuls corps nouveaux de la création (à vérifier).
+- **Surfaces** : l'aperçu d'une surface rééditée par `set_params` montre la surface elle-même (vérifié pour la Surface plane, la décalée, Épaissir, Prolonger et le Congé de surfaces ; les autres surfaces rééditées par leurs cotes passent par la même voie, à vérifier).
 - **Bulle de rayon du Congé** : présente à la création, absente à la réédition.
 - **Flèche de profondeur** : seulement pour l'Extrusion et l'Enlèvement. Ni Révolution, ni Perçage, ni Hélice, ni Surface extrudée.
 - **Entrées du menu de la vue** : entrées dédiées pour l'Extrusion, l'Enlèvement et la Révolution seulement (écart d'accès, pas de réédition).
@@ -239,7 +240,7 @@ Où ça se décide : `engine/ops/volumes.py`, `habillage.py`, `references.py`, `
 
 ### 10. La couverture du selftest
 
-Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, décalée, radiée, Épaissir, et les opérations Diviser, Annuler l'ajustement, Courbe d'intersection, Projeter, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
+Aucune étape de réédition dans `engine/selftest/` pour : Enlèvement extrudé, Enlèvement de révolution, Hélice (volume), Combiner, Plan, Axe, Point, Repère, Répétition circulaire (fonctions et corps), Symétrie, Surface de révolution, radiée, et les opérations Diviser, Annuler l'ajustement, Courbe d'intersection, Projeter, Courbe composite, Remplacer et Supprimer la face. Les clés de quatre surfaces ne sont vérifiées que par un test unitaire (`tests/test_param_keys.py`). Ce qui n'a pas de réédition n'a pas de test de bout en bout ; que l'arbre et `get_params` disent la même chose est vérifié par l'étape p87, et le choix de l'éditeur par `tests/js/editkind.test.mjs`.
 
 Aucun selftest ne vise la barre de retour ni Masquer sur les surfaces et courbes (la barre n'est testée que sur une surface générique, Masquer que sur des corps). Désactiver n'est pas testé fonction par fonction.
 
