@@ -67,28 +67,28 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 |---|---|---|---|---|---|---|
 | Surface extrudée | non | longueur ; plan de l'esquisse (« Changer de plan… ») | sens | à vérifier | oui (drapeau) | oui |
 | Surface de révolution | non | angle ; plan de l'esquisse (« Changer de plan… ») | axe, sens | à vérifier | oui (drapeau) | non |
-| Surface lissée | non | rien | tout : profils et ordre | — | oui (drapeau) | non |
+| Surface lissée | non | le panneau de la création, au rang : profils, dans l'ordre (un clic dans l'arbre en retire un ou l'ajoute au bout) | — | oui | oui (drapeau) | oui (profils, refus d'un seul ou d'un doublon) |
 | Surface cousue | non | rien (forme figée) | tout : liste des surfaces | — | oui (drapeau) | non |
 | Épaissir | non | le panneau de la création, au rang : surface (clic dans l'arbre), épaisseur (signée) | — | oui | oui (drapeau) | oui (surface, épaisseur) |
 | Couper avec une surface | oui | le panneau de la création, au rang : surface outil (clic dans l'arbre), inverser le côté, tout un côté ou une bande épaisse, épaisseur | — | oui | oui | oui (surface outil, bande, retour à tout un côté, refus) |
 | Surface plane | non | le panneau de la création, au rang : esquisse du contour | — | oui | oui (drapeau) | oui (esquisse, refus d'une esquisse d'après) |
-| Surface balayée | non | rien | profil, trajectoire | — | oui (drapeau) | non |
+| Surface balayée | non | le panneau de la création, au rang : profil, trajectoire (esquisse ou courbe 3D) | — | oui | oui (drapeau) | oui (trajectoire, refus du profil comme trajectoire) |
 | Surface décalée | non | le panneau de la création, au rang : surface (clic dans l'arbre), distance et « inverser le côté » | — | oui | oui (drapeau) | oui (surface, refus d'elle-même et d'une surface d'après) |
-| Surface de remplissage | non | rien | contour, case « tangent » | — | oui (drapeau) | non |
-| Surface frontière | non | rien | 2 à 4 courbes | — | oui (drapeau) | non |
+| Surface de remplissage | non | le panneau de la création, au rang : contour (un bouchon tangent se refait sur les faces que bordent les nouvelles arêtes) | case « tangent » | oui | oui (drapeau) | oui (contour, arête fermée, bouchon tangent) |
+| Surface frontière | non | le panneau de la création, au rang : 2 à 4 courbes | — | oui | oui (drapeau) | oui (courbes) |
 | Surface radiée | non | le panneau de la création, au rang : contour plan, distance et « vers l'intérieur » (pilotée par une équation : la distance signée, dans le panneau des cotes) | — | oui | oui (drapeau) | oui (contour, refus d'une forme d'après) |
 | Surface médiane | non, voulu | rien (forme figée) | tout : les deux faces ou toutes les parois, épaisseur | — | oui (drapeau) | non |
-| Surface réglée | non | rien | les deux courbes | — | oui (drapeau) | non |
+| Surface réglée | non | le panneau de la création, au rang : les deux courbes | — | oui | oui (drapeau) | oui (courbes, refus de trois) |
 
 ## Opérations sur surfaces et courbes
 
 | Fonction | Aperçu à la création | Réédition : ce qui revient | Ne revient pas | Aperçu à la réédition | Barre de retour | Selftest de réédition |
 |---|---|---|---|---|---|---|
-| Diviser | non | rien | surface, courbe outil | — | oui (drapeau) | non |
+| Diviser | non | le panneau de la création, au rang : surface, courbe outil | — | oui | oui (drapeau) | oui (courbe, refus d'une courbe qui ne scinde pas) |
 | Remplacer la face (solide) | oui | rien | face, surface de remplacement | — | oui (Tip du corps) | non |
 | Supprimer la face (solide) | oui | rien | liste de faces | — | oui (Tip du corps) | non |
-| Supprimer la face (surface) | oui | rien | surface, faces | — | oui (drapeau) | non |
-| Annuler l'ajustement | non | rien | surface, face | — | oui (drapeau) | non |
+| Supprimer la face (surface) | oui | le panneau de la création, au rang : faces d'une même surface (une autre surface la change) | — | oui | oui (drapeau) | oui (faces, refus de toutes) |
+| Annuler l'ajustement | non | le panneau de la création, au rang : face de surface (une autre surface aussi) | — | oui | oui (drapeau) | oui (autre surface, refus d'une face inconnue) |
 | Congé de surfaces | non | le panneau de la création, au rang : arêtes (d'une même surface, qui peut changer), rayon (un pour toutes, comme à la création) | — | oui | oui (drapeau) | oui (rayon, arêtes, autre surface) |
 | Aplatir | non | le panneau de la création, au rang : face de surface (un clic sur une autre la remplace, sur une autre surface aussi) ; la déformation mesurée | — | oui | oui (drapeau) | oui (surface, face) |
 | Forme libre | non | le panneau de la création, au rang : surface (clic dans l'arbre ; les points poussés s'y reprojettent), points poussés, hauteurs, rayon, bords fixes | — | oui | oui (drapeau) | oui (surface, rayon) |
@@ -98,7 +98,7 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Courbe d'intersection | non | le panneau de la création, au rang : les deux surfaces, ou une surface et le solide (« avec le solide ») | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (seconde surface, solide, refus) |
 | Projeter une courbe | non | le panneau de la création, au rang : esquisse, face cible (la direction suit la normale de l'esquisse) | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (esquisse, surface, refus) |
 | Hélice 3D | non | pas, hauteur, rayon, angle | axe, sens | non | oui (drapeau) | oui (pas) |
-| Courbe composite | non | rien | liste des courbes ou arêtes | — | oui (drapeau) | non |
+| Courbe composite | non | le panneau de la création, au rang : courbes et arêtes, bout à bout | — | non (une courbe n'a pas de fantôme) | oui (drapeau) | oui (arêtes, refus d'arêtes qui ne se suivent pas) |
 | Spline 3D | surcouche dans la vue | complète : points, type, fermée, liens, tangentes | rien | non | oui (drapeau) | oui |
 | Esquisse 3D | à vérifier | complète | rien | non | oui (drapeau) | oui |
 
@@ -140,9 +140,10 @@ Où ça se décide :
 Un choix de création est définitif : il faut supprimer et refaire.
 
 - **Références** : Axe, Point, Repère, Plan de référence.
-- **Surfaces** : lissée, balayée, frontière, réglée, remplissage sans tangence.
-- **Surfaces figées sans réédition** : cousue, médiane, remplissage tangent. Le moteur les recalcule déjà avec leurs sources (il garde ce qu'il faut sur chaque forme) : un panneau de réédition est possible, comme pour la Forme libre.
-- **Opérations** : Diviser, Annuler l'ajustement, Courbe composite, Supprimer la face (surface), Remplacer et Supprimer la face du solide.
+- **Surfaces figées sans réédition** : cousue, médiane. Le moteur les recalcule déjà avec leurs sources (il garde ce qu'il faut sur chaque forme) : un panneau de réédition est possible, comme pour la Forme libre.
+- **Opérations** : Remplacer et Supprimer la face du solide.
+
+Corrigé pour les surfaces lissée, balayée, frontière, réglée, de remplissage (le bouchon tangent compris), Diviser, Annuler l'ajustement, Supprimer la face d'une surface et la Courbe composite : leur double-clic rouvre le panneau de la création (thème 4).
 
 Une même fonction change de comportement selon un choix : le Remplissage est paramétrique sans tangence, figé avec. Le choix « tangent » change la rééditabilité sans le dire.
 
@@ -154,7 +155,7 @@ Contre-exemple à suivre : Supprimer des corps vient d'être rendu rééditable 
 
 Arêtes, faces, profils, corps, directions, outils : presque aucun ne se re-choisissait.
 
-Fait : chaque fonction qui se réédite re-choisit maintenant ce qu'elle a pris à la création, dans le panneau de sa création, sur la pièce à son rang. Ce qui ne revient toujours pas tient aux fonctions sans aucune réédition (références, surfaces lissée, balayée, cousue…, Diviser, Supprimer ou Remplacer la face : thème 3), qui re-choisiront leurs sélections avec leur panneau, ou à des options (thème 5). Le détail, fonction par fonction :
+Fait : chaque fonction qui se réédite re-choisit maintenant ce qu'elle a pris à la création, dans le panneau de sa création, sur la pièce à son rang. Ce qui ne revient toujours pas tient aux fonctions encore sans aucune réédition (références, surfaces cousue et médiane, Supprimer ou Remplacer la face du solide : thème 3), qui re-choisiront leurs sélections avec leur panneau, ou à des options (thème 5). Le détail, fonction par fonction :
 
 Corrigé pour le Congé, le Chanfrein, la Coque et la Dépouille. Leur double-clic rouvre le panneau de la création, sa zone remplie de leurs arêtes ou de leurs faces. Comme dans les modeleurs courants, la pièce se montre à leur rang, comme pour Supprimer des corps (`rank_view`) : les arêtes qu'ils ont arrondies y existent encore, se surlignent, et Ctrl+clic en ajoute ou en retire. L'aperçu les montre rééditées sans quitter ce rang. `set_params` prend `edges` ou `face` (congé, chanfrein), `faces` (coque), `face` et `neutral` (dépouille, dont le plan neutre se repose sur la nouvelle face) ; une fonction plus bas qui perdrait une arête qu'elle utilise fait refuser la réédition, en la nommant. Toutes les faces d'une zone se surlignent, pas seulement la dernière cliquée (à la création aussi).
 Corrigé aussi pour le Perçage posé par des clics sur une face. Sa zone « Positions » revient remplie de ses centres, sur la pièce à son rang : un clic pose un centre, un clic dans un trou le retire, un clic sur une autre face fait repartir la zone de cette face (à la création aussi). `set_params` prend `positions` (`{face, points}`) : l'esquisse du perçage se repose sur la face et n'y garde qu'un cercle par centre. Un perçage posé sur une esquisse dessinée à part garde la réédition de son esquisse.
@@ -186,6 +187,8 @@ Extrusion et Enlèvement : la face d'arrivée se re-choisit, et une autre condit
 Lissage et Balayage : le panneau de la création, au rang. Les profils d'un lissage reviennent dans leur zone, dans l'ordre : un clic dans l'arbre retire une esquisse de la zone ou l'ajoute au bout, ce qui change aussi l'ordre. Le profil et la trajectoire d'un balayage reviennent dans les leurs ; la trajectoire peut être une esquisse ou une courbe 3D. Comme à la création, une esquisse d'un autre corps entre par un liant caché ; celui d'un profil retiré part. Le lissage droit et la boucle fermée reviennent aussi ; le genre (ajout ou enlèvement) reste. Une esquisse qui vient après la fonction est refusée, comme un profil pris deux fois ou un profil égal à la trajectoire. `set_params` prend `profiles` (dans l'ordre), `ruled`, `closed`, ou `profile` et `spine`, avec les corps concernés et « Fusionner », tout ou rien. Selftest p129.
 
 Aplatir : le panneau de la création, au rang, avec la déformation mesurée. La zone « Face » revient remplie de la surface et de sa face ; un clic sur une autre face la remplace, sur une autre surface aussi. Une surface qui vient après le patron est refusée. `set_params` prend `surface` et `face`. Selftest p130.
+
+Surfaces lissée, balayée, réglée, frontière, de remplissage, Diviser, Annuler l'ajustement, Supprimer la face d'une surface, Courbe composite : elles n'avaient aucune réédition (thème 3). Leur double-clic rouvre maintenant le panneau de la création, au rang, avec l'aperçu, ses zones remplies de ce qu'elles prennent : les profils d'une lissée dans l'ordre, le profil et la trajectoire d'une balayée, les courbes ou le contour, arête par arête (une esquisse prise entière revient en ses arêtes), la surface et la courbe d'une division, la face d'un désajustement, les faces supprimées. Une forme qui vient après, ou qui en dépend, est refusée en la nommant ; les refus de la création valent aussi (deux courbes pour une réglée, deux à quatre pour une frontière, une courbe qui ne scinde pas la surface, des arêtes qui ne se suivent pas, toutes les faces supprimées). Le remplissage garde sa tangence : une arête fermée y prend ses moitiés auxiliaires, défaites quand elle part ; un bouchon tangent se refait sur les faces que bordent les nouvelles arêtes. `set_params` prend `profiles`, `profile` et `spine`, `boundary`, `source` et `tool`, `source` et `face`, `source` et `faces`. Selftest p132.
 
 Répétition variable : son graphe se réédite dans l'éditeur de graphe, dont le bouton « Fonctions » ferme l'éditeur (la question vient d'abord si le graphe n'a pas été appliqué) et rouvre la zone de la création, au rang, remplie des fonctions répétées. Un clic dans l'arbre en retire une ou l'ajoute au bout : l'ordre compte, le groupe se rejoue dans l'ordre de la zone. Le graphe ou les instances enregistrés restent ; des cotes d'instance qui visent une fonction retirée font refuser la réédition, comme une fonction qui vient après la répétition (elle en dépend). `set_params` prend `features`. Selftest p131.
 

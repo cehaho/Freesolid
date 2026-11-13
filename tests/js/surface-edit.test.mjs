@@ -5,7 +5,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  flattenEditValues, freeformEditValues, radiateBoundaryPick, radiateBoundaryValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
+  flattenEditValues, freeformEditValues, contourPick, contourValues,
+  deletedFacesPick, deletedFacesValues, shapePick, splitEditValues,
+  surfaceFacePick, untrimEditValues, trimEditValues, trimKeepPick, cutOptionValues, intersectionEditValues, projectEditValues,
   projectTargetPick, extendPick, extendTargetValues, filletEdgesPick, filletEdgesValues,
   planarEditValues, ownSketchPick, signedEditValues, sourceEditValues,
   surfacePick,
@@ -234,21 +236,21 @@ describe("surface radiée rééditée", () => {
                  boundary: [{ body: true, edge: 3 }, { name: "Surface", edge: 1 }] };
 
   it("revient avec son contour, arête par arête", () => {
-    const items = radiateBoundaryPick(tree, spec).items;
+    const items = contourPick(tree, spec).items;
     assert.deepEqual(items.map((i) => [i.name, i.edge, !!i.body]),
                      [["body", 3, true], ["Surface", 1, false]]);
     assert.equal(items[1].label, "Plane");
   });
 
   it("n'envoie le contour que s'il change", () => {
-    const zone = radiateBoundaryPick(tree, spec);
-    assert.deepEqual(radiateBoundaryValues(zone, spec), {});
-    assert.deepEqual(radiateBoundaryValues({ items: zone.items.slice(1) }, spec),
+    const zone = contourPick(tree, spec);
+    assert.deepEqual(contourValues(zone, spec), {});
+    assert.deepEqual(contourValues({ items: zone.items.slice(1) }, spec),
                      { boundary: [{ name: "Surface", edge: 1 }] });
-    assert.deepEqual(radiateBoundaryValues(
+    assert.deepEqual(contourValues(
       { items: [{ kind: "sketch", name: "Sketch" }] }, spec),
     { boundary: [{ name: "Sketch" }] });
-    assert.equal(radiateBoundaryValues({ items: [] }, spec), null);
+    assert.equal(contourValues({ items: [] }, spec), null);
   });
 });
 
@@ -299,5 +301,61 @@ describe("patron à plat réédité", () => {
     assert.deepEqual(flattenEditValues(face("Surface001", 0), spec),
                      { surface: "Surface001", face: 0 });
     assert.equal(flattenEditValues(null, spec), null);
+  });
+});
+
+describe("surfaces à liens rééditées", () => {
+  const tree = { surfaces: [{ name: "Plate", label: "Plaque" },
+                            { name: "Curve", label: "Courbe" }],
+                 features: [{ name: "Pad", label: "Extrusion", children: [
+                   { name: "Sketch", label: "Esquisse" }] }] };
+
+  it("la courbe d'une division est une surface ou une esquisse", () => {
+    assert.deepEqual(shapePick(tree, "Curve"),
+                     { kind: "surface", name: "Curve", label: "Courbe" });
+    assert.deepEqual(shapePick(tree, "Sketch"),
+                     { kind: "sketch", name: "Sketch", label: "Esquisse" });
+    assert.equal(shapePick(tree, null), null);
+  });
+
+  it("une division n'envoie que ce qui change", () => {
+    const spec = { source: "Plate", tool: "Sketch" };
+    const v = (surface, tool) => ({ surface: { name: surface },
+                                    tool: { name: tool } });
+    assert.deepEqual(splitEditValues(v("Plate", "Sketch"), spec), {});
+    assert.deepEqual(splitEditValues(v("Plate", "Curve"), spec),
+                     { tool: "Curve" });
+    assert.deepEqual(splitEditValues(v("Curve", "Sketch"), spec),
+                     { source: "Curve" });
+    assert.equal(splitEditValues(v("Plate", "Plate"), spec), null);
+    assert.equal(splitEditValues({ surface: { name: "Plate" } }, spec), null);
+  });
+
+  it("un désajustement re-choisit sa face, une autre surface la sienne", () => {
+    const spec = { source: "Plate", face: 1 };
+    assert.deepEqual(surfaceFacePick(tree, "Plate", 1),
+      { kind: "surfface", name: "Plate", label: "Plaque", face: 1 });
+    assert.deepEqual(untrimEditValues({ name: "Plate", face: 1 }, spec), {});
+    assert.deepEqual(untrimEditValues({ name: "Plate", face: 0 }, spec),
+                     { face: 0 });
+    assert.deepEqual(untrimEditValues({ name: "Curve", face: 1 }, spec),
+                     { source: "Curve", face: 1 });
+    assert.equal(untrimEditValues(null, spec), null);
+  });
+
+  it("les faces supprimées reviennent, toutes d'une même surface", () => {
+    const spec = { source: "Plate", faces: [2, 0] };
+    const zone = deletedFacesPick(tree, spec);
+    assert.deepEqual(zone.items.map((i) => [i.kind, i.name, i.face]),
+                     [["surfface", "Plate", 2], ["surfface", "Plate", 0]]);
+    assert.deepEqual(deletedFacesValues(zone, spec), {});
+    const pick = (name, face) => ({ kind: "surfface", name, face });
+    assert.deepEqual(deletedFacesValues({ items: [pick("Plate", 1)] }, spec),
+                     { faces: [1] });
+    assert.deepEqual(deletedFacesValues({ items: [pick("Curve", 3)] }, spec),
+                     { source: "Curve", faces: [3] });
+    assert.equal(deletedFacesValues({ items: [pick("Plate", 1),
+                                              pick("Curve", 3)] }, spec), null);
+    assert.equal(deletedFacesValues({ items: [] }, spec), null);
   });
 });

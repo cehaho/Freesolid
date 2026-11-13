@@ -36,7 +36,9 @@ import {
   filletEdgesValues, flattenEditValues, freeformEditValues,
   intersectionEditValues,
   ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
-  radiateBoundaryPick, radiateBoundaryValues, signedEditValues,
+  contourPick, contourValues, signedEditValues,
+  deletedFacesPick, deletedFacesValues, shapePick, splitEditValues,
+  surfaceFacePick, untrimEditValues,
   sourceEditValues, surfacePick, trimEditValues, trimKeepPick,
   repeatFeaturesRow, repeatFeaturesValues,
 } from "./features.js";
@@ -1746,9 +1748,166 @@ export function installTree(ctx) {
     poles: (surface) => ctx.openPoles(surface),
     flatten: (surface) => editFlatten(surface),
     freeform: (surface) => editFreeform(surface),
+    surface_loft: (surface) => editSurfaceLoft(surface),
+    surface_sweep: (surface) => editSurfaceSweep(surface),
+    contour: (surface) => editContour(surface),
+    split: (surface) => editSplit(surface),
+    untrim: (surface) => editUntrim(surface),
+    surface_delete_face: (surface) => editDeletedFaces(surface),
     params: (surface) => editParams({ name: surface.name,
       label: surface.label, type_key: surface.type_key }),
   };
+
+  // Surface lissée : ses profils, dans l'ordre, sur la pièce à son rang.
+  function editSurfaceLoft(surface) {
+    const spec = surface.surface;
+    const problem = "Surface lissée : au moins deux profils";
+    return editAtRank(surface, {
+      icon: "surface_loft",
+      zone: {
+        label: "Profils",
+        row: { type: "selection", key: "profiles", accepts: ["sketch"],
+               multiple: true,
+               hint: "Cliquez les esquisses dans l'arbre, dans l'ordre",
+               value: loftProfilesPick(spec) },
+        changed: (v) => loftProfilesValues(v.profiles, spec),
+        missing: problem,
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
+  // Surface balayée : son profil et sa trajectoire, au rang.
+  function editSurfaceSweep(surface) {
+    const spec = surface.surface;
+    const problem = "Surface balayée : un profil puis une trajectoire "
+      + "(différents)";
+    return editAtRank(surface, {
+      icon: "surface_sweep",
+      zone: {
+        label: "Profil",
+        row: { type: "selection", key: "profile", accepts: ["sketch"],
+               hint: "Cliquez l'esquisse du profil — ouvert ou fermé",
+               value: sweptPick(spec.profile) },
+        changed: (v) => sweepEditValues(v, spec),
+        missing: problem,
+      },
+      groups: [{ label: "Trajectoire", rows: [
+        { type: "selection", key: "spine", accepts: ["sketch", "surface"],
+          hint: "Puis la trajectoire : une esquisse ou une spline 3D",
+          value: sweptPick(spec.spine) }] }],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
+  // Le contour des surfaces réglée, frontière et de remplissage, et les
+  // arêtes d'une courbe composite : la zone de leur création.
+  const CONTOURS = {
+    ruled: { icon: "surface_ruled", label: "Courbes",
+      hint: "Cliquez les deux courbes à relier",
+      problem: "Surface réglée : exactement deux courbes" },
+    boundary: { icon: "surface_boundary", label: "Courbes",
+      hint: "Cliquez deux à quatre courbes : bout à bout pour un "
+        + "contour, ou deux courbes opposées",
+      problem: "Surface frontière : deux à quatre courbes" },
+    fill: { icon: "surface_fill", label: "Contour",
+      hint: "Cliquez les arêtes d'un contour fermé : bords de "
+        + "surface, courbes 3D, arêtes du solide ou esquisse",
+      problem: "Remplissage : sélectionnez un contour fermé" },
+    composite: { icon: "curve_composite", label: "Courbes et arêtes",
+      hint: "Cliquez les courbes et arêtes, bout à bout",
+      problem: "Composite : cliquez des courbes bout à bout" },
+  };
+
+  function editContour(surface) {
+    const spec = surface.surface;
+    const kind = CONTOURS[spec.kind];
+    return editAtRank(surface, {
+      icon: kind.icon,
+      zone: {
+        label: kind.label,
+        row: { type: "selection", key: "boundary",
+               accepts: ["boundary", "sketch", "surface"], multiple: true,
+               hint: kind.hint, value: contourPick(ctx.lastTree, spec) },
+        changed: (v) => contourValues(v.boundary, spec),
+        missing: kind.problem,
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => kind.problem,
+    });
+  }
+
+  // Ligne de séparation : sa surface et sa courbe, au rang.
+  function editSplit(surface) {
+    const spec = surface.surface;
+    const problem = "Scinder : une surface puis une courbe posée dessus";
+    return editAtRank(surface, {
+      icon: "surface_split",
+      zone: {
+        label: "Surface à scinder",
+        row: { type: "selection", key: "surface", accepts: ["surface"],
+               hint: "Cliquez la surface",
+               value: surfacePick(ctx.lastTree, spec.source) },
+        changed: (v) => splitEditValues(v, spec),
+        missing: problem,
+      },
+      groups: [{ label: "Courbe", rows: [
+        { type: "selection", key: "tool",
+          accepts: ["boundary", "surface", "sketch"],
+          hint: "Puis la courbe posée dessus (projetée, d'intersection, "
+            + "spline 3D)",
+          value: shapePick(ctx.lastTree, spec.tool) }] }],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
+
+  // Surface désajustée : sa surface et sa face, au rang.
+  function editUntrim(surface) {
+    const spec = surface.surface;
+    return editAtRank(surface, {
+      icon: "surface_untrim",
+      zone: {
+        label: "Face",
+        row: { type: "selection", key: "target",
+               accepts: ["surfface", "surface"],
+               hint: "Cliquez la face à rendre entière",
+               value: surfaceFacePick(ctx.lastTree, spec.source, spec.face) },
+        changed: (v) => untrimEditValues(v.target, spec),
+        missing: "Désajuster : cliquez une face de surface",
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => "Désajuster : cliquez une face de surface",
+    });
+  }
+
+  // Faces supprimées d'une surface : la zone de la création, remplie de
+  // celles qu'elle retire, au rang (les faces d'une même surface).
+  function editDeletedFaces(surface) {
+    const spec = surface.surface;
+    const problem = "Supprimer : des faces du solide, ou d'une même surface";
+    return editAtRank(surface, {
+      icon: "surface_delete_face",
+      zone: {
+        label: "Faces",
+        row: { type: "selection", key: "faces", accepts: ["surfface"],
+               multiple: true,
+               hint: "Cliquez les faces à supprimer : sur le solide, ou "
+                 + "sur une même surface",
+               value: deletedFacesPick(ctx.lastTree, spec) },
+        changed: (v) => deletedFacesValues(v.faces, spec),
+        missing: problem,
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => problem,
+    });
+  }
 
   async function editSurface(surface) {
     const editor = surfaceEditor(surface);
@@ -2102,8 +2261,8 @@ export function installTree(ctx) {
                accepts: ["boundary", "sketch", "surface"], multiple: true,
                hint: "Cliquez les arêtes d'un contour plan : solide, "
                  + "surface ou esquisse",
-               value: radiateBoundaryPick(ctx.lastTree, spec) },
-        changed: (v) => radiateBoundaryValues(v.boundary, spec),
+               value: contourPick(ctx.lastTree, spec) },
+        changed: (v) => contourValues(v.boundary, spec),
         missing: "Radiée : un contour plan et une distance",
       },
       groups: [{ label: "Paramètres", rows: [

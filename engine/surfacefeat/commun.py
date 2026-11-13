@@ -209,7 +209,12 @@ class SurfaceCommonMixin:
         """Paramètres rééditables des surfaces FreeSolid à panneau dédié."""
         if obj.TypeId == "Surface::Extend" and getattr(
                 obj, "FreeSolidUntrim", 0):
-            return {"kind": "untrim"}
+            face = getattr(obj, "Face", None)
+            subs = face[1] if face else ()
+            # Ce que la réédition re-choisit : la surface et sa face.
+            return {"kind": "untrim",
+                    "source": face[0].Name if face else None,
+                    "face": int(subs[0][4:]) - 1 if subs else 0}
         if obj.TypeId == "Part::Fillet":
             edges = list(getattr(obj, "Edges", ()) or ())
             base = getattr(obj, "Base", None)
@@ -226,8 +231,22 @@ class SurfaceCommonMixin:
                     "distance": float(getattr(obj, "FreeSolidDistance", 0)),
                     "edge": (int(getattr(obj, "FreeSolidEdge", 0)) - 1
                              if getattr(obj, "FreeSolidEdge", 0) else None)}
-        if getattr(obj, "FreeSolidKind", "") in ("deleteface", "split"):
-            return {"kind": obj.FreeSolidKind}
+        if getattr(obj, "FreeSolidKind", "") == "split":
+            base = getattr(obj, "Base", None)
+            tools = list(getattr(obj, "Tools", None) or ())
+            return {"kind": "split",
+                    "source": base.Name if base is not None else None,
+                    "tool": tools[0].Name if tools else None}
+        if getattr(obj, "FreeSolidKind", "") == "deleteface":
+            support = list(getattr(obj, "Support", None) or ())
+            src, subs = support[0] if support else (None, ())
+            kept = {int(sub[4:]) - 1 for sub in subs or ()
+                    if str(sub).startswith("Face")}
+            count = len(src.Shape.Faces) if src is not None else 0
+            # Les faces supprimées (base 0) : le lieur garde les autres.
+            return {"kind": "deleteface",
+                    "source": src.Name if src is not None else None,
+                    "faces": [i for i in range(count) if i not in kept]}
         if getattr(obj, "FreeSolidKind", "") == "trim":
             base = getattr(obj, "Base", None)
             point = self._trim_point(obj)
@@ -239,7 +258,13 @@ class SurfaceCommonMixin:
                     "point": ([round(v, 6) for v in point]
                               if point is not None else None)}
         if getattr(obj, "FreeSolidCapedges", ""):
-            return {"kind": "fill", "cap": True}
+            doc = self._require_doc()
+            links = []
+            for item in str(obj.FreeSolidCapedges).split(";"):
+                name, edge, _ = (item.split(":") + ["", ""])[:3]
+                links.append((doc.getObject(name), edge))
+            return {"kind": "fill", "cap": True,
+                    "boundary": self._link_items(links)}
         if getattr(obj, "FreeSolidFreemoves", ""):
             src = self._require_doc().getObject(
                 str(getattr(obj, "FreeSolidFreesource", "")))
@@ -303,23 +328,76 @@ class SurfaceCommonMixin:
             # Surface radiée : sa distance signée et son contour, arête par
             # arête (base 0 ; ``body`` : une arête du solide).
             value = getattr(obj, "Value", 0.0)
-            boundary = []
-            for linked, subs in binder.Support or ():
-                solid = linked.TypeId == "PartDesign::Body"
-                for sub in subs:
-                    if not sub.startswith("Edge"):
-                        continue
-                    edge = int(sub[4:]) - 1
-                    boundary.append({"body": True, "edge": edge} if solid
-                                    else {"name": linked.Name,
-                                          "edge": edge})
             return {"kind": "radiate",
                     "distance": float(getattr(value, "Value", value)),
-                    "boundary": boundary}
+                    "boundary": self._link_items(binder.Support)}
         if obj.TypeId == "Surface::Filling":
-            return {"kind": "fill",
-                    "edges": len(getattr(obj, "BoundaryEdges", ()) or ())}
+            edges = list(getattr(obj, "BoundaryEdges", None) or ())
+            return {"kind": "fill", "edges": len(edges),
+                    "boundary": self._link_items(edges)}
+        # Ce que prennent les surfaces lissée, balayée, réglée, frontière et
+        # la courbe composite : la réédition le re-choisit.
+        # Profils et trajectoire : comme ceux d'un lissage ou d'un balayage
+        # de volume (``swept`` de l'arbre), nom et libellé.
+        if obj.TypeId == "Part::Loft":
+            return {"kind": "loft", "profiles": [
+                self._swept_entry(sk)
+                for sk in getattr(obj, "Sections", None) or ()]}
+        if obj.TypeId == "Part::Sweep":
+            sections = list(getattr(obj, "Sections", None) or ())
+            spine = getattr(obj, "Spine", None)
+            return {"kind": "sweep",
+                    "profile": (self._swept_entry(sections[0])
+                                if sections else None),
+                    "spine": self._swept_entry(spine[0]) if spine else None}
+        if obj.TypeId == "Part::RuledSurface":
+            return {"kind": "ruled", "boundary": self._link_items(
+                [getattr(obj, "Curve1", None), getattr(obj, "Curve2", None)])}
+        if obj.TypeId == "Surface::GeomFillSurface":
+            return {"kind": "boundary", "boundary": self._link_items(
+                getattr(obj, "BoundaryList", None))}
+        if getattr(obj, "FreeSolidComposite", False):
+            return {"kind": "composite", "boundary": self._link_items(
+                getattr(obj, "Support", None))}
         return None
+
+    @staticmethod
+    def _swept_entry(obj):
+        """Un profil ou une trajectoire : son nom, son libellé ; ``curve``
+        pour une courbe 3D (pas une esquisse)."""
+        entry = {"name": obj.Name, "label": obj.Label}
+        if obj.TypeId != "Sketcher::SketchObject":
+            entry["curve"] = True
+        return entry
+
+    def _link_items(self, links):
+        """Les arêtes d'une liste de liens ``(objet, sous-éléments)``, comme
+        la zone d'un contour les montre : ``{name, edge}`` (base 0), ou
+        ``{body: True, edge}`` pour une arête du solide. Une moitié d'arête
+        fermée (l'objet auxiliaire d'un remplissage) revient à son arête."""
+        doc = self._require_doc()
+        items = []
+        for link in links or ():
+            if not link or link[0] is None:
+                continue
+            linked, subs = link[0], link[1] if len(link) > 1 else ()
+            if isinstance(subs, str):
+                subs = [subs]
+            source = getattr(linked, "FreeSolidHalvessource", "")
+            for sub in subs or ():
+                owner = linked
+                if source:
+                    owner = doc.getObject(source)
+                    sub = linked.FreeSolidHalvesedge
+                if owner is None or not str(sub).startswith("Edge"):
+                    continue
+                edge = int(sub[4:]) - 1
+                item = ({"body": True, "edge": edge}
+                        if owner.TypeId == "PartDesign::Body"
+                        else {"name": owner.Name, "edge": edge})
+                if item not in items:
+                    items.append(item)
+        return items
 
     @staticmethod
     def _radiate_binder(obj):
