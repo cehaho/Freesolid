@@ -41,7 +41,7 @@ import {
   surfaceFacePick, untrimEditValues, midEditValues, replaceFaceValues,
   sewEditValues,
   sourceEditValues, surfacePick, trimEditValues, trimKeepPick,
-  repeatFeaturesRow, repeatFeaturesValues,
+  repeatFeaturesRow, repeatFeaturesValues, repeatModeRow, repeatModeValues,
 } from "./features.js";
 import { isGraphFeature, isRepeatFeature } from "./graph.js";
 import {
@@ -3043,8 +3043,9 @@ export function installTree(ctx) {
         changed: (v) => repeatFeaturesValues(v.features, repeat),
         missing: "Cliquez les fonctions dans l'arbre",
       },
-      groups: [],
-      values: () => ({}),
+      groups: [{ label: "Opération",
+                 rows: [repeatModeRow(repeat.mode ?? "fuse")] }],
+      values: (v) => repeatModeValues(v, repeat),
       problem: () => "Cliquez les fonctions dans l'arbre",
     });
   }

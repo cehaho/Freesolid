@@ -102,7 +102,7 @@ export {
   patternSourcesValues,
 } from "./features/repetitions.js";
 export {
-  repeatFeaturesRow, repeatFeaturesValues,
+  repeatFeaturesRow, repeatFeaturesValues, repeatModeRow, repeatModeValues,
 } from "./features/noeuds.js";
 export {
   REMOVE_BODIES_NOTE, removalCandidates, removalItem, removalMatch,

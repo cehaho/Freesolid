@@ -92,12 +92,19 @@ class EquationsMixin:
             # Un lissage ou un balayage : ses profils, sa trajectoire ; les
             # corps concernés et « Fusionner » suivent.
             return self._set_swept_params(obj, dict(values))
-        if ("FreeSolidRepeatJson" in obj.PropertiesList
-                and set(values) == {"features"}):
-            # Une répétition variable : ses fonctions répétées (son graphe
-            # se réédite dans l'éditeur de graphe).
+        if ("FreeSolidRepeatJson" in obj.PropertiesList and values
+                and set(values) <= {"features", "mode"}):
+            # Une répétition variable : ses fonctions répétées et son mode
+            # (son graphe se réédite dans l'éditeur de graphe).
             return self.edit_repeat_feature(obj.Name,
-                                            features=values["features"])
+                                            features=values.get("features"),
+                                            mode=values.get("mode"))
+        if ("FreeSolidGraphJson" in obj.PropertiesList
+                and set(values) == {"mode"}):
+            # Une fonction graphe : ajout ou enlèvement, son graphe gardé.
+            stored = self.get_graph_feature(obj.Name)
+            return self.edit_graph_feature(obj.Name, stored["graph"],
+                                           mode=values["mode"])
         if obj.TypeId == "Part::Helix":
             # Une hélice 3D : la garde de la création (FreeCAD ramène un
             # rayon négatif à 0 sans le dire), puis son axe d'origine et son

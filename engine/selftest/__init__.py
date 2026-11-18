@@ -262,6 +262,7 @@ def _etapes():
         fonctions.p143_reeditions_sans_etape,
         surfaces.p144_helice_3d_reeditee,
         fonctions.p145_texte_relief_ou_gravure,
+        noeuds.p146_ajout_ou_enlevement_se_change,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

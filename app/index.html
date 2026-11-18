@@ -843,6 +843,13 @@
     border: 1px solid var(--line); border-radius: var(--radius-m);
     padding: 6px 10px; cursor: pointer;
   }
+  #graph-fn-bar select {
+    pointer-events: auto;
+    background: var(--panel-2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius-m);
+    padding: 5px 8px;
+  }
+  #graph-fn-bar select[hidden] { display: none; }
   #graph-fn-bar button:hover { border-color: var(--accent); color: var(--accent); }
   #graph-fn-apply { color: var(--success); }
   #graph-fn-hint {
@@ -1913,7 +1920,11 @@
         <button type="button" id="graph-fn-apply" title="Évaluer le graphe et remplacer la forme">Appliquer</button>
         <button type="button" id="graph-fn-close" title="Fermer l'éditeur">Fermer</button>
         <button type="button" id="graph-fn-palette" title="Ajouter un nœud">Nœuds</button>
-        <button type="button" id="graph-fn-features" title="Re-choisir les fonctions répétées" hidden>Fonctions</button>
+        <button type="button" id="graph-fn-features" title="Re-choisir les fonctions répétées et le mode" hidden>Fonctions</button>
+        <select id="graph-fn-mode" title="Ajouter ou soustraire le solide produit" hidden>
+          <option value="fuse">Ajouter</option>
+          <option value="cut">Soustraire</option>
+        </select>
         <p id="graph-fn-hint">La géométrie produite est figée. Changer une variable globale ne recalcule pas la fonction ; rouvrez-la et appliquez. Le résultat est une forme, combinée par un booléen — pas une chaîne de fonctions. Ce qui est calculé dedans n'apparaît pas dans l'arbre.</p>
       </div>
       <svg id="graph-svg" xmlns="http://www.w3.org/2000/svg" aria-label="Vue en graphe">
