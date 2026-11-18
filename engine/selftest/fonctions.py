@@ -7073,3 +7073,162 @@ def p141_desactiver_reseau_et_suppression(self, mark, report, etat):
         and seen["removed"] == (1, False)
         and seen["removal_off"] == (2, True, True, [])
         and seen["removal_on"] == (1, False, []))
+
+
+def p142_rejeu_helice(self, mark, report, etat):
+    mark("p142: l'hélice se rejoue, sur le plan de son esquisse")
+    from engine.kernel import dispatch
+    seen = etat.p142 = {}
+    self.new_part("Répétition d'une hélice")
+    sk = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_circle(sk, 15, 0, 2)
+    self.sketch_finish(sk)
+    tree = self.add_helix(pitch=8, height=40, sketch=sk)
+    helix = next(f["name"] for f in tree["features"]
+                 if f["type"] == "PartDesign::AdditiveHelix")
+    host = self._require_body()
+    alone = host.Shape.Volume
+    before = host.Shape.BoundBox
+    # Une copie décalée de 60 en X, et une autre au pas changé : même
+    # hauteur, même rayon, debout le long de Z comme l'originale.
+    repeated = dispatch(self, "add_repeat_feature", {
+        "features": [helix], "mode": "fuse",
+        "instances": [{"offset": [60, 0, 0]},
+                      {"offset": [0, 60, 0],
+                       "params": {helix: {"Pitch": 10}}}]})
+    after = host.Shape.BoundBox
+    seen["repeat"] = (repeated.get("ok"), repeated.get("error"))
+    seen["volume"] = host.Shape.Volume / alone
+    seen["box"] = (round(after.XMax - before.XMax, 3),
+                   round(after.YMax - before.YMax, 3),
+                   round(after.ZMax - before.ZMax, 3),
+                   round(after.ZMin - before.ZMin, 3))
+    report["p142_rejeu_helice"] = (
+        seen["repeat"][0] is True
+        and 2.5 < seen["volume"] < 3.0
+        and seen["box"] == (60.0, 60.0, 0.0, 0.0)
+        and not self.rebuild_errors()["errors"])
+
+
+def p143_reeditions_sans_etape(self, mark, report, etat):
+    """Une réédition de bout en bout pour les fonctions qui n'en avaient
+    pas dans le selftest (thème 10 de docs/gestes-des-fonctions.md)."""
+    mark("p143: rééditions de l'enlèvement, de la gorge, de l'hélice, "
+         "des répétitions et de la surface de révolution")
+    import math
+    seen = etat.p143 = {}
+
+    def body_volume():
+        return self._require_body().Shape.Volume
+
+    def new_feature(tree, type_id):
+        return [f["name"] for f in tree["features"]
+                if f["type"] == type_id][-1]
+
+    def sketch_rect(x1, y1, x2, y2, plane="XY", face=None):
+        state = (self.sketch_start(face=face) if face is not None
+                 else self.sketch_start(plane=plane))
+        self.sketch_add_rectangle(state["sketch"], x1, y1, x2, y2)
+        self.sketch_finish(state["sketch"])
+        return state["sketch"]
+
+    def errors():
+        return self.rebuild_errors()["errors"]
+
+    # Enlèvement extrudé borgne : la profondeur.
+    self.new_part("Réédition d'un enlèvement")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(20)
+    sk = sketch_rect(-2, -2, 2, 2, face=self._top_face_id())
+    pocket = new_feature(self.add_pocket(length=3, sketch=sk),
+                         "PartDesign::Pocket")
+    self.set_params(pocket, {"length": 5})
+    seen["pocket"] = (round(body_volume(), 6), errors())
+
+    # Gorge : de 360° à 180°, elle ôte la moitié de l'anneau.
+    self.new_part("Réédition d'une gorge")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(20)
+    full = body_volume()
+    ring = sketch_rect(6, 5, 9, 10, plane="XZ")
+    groove = new_feature(self.add_groove(360, sketch=ring),
+                         "PartDesign::Groove")
+    removed = full - body_volume()
+    self.set_params(groove, {"angle": 180})
+    seen["groove"] = (round(removed / (math.pi * (81 - 36) * 5), 6),
+                      round((full - body_volume()) / removed, 6), errors())
+
+    # Hélice : le pas et la hauteur.
+    self.new_part("Réédition d'une hélice")
+    sk = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_circle(sk, 15, 0, 2)
+    self.sketch_finish(sk)
+    helix = new_feature(self.add_helix(pitch=8, height=40, sketch=sk),
+                        "PartDesign::AdditiveHelix")
+    obj = self._doc.getObject(helix)
+    # La boîte d'une hélice déborde (tolérance) : on suit son sommet.
+    top = obj.Shape.BoundBox.ZMax
+    self.set_params(helix, {"pitch": 10, "height": 30})
+    seen["helix"] = (float(obj.Pitch), float(obj.Height),
+                     round(top - obj.Shape.BoundBox.ZMax, 3), errors())
+
+    # Répétition circulaire de fonctions : de 4 à 6 trous.
+    self.new_part("Réédition d'une répétition circulaire")
+    self.add_rect_sketch(60, 60)
+    self.add_pad(6)
+    full = body_volume()
+    state = self.sketch_start(face=self._top_face_id())
+    self.sketch_add_circle(state["sketch"], 20, 0, 4)
+    self.sketch_finish(state["sketch"])
+    self.add_pocket(through=True, sketch=state["sketch"])
+    polar = new_feature(self.add_polar_pattern(count=4),
+                        "PartDesign::PolarPattern")
+    self.set_params(polar, {"count": 6})
+    hole = math.pi * 16 * 6
+    seen["polar"] = (round((full - body_volume()) / hole, 4), errors())
+
+    # Symétrie : le plan change, la copie passe de l'autre côté.
+    self.new_part("Réédition d'une symétrie")
+    sk = sketch_rect(5, 5, 15, 15)
+    self.add_pad(5, sketch=sk)
+    mirror = new_feature(self.add_mirror(plane="YZ"),
+                         "PartDesign::Mirrored")
+    box = self._require_body().Shape.BoundBox
+    before = (round(box.XMin, 6), round(box.YMin, 6))
+    self.set_params(mirror, {"plane": "XZ"})
+    box = self._require_body().Shape.BoundBox
+    seen["mirror"] = (before, (round(box.XMin, 6), round(box.YMin, 6)),
+                      round(body_volume(), 6), errors())
+
+    # Répétition circulaire de corps : de 4 à 3 exemplaires.
+    self.new_part("Réédition d'un réseau de corps circulaire")
+    sk = sketch_rect(10, -2, 14, 2)
+    self.add_pad(4, sketch=sk)
+    source = self._require_body().Name
+    self.add_body_pattern("polar", [source], count=4, angle=360, axis="Z")
+    host = self._body_pattern_hosts()[0].Name
+    first = len(self.get_tree()["bodies"])
+    self.set_params(host, {"count": 3})
+    seen["body_polar"] = (first, len(self.get_tree()["bodies"]), errors())
+
+    # Surface de révolution : de 360° à 180°, l'aire de moitié.
+    self.new_part("Réédition d'une surface de révolution")
+    state = self.sketch_start()
+    self.sketch_add_line(state["sketch"], 20, 0, 20, 30)
+    self.sketch_finish(state["sketch"])
+    tree = self.surface_revolve(360, sketch=state["sketch"])
+    surface = self._doc.getObject(tree["surfaces"][-1]["name"])
+    area = surface.Shape.Area
+    self.set_params(surface.Name, {"angle": 180})
+    seen["surface"] = (round(area / (2 * math.pi * 20 * 30), 6),
+                       round(surface.Shape.Area / area, 6), errors())
+
+    report["p143_reeditions_sans_etape"] = (
+        seen["pocket"] == (round(8000 - 16 * 5, 6), [])
+        and seen["groove"] == (1.0, 0.5, [])
+        and seen["helix"] == (10.0, 30.0, 10.0, [])
+        and seen["polar"] == (6.0, [])
+        and seen["mirror"] == ((-15.0, 5.0), (5.0, -15.0), 1000.0, [])
+        and seen["body_polar"][1] == seen["body_polar"][0] - 1
+        and seen["body_polar"][2] == []
+        and seen["surface"] == (1.0, 0.5, []))

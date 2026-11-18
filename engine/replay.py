@@ -28,7 +28,9 @@ _N009_REPLAYABLE = {
     "PartDesign::Hole": "add_hole",
 }
 
-#: TypeId rejouable seulement si l'on lit des propriétés hors get_params.
+#: TypeId rejouable seulement si l'on lit des propriétés hors get_params —
+#: mesure du spike, figée. Depuis, Pitch et Height sont dans get_params et
+#: l'Hélice se rejoue (``REPLAYABLE_TYPES``).
 REPLAYABLE_WITH_EXTRA = {
     "PartDesign::AdditiveHelix": "add_helix — Pitch/Height absents de get_params",
 }
@@ -36,7 +38,8 @@ REPLAYABLE_WITH_EXTRA = {
 #: Les add_* sans réciproque TypeId + cotes + profil, tels que le spike
 #: N009 les a relevés le 2026-08-21 (sur les 23 add_* d'alors), plus
 #: add_repeat_feature (N010). Figé : il sort dans ``n9_spike_rapport``. Le
-#: catalogue reprend ces raisons (``no_replay``) et donne les suivantes.
+#: catalogue reprend ces raisons (``no_replay``) et donne les suivantes ;
+#: add_helix est devenu rejouable depuis.
 UNREPLAYABLE_OPS = {
     "add_rect_sketch": "l'esquisse se copie, elle ne se reconstitue pas",
     "add_datum_plane": "AttachmentSupport, pas une cote",
@@ -368,6 +371,20 @@ def _support_shape(sketch):
     return None
 
 
+def _origin_role(support):
+    """« XZ_Plane » pour une esquisse posée sur un plan d'origine, sinon
+    None (plan de référence, pas d'appui)."""
+    for obj, _subs in Kernel._iter_link_subs(support):
+        role = str(getattr(obj, "Role", "") or "")
+        if role in Kernel._PLANE_ROLES.values():
+            return role
+    return None
+
+
+def _copied(placement):
+    return placement.copy() if placement is not None else None
+
+
 def _dump_sketch(sketch, body_shape=None):
     on_face = False
     support = getattr(sketch, "AttachmentSupport", None)
@@ -388,6 +405,10 @@ def _dump_sketch(sketch, body_shape=None):
         "constraints": list(sketch.Constraints),
         "placement": sketch.Placement.copy(),
         "on_face": on_face,
+        # Le plan d'origine qui la porte : une esquisse sur XZ ou YZ se
+        # rejoue sur le même plan, pas sur XY.
+        "plane_role": None if on_face else _origin_role(support),
+        "offset": _copied(getattr(sketch, "AttachmentOffset", None)),
     }
     if on_face:
         shape = _support_shape(sketch)
@@ -533,9 +554,11 @@ def _rebuild_sketch(kernel, dump, attach_face=None):
     elif dump.get("on_face"):
         clone.Placement = dump["placement"]
     else:
+        role = dump.get("plane_role") or kernel._PLANE_ROLES["XY"]
         kernel._attach_to_support(
-            clone,
-            [(kernel._origin_feature(kernel._PLANE_ROLES["XY"]), ("",))])
+            clone, [(kernel._origin_feature(role), ("",))])
+        if dump.get("plane_role") and dump.get("offset") is not None:
+            clone.AttachmentOffset = dump["offset"]
     doc.recompute()
     return clone
 

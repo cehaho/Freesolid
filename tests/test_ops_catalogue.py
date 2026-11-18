@@ -47,7 +47,11 @@ def test_chaque_add_se_rejoue_ou_dit_pourquoi():
 def test_raisons_d_accord_avec_le_tableau_fige_du_rejeu():
     """``replay.UNREPLAYABLE_OPS`` reste figé (il sort dans le selftest,
     ``n9_spike_rapport``) ; le catalogue en reprend les raisons mot pour
-    mot et n'en contredit aucune."""
+    mot et n'en contredit aucune — sauf pour une op devenue rejouable
+    depuis le spike (l'Hélice, dont Pitch et Height sont dans get_params)."""
     from engine import replay
     for name, raison in replay.UNREPLAYABLE_OPS.items():
+        if ops.BY_NAME[name].replay is not None:
+            assert name not in ops.NO_REPLAY, name
+            continue
         assert ops.NO_REPLAY.get(name) == raison, name

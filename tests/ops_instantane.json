@@ -431,6 +431,7 @@
   "surface_untrim"
  ],
  "rejouables": [
+  ["PartDesign::AdditiveHelix", "add_helix"],
   ["PartDesign::Chamfer", "add_chamfer"],
   ["PartDesign::Draft", "add_draft"],
   ["PartDesign::Fillet", "add_fillet"],
