@@ -789,6 +789,94 @@ class SolidsMixin:
             binder.OffsetFill = fill
             binder.Offset = offset
 
+    def _set_thin_wall(self, obj, thin):
+        """Réédition du genre de paroi mince d'une extrusion ou d'un
+        enlèvement : l'activer, la retirer (``thin`` None), ou changer son
+        type et ses extrémités fermées. Les liants décalés et la cavité
+        sont refaits depuis l'esquisse ; l'axe de normale, le liant d'une
+        esquisse d'un autre corps et ce qui fond d'autres corps restent.
+        Le dispatch annule la transaction sur refus : tout ou rien."""
+        from engine.kernel import KernelError
+        body = obj.getParentGeoFeatureGroup()
+        doc = self._require_doc()
+        if thin is not None and not isinstance(thin, dict):
+            raise KernelError("paroi mince : objet attendu")
+        if (thin and obj.TypeId == "PartDesign::Pocket"
+                and thin.get("caps")):
+            raise KernelError(
+                "extrémités fermées : réservées à l'extrusion")
+        chain, root = self._thin_chain(obj)
+        if not chain:
+            root, subs = self._profile_of(obj)
+            if thin and subs:
+                raise KernelError(
+                    "paroi mince : elle prend toute l'esquisse — "
+                    "choisissez tous ses contours d'abord")
+        if root is None:
+            raise KernelError("cette fonction n'a pas d'esquisse pour profil")
+        owned = self._thin_helpers(obj)
+        olds = [h for h in owned
+                if (h in chain or (h.TypeId == "PartDesign::SubShapeBinder"
+                                   and not getattr(h, "FreeSolidProfileCopy",
+                                                   False)
+                                   and self._is_thin_helper(h)))]
+        cavities = [h for h in owned if h.TypeId == "PartDesign::Pocket"
+                    and self._is_thin_helper(h)]
+        axis = self._sketch_normal_axis(owned)
+        copy = self._profile_copy_of(obj)
+        # La cavité quitte la chaîne du corps (la fonction suivante se
+        # raccroche à la fonction), puis les liants partent.
+        for cavity in cavities:
+            body.removeObject(cavity)
+            doc.removeObject(cavity.Name)
+        if not thin:
+            if root.getParentGeoFeatureGroup() is not body and copy is None:
+                copy = self._profile_copy(body, root)
+                self._own_thin_helpers(obj, [copy])
+            obj.Profile = copy if copy is not None else root
+        for old in olds:
+            doc.removeObject(old.Name)
+        if not thin:
+            obj.FreeSolidThinType = ""
+            if "CapThickness" in obj.PropertiesList:
+                obj.CapThickness = 0
+            self._recompute()
+            return self.get_tree()
+        sketch = getattr(copy, "Support", None)
+        sketch = sketch[0][0] if sketch else root
+        spec, helpers = self._thin_profile(body, sketch, thin)
+        if axis is None:
+            axis = self._new_thin_helper(body, "PartDesign::Line",
+                                         "SketchNormal",
+                                         "Normale de l'esquisse")
+            axis.AttachmentSupport = [(sketch, "")]
+            axis.MapMode = "ObjectZ"
+            axis.Visibility = False
+            helpers.insert(0, axis)
+        self._own_thin_helpers(obj, helpers)
+        self._link_profile(obj, sketch, helpers + [axis])
+        self._mark_thin(obj, spec)
+        if not spec["caps"] and "CapThickness" in obj.PropertiesList:
+            obj.CapThickness = 0
+        if copy is not None:
+            # Le liant de l'esquisse d'un autre corps ne sert plus : les
+            # liants décalés la prennent directement.
+            doc.removeObject(copy.Name)
+        if spec["caps"]:
+            # La cavité vient juste après la fonction, même rééditée au
+            # milieu du corps : le corps l'insère après sa barre.
+            tip = body.Tip
+            body.Tip = obj
+            self._thin_cavity(body, obj, sketch, spec)
+            cavity = next(h for h in self._thin_helpers(obj)
+                          if h.TypeId == "PartDesign::Pocket")
+            body.Tip = cavity if tip is obj else tip
+        self._recompute()
+        if "Invalid" in (obj.State or ()) or obj.Shape.isNull():
+            raise KernelError("la paroi mince ne se construit pas sur ce "
+                              "profil")
+        return self.get_tree()
+
     def _remove_all(self, objects):
         doc = self._require_doc()
         for obj in reversed(objects):

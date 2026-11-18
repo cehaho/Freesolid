@@ -223,6 +223,53 @@ describe("réédition de l'extrusion", () => {
   });
 });
 
+describe("réédition du genre de paroi mince", () => {
+  const thin = { type: "un", thickness: 2, thickness2: 0, reversed: false,
+                 caps: 0 };
+  const walled = feature({}, { thin, params: [{ key: "length", value: 10 },
+                                              { key: "thinT", value: 2 }] });
+
+  it("une fonction pleine rouvre la case décochée, sans rien envoyer", () => {
+    const f = feature();
+    const v = opened(f);
+    assert.equal(v.thin, false);
+    assert.deepEqual(extrudeEditValues(v, f), {});
+  });
+
+  it("s'active comme à la création", () => {
+    const f = feature();
+    assert.deepEqual(extrudeEditValues(
+      { ...opened(f), thin: true, thinT: "1,5" }, f),
+      { thin: { type: "un", thickness: 1.5, reversed: false } });
+    assert.equal(extrudeEditValues(
+      { ...opened(f), thin: true, thinT: "0" }, f), null);
+  });
+
+  it("se retire, change de type ou ferme ses extrémités", () => {
+    const v = opened(walled);
+    assert.equal(v.thin, true);
+    assert.deepEqual(extrudeEditValues(v, walled), {});
+    assert.deepEqual(extrudeEditValues({ ...v, thin: false }, walled),
+                     { thin: null });
+    assert.deepEqual(extrudeEditValues({ ...v, thinType: "milieu" }, walled),
+                     { thin: { type: "milieu", thickness: 2,
+                               reversed: false } });
+    assert.deepEqual(extrudeEditValues(
+      { ...v, thinCaps: true, thinCapT: "1" }, walled),
+      { thin: { type: "un", thickness: 2, reversed: false, caps: 1 } });
+  });
+
+  it("un enlèvement n'a pas d'extrémités fermées", () => {
+    const pocket = { ...feature(), name: "Pocket", type_key: "pocket" };
+    const keys = extrudeGroups("pocket", extrudeEditInitial(pocket))
+      .flatMap((g) => g.rows.map((r) => r.key));
+    assert.ok(keys.includes("thin") && !keys.includes("thinCaps"));
+    assert.deepEqual(extrudeEditValues(
+      { ...opened(pocket, "pocket"), thin: true, thinCaps: true }, pocket),
+      { thin: { type: "un", thickness: 2, reversed: false } });
+  });
+});
+
 /** Les valeurs d'un panneau à l'ouverture. */
 function rowValues(groups) {
   const v = {};
