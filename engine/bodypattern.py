@@ -894,6 +894,8 @@ class BodyPatternMixin:
         quelque chose a changé (une passe de plus)."""
         changed = False
         for host in self._body_pattern_hosts():
+            if self._is_disabled(host):
+                continue  # ses copies attendent sa réactivation
             changed = self._sync_body_pattern(host) or changed
         return self._refresh_scopes() or changed
 

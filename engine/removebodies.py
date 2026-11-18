@@ -106,8 +106,13 @@ class RemoveBodiesMixin:
         suppression, fondus dans un autre corps (``_absorbed_bodies``) ou
         creusés en entier (``_consumed_bodies``)."""
         names = set(self._absorbed_bodies()) | self._consumed_bodies()
+        # Les copies d'un réseau de corps désactivé n'existent pas.
+        for host in self._body_pattern_hosts():
+            if self._is_disabled(host):
+                names.update(copy.Name for copy in
+                             self._body_pattern_copies(host).values())
         for host in self._removal_hosts():
-            if self._is_rolled_back(host):
+            if self._is_rolled_back(host) or self._is_disabled(host):
                 continue
             spec = self._removal_spec(host)
             names.update(spec.get("bodies") or ())
@@ -153,7 +158,8 @@ class RemoveBodiesMixin:
                 last[body] = (row["order"], row["name"])
         removed = set()
         for other in self._removal_hosts():
-            if order_of.get(other.Name, -1) < rank:
+            if (order_of.get(other.Name, -1) < rank
+                    and not self._is_disabled(other)):
                 spec = self._removal_spec(other)
                 removed.update(spec.get("bodies") or ())
                 removed.update(spec.get("surfaces") or ())
