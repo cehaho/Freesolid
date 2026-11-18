@@ -6,15 +6,26 @@ import assert from "node:assert/strict";
 
 import { dressupPickValues, textEditValues, textRows } from "../../app/features.js";
 
-const text = { text: "AB", size: 6, depth: 1, x: 0, y: 2, face: 5 };
+const text = { text: "AB", size: 6, depth: 1, x: 0, y: 2, face: 5,
+               emboss: false };
 
 describe("texte réédité", () => {
-  it("reprend le panneau de la création, sans le relief", () => {
+  it("reprend le panneau de la création, relief compris", () => {
     const rows = textRows(text);
     assert.deepEqual(rows.map((row) => row.key),
-      ["content", "size", "depth", "x", "y"]);
-    assert.deepEqual(rows.map((row) => row.value), ["AB", 6, 1, 0, 2]);
-    assert.ok(textRows().some((row) => row.key === "emboss"));
+      ["content", "size", "depth", "emboss", "x", "y"]);
+    assert.deepEqual(rows.map((row) => row.value), ["AB", 6, 1, false, 0, 2]);
+    assert.equal(textRows({ ...text, emboss: true })
+      .find((row) => row.key === "emboss").value, true);
+    assert.deepEqual(textRows().map((row) => row.key),
+                     rows.map((row) => row.key));
+  });
+
+  it("passe de la gravure au relief", () => {
+    const same = { content: "AB", size: "6", depth: "1", x: "0", y: "2",
+                   emboss: false };
+    assert.deepEqual(textEditValues({ ...same, emboss: true }, text),
+                     { emboss: true });
   });
 
   it("n'envoie que ce qui change", () => {

@@ -1367,6 +1367,7 @@ class TreeMixin:
                     "depth": float(obj.FreeSolidTextDepth),
                     "x": float(obj.FreeSolidTextX),
                     "y": float(obj.FreeSolidTextY),
+                    "emboss": bool(obj.FreeSolidTextEmboss),
                     # Sa face d'appui, sur la pièce à son rang.
                     "face": self._text_face(obj),
                 }

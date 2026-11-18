@@ -338,6 +338,8 @@ class SurfaceCommonMixin:
                     "sketch": sketches[0].Name if sketches else None,
                     "surface": support[0].Name if support else None,
                     "face": int(subs[0][4:]) - 1 if subs else 0}
+        if obj.TypeId == "Part::Helix":
+            return self._helix_curve_spec(obj)
         binder = self._radiate_binder(obj)
         if binder is not None:
             # Surface radiée : sa distance signée et son contour, arête par

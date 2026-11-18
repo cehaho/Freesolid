@@ -87,6 +87,8 @@ export function surfaceEditor(item) {
   if (kind === "deleteface") return "surface_delete_face";
   // Couture et médiane : des formes figées, recalculées sur leurs sources.
   if (kind === "sew" || kind === "mid") return kind;
+  // Hélice 3D : ses cotes, son axe et son sens, comme à la création.
+  if (kind === "helix") return "curve_helix";
   if (isFrozen(item)) return null;
   // Radiée : distance et sens, comme à la création.
   if (item.type_key === "surface_radiate") return params(item) && "radiate";

@@ -4827,10 +4827,10 @@ def p116_texte_rechoisit_sa_face(self, mark, report, etat):
         and back.get("face") == top and back.get("size") == 6
         and tool_of(text).ZMax > 10 and clean())
 
-    # Refus : une clé de la création qui ne se change pas (le relief), une
-    # cote qui n'est pas un nombre, une face inconnue, un texte vide.
+    # Refus : un relief qui n'est pas un booléen, une cote qui n'est pas
+    # un nombre, une face inconnue, un texte vide.
     refused = [call("set_params", feature=text.Name, values=values)
-               for values in ({"emboss": True}, {"size": "abc"},
+               for values in ({"emboss": "oui"}, {"size": "abc"},
                               {"face": 999}, {"text": " "})]
     report["p116_texte_refus"] = (
         all(r.get("ok") is False for r in refused)
@@ -7232,3 +7232,41 @@ def p143_reeditions_sans_etape(self, mark, report, etat):
         and seen["body_polar"][1] == seen["body_polar"][0] - 1
         and seen["body_polar"][2] == []
         and seen["surface"] == (1.0, 0.5, []))
+
+
+def p145_texte_relief_ou_gravure(self, mark, report, etat):
+    """Le relief d'un texte se change à la réédition : les lettres passent
+    de l'autre côté de la face, le booléen d'enlèvement à ajout (thème 5
+    de docs/gestes-des-fonctions.md)."""
+    mark("p145: un texte passe de la gravure au relief")
+    from engine.kernel import dispatch
+    seen = etat.p145 = {}
+
+    def text_entry():
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == text.Name).get("text") or {}
+
+    self.new_part("Texte, relief ou gravure")
+    self.add_rect_sketch(60, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    full = body.Shape.Volume
+    self.add_text("AB", self._top_face_id(), size=6, depth=1)
+    text = body.Tip
+    engraved = body.Shape.Volume
+    seen["engraved"] = (engraved < full, text_entry().get("emboss"),
+                        str(text.Type))
+    done = dispatch(self, "set_params", {"feature": text.Name,
+                                         "values": {"emboss": True}})
+    raised = body.Shape.Volume
+    seen["raised"] = (done.get("ok"), raised > full, text_entry().get("emboss"),
+                      str(text.Type), body.Shape.BoundBox.ZMax > 10.5,
+                      round(raised - full, 3) == round(full - engraved, 3))
+    dispatch(self, "undo", {})
+    seen["undone"] = (abs(body.Shape.Volume - engraved) < 1e-6,
+                      text_entry().get("emboss"), str(text.Type))
+    report["p145_texte_relief_ou_gravure"] = (
+        seen["engraved"] == (True, False, "Cut")
+        and seen["raised"] == (True, True, True, "Fuse", True, True)
+        and seen["undone"] == (True, False, "Cut")
+        and not self.rebuild_errors()["errors"])

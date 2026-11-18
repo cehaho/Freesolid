@@ -98,6 +98,13 @@ class EquationsMixin:
             # se réédite dans l'éditeur de graphe).
             return self.edit_repeat_feature(obj.Name,
                                             features=values["features"])
+        if obj.TypeId == "Part::Helix":
+            # Une hélice 3D : la garde de la création (FreeCAD ramène un
+            # rayon négatif à 0 sans le dire), puis son axe d'origine et son
+            # sens, avec ses cotes.
+            self._check_helix_curve_values(values)
+            if set(values) & {"axis", "left"}:
+                return self._set_helix_curve_params(obj, dict(values))
         if (obj.TypeId == "Part::Offset2D" and "boundary" in values
                 and self._radiate_binder(obj) is not None):
             # Le contour d'une surface radiée (sa distance seule, peut-être

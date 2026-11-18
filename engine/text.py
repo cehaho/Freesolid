@@ -186,7 +186,7 @@ class TextMixin:
         return self.get_tree()
 
     #: Ce que ``set_params`` change d'un texte : les mots de sa création.
-    _TEXT_KEYS = ("text", "size", "depth", "x", "y", "face")
+    _TEXT_KEYS = ("text", "size", "depth", "x", "y", "face", "emboss")
 
     def _set_text_params(self, obj, values):
         """``set_params`` d'un texte : ses cotes, et sa face d'appui
@@ -207,14 +207,19 @@ class TextMixin:
                 raise KernelError("valeur invalide pour {} : {}".format(
                     key, value))
             numbers[key] = number
+        emboss = values.get("emboss")
+        if emboss is not None and not isinstance(emboss, bool):
+            raise KernelError("{} : booléen attendu".format("emboss"))
         return self.edit_text(
             obj.Name, text=values.get("text"), face=values.get("face"),
-            **numbers)
+            emboss=emboss, **numbers)
 
     def edit_text(self, feature, text=None, size=None, depth=None,
-                  x=None, y=None, face=None):
-        """Rééditer une gravure : texte, taille, profondeur, position, et
-        sa face d'appui (``face``, id sur sa base : la pièce à son rang).
+                  x=None, y=None, face=None, emboss=None):
+        """Rééditer une gravure : texte, taille, profondeur, position, sa
+        face d'appui (``face``, id sur sa base : la pièce à son rang), et
+        relief ou gravure (``emboss`` : les lettres changent de côté, le
+        booléen passe d'enlèvement à ajout).
 
         La forme des glyphes est reconstruite d'abord (géométrie pure) —
         si elle échoue, la pièce n'est pas modifiée. Les gravures créées
@@ -246,7 +251,8 @@ class TextMixin:
         if new_size <= 0 or new_depth <= 0:
             raise KernelError(
                 "taille et profondeur doivent être positives")
-        emboss = bool(obj.FreeSolidTextEmboss)
+        was_embossed = bool(obj.FreeSolidTextEmboss)
+        emboss = was_embossed if emboss is None else bool(emboss)
         base = obj.FreeSolidTextPlacement
         if face is not None:
             shape = getattr(getattr(obj, "BaseFeature", None), "Shape", None)
@@ -258,11 +264,15 @@ class TextMixin:
             new_text, base, new_size, new_depth, emboss, new_x, new_y,
             obj.FreeSolidTextFont or None)
         old_shape = shape_feature.Shape
+        old_type = str(obj.Type)
         shape_feature.Shape = text_solid
+        if emboss != was_embossed:
+            obj.Type = "Fuse" if emboss else "Cut"
         try:
             self._recompute()
         except KernelError as exc:
             shape_feature.Shape = old_shape
+            obj.Type = old_type
             try:
                 self._recompute()
             except KernelError:
@@ -275,6 +285,7 @@ class TextMixin:
         obj.FreeSolidTextX = new_x
         obj.FreeSolidTextY = new_y
         obj.FreeSolidTextPlacement = base
+        obj.FreeSolidTextEmboss = emboss
         obj.Label = self._t("{} « {} »").format(
             "Texte en relief" if emboss else "Gravure", new_text[:15])
         return self.get_tree()

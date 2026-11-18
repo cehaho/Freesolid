@@ -122,6 +122,8 @@ export {
   flattenEditValues,
   freeformEditValues,
   freeformParams,
+  helixCurveEditValues,
+  helixCurveRows,
   intersectionEditValues,
   midParams,
   ownSketchPick,
