@@ -19,6 +19,10 @@ et ``clean_meta`` sont testées en CI.
 _DISABLED_PROP = "FreeSolidSuppressed"
 #: La ligne désactivée par l'utilisateur qui a emporté celle-ci.
 _DISABLED_BY_PROP = "FreeSolidSuppressedBy"
+# Le mode d'accrochage d'une esquisse ou d'une référence désactivée, mis
+# de côté : sa face ou son plan peut disparaître avec la ligne qui
+# l'emporte, et un accrochage qui échoue bloquerait le calcul de la pièce.
+_PARKED_MAP_PROP = "FreeSolidParkedMapMode"
 #: Marques de l'hôte d'une suppression de corps et d'un réseau de corps
 #: (``engine/removebodies.py``, ``engine/bodypattern.py``).
 _REMOVAL_PROP = "FreeSolidRemoveBodies"
@@ -291,6 +295,7 @@ class DocPropsMixin:
             setattr(obj, _DISABLED_PROP, disabled)
             if hasattr(obj, "Visibility"):
                 obj.Visibility = not (disabled or self._is_rolled_back(obj))
+            self._park_attachment(obj, disabled)
         by = root.Name if (disabled and root is not None
                            and root is not obj) else ""
         if _DISABLED_BY_PROP not in obj.PropertiesList:
@@ -317,6 +322,28 @@ class DocPropsMixin:
     def _children_of(self, obj):
         return [o for o in getattr(obj, "InList", ())
                 if o is not obj and obj in self._parent_links(o)]
+
+    @staticmethod
+    def _park_attachment(obj, disabled):
+        """Désactivée, l'esquisse (ou la référence) ne s'accroche plus : sa
+        place reste celle du dernier calcul. Réactivée, elle reprend son
+        mode d'accrochage et se recale sur son appui."""
+        props = obj.PropertiesList
+        if "MapMode" not in props:
+            return
+        if disabled:
+            if obj.MapMode == "Deactivated" or _PARKED_MAP_PROP in props:
+                return
+            obj.addProperty("App::PropertyString", _PARKED_MAP_PROP,
+                            "FreeSolid", "Accrochage mis de côté")
+            obj.setEditorMode(_PARKED_MAP_PROP, 2)
+            setattr(obj, _PARKED_MAP_PROP, obj.MapMode)
+            obj.MapMode = "Deactivated"
+        elif _PARKED_MAP_PROP in props:
+            mode = getattr(obj, _PARKED_MAP_PROP)
+            obj.removeProperty(_PARKED_MAP_PROP)
+            if mode:
+                obj.MapMode = mode
 
     def _disable_closure(self, targets):
         """{nom: (objet, racine)} : les cibles et tout ce qui s'appuie

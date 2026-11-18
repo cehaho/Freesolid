@@ -1587,6 +1587,10 @@ class TreeMixin:
         shape = getattr(body, "Shape", None)
         if self._is_hidden(body):
             shape = None  # masqué : ni dessiné, ni visé
+        if self._emptied_by_suppression(body):
+            # Toutes ses fonctions désactivées : FreeCAD garde la dernière
+            # forme calculée, la pièce, elle, est vide.
+            shape = None
         faces = []
         splines = []
         hidden_faces, _, solid_tints = (
@@ -1634,7 +1638,8 @@ class TreeMixin:
             if (obj.TypeId != "PartDesign::Body" or obj is body
                     or getattr(obj, "Shape", None) is None
                     or self._is_internal_tool(obj)
-                    or self._is_hidden(obj) or obj.Name in removed):
+                    or self._is_hidden(obj) or obj.Name in removed
+                    or self._emptied_by_suppression(obj)):
                 continue
             hidden_faces, hidden_edges, solid_tints = \
                 self._solid_display(obj)

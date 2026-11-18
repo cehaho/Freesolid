@@ -841,6 +841,8 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         if density is None:
             density = material["density"] if material else 1.24
         shape = getattr(body, "Shape", None)
+        if self._emptied_by_suppression(body):
+            shape = None  # FreeCAD garde la dernière forme : elle est partie
         if shape is None:
             raise KernelError("pas de solide à évaluer")
         try:

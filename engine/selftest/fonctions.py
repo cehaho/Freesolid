@@ -7354,3 +7354,93 @@ def p147_paroi_mince_change_de_genre(self, mark, report, etat):
         and seen["order"] == ["Pad", "Pocket", "Pocket"]
         and seen["pocket"] == (True, 4500.0 - 44 * 5, ("un", 0.0), [])
         and seen["pocket_caps"] == (False, 4500.0 - 44 * 5))
+
+
+def p149_desactiver_fonction_par_fonction(self, mark, report, etat):
+    """Désactiver puis réactiver chaque genre courant de fonction de
+    corps : la pièce change sans erreur, puis revient exactement (thème 10
+    de docs/gestes-des-fonctions.md)."""
+    mark("p149: Désactiver, fonction par fonction")
+    from engine.kernel import dispatch
+    seen = etat.p149 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def volume():
+        body = self._require_body()
+        if self._emptied_by_suppression(body):
+            return 0.0  # FreeCAD garde la dernière forme du corps vidé
+        return round(body.Shape.Volume, 4)
+
+    def newest(tree, type_id):
+        return [f["name"] for f in tree["features"]
+                if f["type"] == type_id][-1]
+
+    self.new_part("Désactiver, fonction par fonction")
+    self.add_rect_sketch(60, 40)
+    made = {}
+    made["pad"] = newest(self.add_pad(10), "PartDesign::Pad")
+    # Une poche hors de l'axe : son miroir en ajoute une autre.
+    state = self.sketch_start(face=self._top_face_id())
+    self.sketch_add_rectangle(state["sketch"], 10, 5, 16, 11)
+    self.sketch_finish(state["sketch"])
+    made["pocket"] = newest(self.add_pocket(length=3,
+                                            sketch=state["sketch"]),
+                            "PartDesign::Pocket")
+    made["mirror"] = newest(self.add_mirror(plane="YZ"),
+                            "PartDesign::Mirrored")
+    made["linear"] = newest(self.add_linear_pattern(length=10, count=2,
+                                                    axis="Y"),
+                            "PartDesign::LinearPattern")
+    state = self.sketch_start(face=self._top_face_id())
+    self.sketch_add_circle(state["sketch"], 20, 0, 3)
+    self.sketch_finish(state["sketch"])
+    made["hole_pocket"] = newest(self.add_pocket(through=True,
+                                                 sketch=state["sketch"]),
+                                 "PartDesign::Pocket")
+    made["polar"] = newest(self.add_polar_pattern(count=3, angle=90),
+                           "PartDesign::PolarPattern")
+    ring = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_rectangle(ring, 25, 10, 28, 14)
+    self.sketch_finish(ring)
+    made["revolution"] = newest(self.add_revolution(90, sketch=ring),
+                                "PartDesign::Revolution")
+    made["text"] = self._require_body().Tip.Name if self.add_text(
+        "AB", self._top_face_id(), size=5, depth=1) else None
+    full = volume()
+    done, kept = [], []
+    for key, name in made.items():
+        off = call("set_suppressed", features=[name], suppressed=True)
+        row = next(f for f in self.get_tree()["features"]
+                   if f["name"] == name)
+        changed = volume() != full
+        errors = self.rebuild_errors()["errors"]
+        call("set_suppressed", features=[name], suppressed=False)
+        if (off.get("ok") and row.get("suppressed") and changed
+                and not errors and volume() == full):
+            done.append(key)
+        else:
+            kept.append((key, off.get("error"), changed, errors))
+    seen["done"] = sorted(done)
+    seen["kept"] = kept
+    # La seule fonction de base partie, et l'enlèvement posé sur sa face
+    # avec elle : le corps est vide, la vue ne dessine plus l'ancienne
+    # pièce, l'esquisse de l'enlèvement ne casse pas ; réactivée, tout
+    # revient.
+    self.new_part("Désactiver la première fonction")
+    self.add_rect_sketch(60, 40)
+    base = newest(self.add_pad(10), "PartDesign::Pad")
+    self.add_rect_sketch(6, 6, face=self._top_face_id())
+    self.add_pocket(length=3)
+    whole = volume()
+    call("set_suppressed", features=[base], suppressed=True)
+    seen["emptied"] = (volume(), len(self.tessellate()["positions"]),
+                       self.rebuild_errors()["errors"])
+    call("set_suppressed", features=[base], suppressed=False)
+    seen["refilled"] = (volume() == whole, self.rebuild_errors()["errors"])
+    report["p149_desactiver_fonction_par_fonction"] = (
+        seen["done"] == sorted(made) and not kept
+        and seen["emptied"] == (0.0, 0, [])
+        and seen["refilled"] == (True, [])
+        and not self.rebuild_errors()["errors"])
