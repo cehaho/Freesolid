@@ -165,8 +165,8 @@ OPS = (
        no_replay="propriétés FreeSolid* hors get_params"),
                                        # optional: size, depth, x, y, emboss, font
     Op("edit_text", Req(("feature", str)), undo=True),
-                                       # optional: text, size, depth, x, y
-                                       # — absents = inchangés
+                                       # optional: text, size, depth, x, y,
+                                       # face, emboss — absents = inchangés
     Op("face_frame", Req(("face", int))),
                                        # lecture : centre et normale d'une face
     Op("face_drag_info", Req(("face", int))),

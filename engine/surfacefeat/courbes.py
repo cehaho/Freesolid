@@ -132,6 +132,70 @@ class CurveMixin:
 
         return self._add_part_surface("Part::Helix", "Hélice", configure)
 
+    def _helix_curve_spec(self, obj):
+        """Ce que la réédition d'une hélice 3D reprend de sa création : son
+        axe d'origine (None s'il a été tourné autrement) et son sens."""
+        App = self._app()
+        rotation = obj.Placement.Rotation
+        axis = None
+        for token, (turn_axis, degrees) in self._HELIX_AXES.items():
+            wanted = App.Rotation(App.Vector(*turn_axis), degrees)
+            if abs((wanted.inverted() * rotation).Angle) < 1e-7:
+                axis = token
+                break
+        return {"kind": "helix", "axis": axis,
+                "left": str(obj.LocalCoord) == "Left-handed"}
+
+    @staticmethod
+    def _check_helix_curve_values(values):
+        """Pas, hauteur et rayon d'une hélice 3D rééditée : positifs, comme
+        à la création. Une expression passe (le moteur d'expressions la
+        juge)."""
+        from engine.kernel import KernelError, parse_user_number
+        for key, value in values.items():
+            if str(key).lower() not in ("pitch", "height", "radius"):
+                continue
+            if isinstance(value, bool):
+                continue
+            number = (float(value) if isinstance(value, (int, float))
+                      else parse_user_number(value))
+            if number is not None and number <= 0:
+                raise KernelError("pas, hauteur et rayon doivent être "
+                                  "positifs")
+
+    def _set_helix_curve_params(self, obj, values):
+        """``set_params`` d'une hélice 3D : son axe et son sens, comme à la
+        création, puis ses cotes par la voie commune — tout ou rien."""
+        from engine.kernel import KernelError
+        App = self._app()
+        axis = values.pop("axis", None)
+        left = values.pop("left", None)
+        if axis is not None and str(axis) not in self._HELIX_AXES:
+            raise KernelError("axe inconnu : {}".format(axis))
+        if left is not None and not isinstance(left, bool):
+            raise KernelError("{} : booléen attendu".format("left"))
+        saved = (obj.Placement.copy(), str(obj.LocalCoord))
+        try:
+            if axis is not None:
+                turn_axis, degrees = self._HELIX_AXES[str(axis)]
+                placement = obj.Placement.copy()
+                placement.Rotation = App.Rotation(App.Vector(*turn_axis),
+                                                  degrees)
+                obj.Placement = placement
+            if left is not None:
+                obj.LocalCoord = "Left-handed" if left else "Right-handed"
+            if values:
+                return self.set_params(obj.Name, values)
+            self._recompute()
+        except Exception:
+            obj.Placement, obj.LocalCoord = saved
+            try:
+                self._recompute()
+            except KernelError:
+                pass  # l'état d'avant était sain : ne pas masquer l'erreur
+            raise
+        return self.get_tree()
+
     def curve_composite(self, boundary):
         """Courbe composite : des arêtes et courbes bout à bout réunies en
         une seule trajectoire (lieur de forme paramétrique)."""

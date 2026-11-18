@@ -260,6 +260,8 @@ def _etapes():
         fonctions.p141_desactiver_reseau_et_suppression,
         fonctions.p142_rejeu_helice,
         fonctions.p143_reeditions_sans_etape,
+        surfaces.p144_helice_3d_reeditee,
+        fonctions.p145_texte_relief_ou_gravure,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

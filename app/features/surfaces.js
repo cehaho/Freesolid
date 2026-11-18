@@ -5,6 +5,46 @@ import { t } from "../i18n.js";
 import { num } from "../num.js";
 import { resolveProfileSketch } from "./commun.js";
 
+/** Rangées d'une hélice 3D, à la création et à la réédition. `current` :
+ *  ses cotes (`get_params`) et ce que l'arbre dit d'elle (`surface`) ;
+ *  un axe tourné autrement qu'un axe d'origine n'est pas proposé. */
+export function helixCurveRows(current = null) {
+  const value = (key, fallback) => current?.[key] ?? fallback;
+  const rows = [
+    { type: "number", key: "pitch", label: "Pas", value: value("pitch", 5),
+      unit: "mm", min: 0.01 },
+    { type: "number", key: "height", label: "Hauteur",
+      value: value("height", 30), unit: "mm", min: 0.01 },
+    { type: "number", key: "radius", label: "Rayon",
+      value: value("radius", 10), unit: "mm", min: 0.01 },
+    { type: "number", key: "angle", label: "Conicité",
+      value: value("angle", 0), unit: "°" },
+    { type: "select", key: "axis", label: "Axe", value: value("axis", "Z"),
+      options: [["Z", "Axe Z"], ["Y", "Axe Y"], ["X", "Axe X"]] },
+    { type: "check", key: "left", label: "Pas à gauche",
+      value: value("left", false) },
+  ];
+  return current && !current.axis
+    ? rows.filter((row) => row.key !== "axis") : rows;
+}
+
+/** Valeurs `set_params` d'une hélice 3D rééditée : ce qui change ; null
+ *  si une cote est invalide. */
+export function helixCurveEditValues(v, current) {
+  const numbers = { pitch: num(v.pitch), height: num(v.height),
+                    radius: num(v.radius), angle: num(v.angle) ?? 0 };
+  if (!(numbers.pitch > 0 && numbers.height > 0 && numbers.radius > 0)) {
+    return null;
+  }
+  const values = {};
+  for (const [key, value] of Object.entries(numbers)) {
+    if (!(Math.abs(value - current[key]) < 1e-9)) values[key] = value;
+  }
+  if (current.axis && v.axis && v.axis !== current.axis) values.axis = v.axis;
+  if (!!v.left !== !!current.left) values.left = !!v.left;
+  return values;
+}
+
 /** Rangée « esquisse » préremplie : la sélection, sinon (``latest``) la
  *  dernière esquisse libre. */
 function sketchRow(ctx, key, hint, { latest = true } = {}) {
@@ -902,18 +942,7 @@ export const SURFACES = [
     op: "curve_helix",
     icon: "nodes_helix",
     title: "Hélice",
-    groups: [{ label: "Paramètres", rows: [
-      { type: "number", key: "pitch", label: "Pas", value: 5, unit: "mm",
-        min: 0.01 },
-      { type: "number", key: "height", label: "Hauteur", value: 30,
-        unit: "mm", min: 0.01 },
-      { type: "number", key: "radius", label: "Rayon", value: 10, unit: "mm",
-        min: 0.01 },
-      { type: "number", key: "angle", label: "Conicité", value: 0, unit: "°" },
-      { type: "select", key: "axis", label: "Axe", value: "Z",
-        options: [["Z", "Axe Z"], ["Y", "Axe Y"], ["X", "Axe X"]] },
-      { type: "check", key: "left", label: "Pas à gauche", value: false },
-    ] }],
+    groups: [{ label: "Paramètres", rows: helixCurveRows() }],
     note: "Une courbe : trajectoire d'une surface balayée ou d'un "
       + "balayage (ressort, filet). Conicité ≠ 0 : spirale conique.",
     build: (v) => {

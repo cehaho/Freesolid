@@ -398,3 +398,37 @@ describe("formes figées rééditées", () => {
                                    spec), null);
   });
 });
+
+describe("hélice 3D rééditée", async () => {
+  const { helixCurveRows, helixCurveEditValues } = await import(
+    "../../app/features.js");
+  const current = { kind: "helix", axis: "Y", left: false,
+                    pitch: 5, height: 30, radius: 10, angle: 0 };
+
+  it("rouvre le panneau de la création, rempli", () => {
+    assert.equal(surfaceEditor({ type_key: "curve_helix",
+                                 surface: { kind: "helix" } }), "curve_helix");
+    const rows = helixCurveRows(current);
+    assert.deepEqual(rows.map((r) => r.key),
+                     ["pitch", "height", "radius", "angle", "axis", "left"]);
+    assert.equal(rows.find((r) => r.key === "axis").value, "Y");
+    assert.deepEqual(helixCurveRows().map((r) => r.key),
+                     rows.map((r) => r.key));
+  });
+
+  it("ne propose pas d'axe quand l'hélice a été tournée autrement", () => {
+    assert.ok(!helixCurveRows({ ...current, axis: null })
+      .some((r) => r.key === "axis"));
+  });
+
+  it("n'envoie que ce qui change", () => {
+    const same = { pitch: "5", height: "30", radius: "10", angle: "0",
+                   axis: "Y", left: false };
+    assert.deepEqual(helixCurveEditValues(same, current), {});
+    assert.deepEqual(helixCurveEditValues(
+      { ...same, axis: "X", left: true, pitch: "6" }, current),
+      { pitch: 6, axis: "X", left: true });
+    assert.equal(helixCurveEditValues({ ...same, radius: "0" }, current),
+                 null);
+  });
+});

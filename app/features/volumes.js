@@ -68,7 +68,7 @@ export function holePositionValues(sel, before) {
 
 /** Rangées d'un texte : le texte, sa hauteur, sa profondeur, son
  *  décalage sur la face. `text` : celles d'un texte réédité (`text` de
- *  l'arbre) ; le relief ne se choisit qu'à la création. */
+ *  l'arbre), relief compris. */
 export function textRows(text = null) {
   const rows = [
     { type: "text", key: "content", label: "Texte", value: text?.text ?? "",
@@ -78,13 +78,13 @@ export function textRows(text = null) {
     { type: "number", key: "depth", label: "Profondeur",
       value: text?.depth ?? 1, unit: "mm", min: 0.01 },
     { type: "check", key: "emboss", label: "En relief (bossage)",
-      value: false },
+      value: !!text?.emboss },
     { type: "number", key: "x", label: "Décalage X", value: text?.x ?? 0,
       unit: "mm" },
     { type: "number", key: "y", label: "Décalage Y", value: text?.y ?? 0,
       unit: "mm" },
   ];
-  return text ? rows.filter((row) => row.key !== "emboss") : rows;
+  return rows;
 }
 
 /** Valeurs `set_params` d'un texte réédité : seulement ce qui change ;
@@ -97,6 +97,7 @@ export function textEditValues(v, text) {
       || numbers.x === null || numbers.y === null) return null;
   const values = {};
   if (content !== String(text.text ?? "").trim()) values.text = content;
+  if (!!v.emboss !== !!text.emboss) values.emboss = !!v.emboss;
   for (const [key, value] of Object.entries(numbers)) {
     if (!(Math.abs(value - text[key]) < 1e-9)) values[key] = value;
   }

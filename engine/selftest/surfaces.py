@@ -1096,3 +1096,46 @@ def p69_spline_3d_poignees_poles(self, mark, report, etat):
         and again["spline"]["tangents"][1] is not None
         and abs(again["spline"]["tangents"][1]["out"] - 1.5) < 1e-6)
     self.sketch_finish(sk_name)
+
+
+def p144_helice_3d_reeditee(self, mark, report, etat):
+    """L'hélice 3D rouvre sa création : axe et sens, pas seulement ses
+    cotes (thème 5 de docs/gestes-des-fonctions.md)."""
+    mark("p144: l'hélice 3D se réédite en entier")
+    from engine.kernel import dispatch
+    seen = etat.p144 = {}
+    self.new_part("Hélice 3D rééditée")
+    tree = self.curve_helix(pitch=5, height=30, radius=10, axis="Z")
+    name = tree["surfaces"][-1]["name"]
+    obj = self._doc.getObject(name)
+
+    def spec():
+        row = next(s for s in self.get_tree()["surfaces"]
+                   if s["name"] == name)
+        return row.get("surface")
+
+    def span():
+        box = obj.Shape.BoundBox
+        return tuple(round(v) for v in (box.XLength, box.YLength,
+                                        box.ZLength))
+
+    seen["created"] = (spec(), span())
+    edited = dispatch(self, "set_params", {
+        "feature": name, "values": {"axis": "X", "left": True,
+                                    "pitch": 6, "height": 40}})
+    seen["edited"] = (edited.get("ok"), spec(), float(obj.Pitch),
+                      float(obj.Height), span())
+    refused = dispatch(self, "set_params", {
+        "feature": name, "values": {"axis": "W", "pitch": 8}})
+    bad_cote = dispatch(self, "set_params", {
+        "feature": name, "values": {"axis": "Y", "radius": -1}})
+    seen["refused"] = (refused.get("ok"), bad_cote.get("ok"), spec(),
+                       float(obj.Pitch), float(obj.Radius))
+    report["p144_helice_3d_reeditee"] = (
+        seen["created"] == ({"kind": "helix", "axis": "Z", "left": False},
+                            (20, 20, 30))
+        and seen["edited"] == (True, {"kind": "helix", "axis": "X",
+                                      "left": True}, 6.0, 40.0, (40, 20, 20))
+        and seen["refused"] == (False, False,
+                                {"kind": "helix", "axis": "X", "left": True},
+                                6.0, 10.0))

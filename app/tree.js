@@ -34,7 +34,7 @@ import {
   COMBINE_TYPES, combineEditOptions, combineEditValues,
   cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
   filletEdgesValues, flattenEditValues, freeformEditValues,
-  intersectionEditValues,
+  helixCurveEditValues, helixCurveRows, intersectionEditValues,
   ownSketchPick, planarEditValues, projectEditValues, projectTargetPick,
   contourPick, contourValues, signedEditValues,
   deletedFacesPick, deletedFacesValues, shapePick, splitEditValues,
@@ -1755,6 +1755,7 @@ export function installTree(ctx) {
     project: (surface) => editProject(surface),
     thicken: (surface) => editThicken(surface),
     radiate: (surface) => editRadiate(surface),
+    curve_helix: (surface) => editHelixCurve(surface),
     surface_fillet: (surface) => editSurfaceFillet(surface),
     poles: (surface) => ctx.openPoles(surface),
     flatten: (surface) => editFlatten(surface),
@@ -2304,6 +2305,33 @@ export function installTree(ctx) {
 
   // Surface radiée : une distance pilotée par une équation garde le
   // panneau des cotes, qui la montre.
+  // Hélice 3D : le panneau de la création, ses cotes, son axe et son sens.
+  // Une cote pilotée par une équation garde le panneau des cotes.
+  async function editHelixCurve(surface) {
+    let info;
+    try {
+      info = await call("get_params", { feature: surface.name });
+    } catch (error) {
+      say(error.message, true);
+      return;
+    }
+    if (info.params.some((p) => p.expr)) {
+      editParams({ name: surface.name, label: surface.label,
+                   type_key: surface.type_key });
+      return;
+    }
+    const current = { ...surface.surface };
+    for (const p of info.params) current[p.key] = p.value;
+    return editAtRank(surface, {
+      icon: "nodes_helix",
+      note: "Une courbe : trajectoire d'une surface balayée ou d'un "
+        + "balayage (ressort, filet). Conicité ≠ 0 : spirale conique.",
+      groups: [{ label: "Paramètres", rows: helixCurveRows(current) }],
+      values: (v) => helixCurveEditValues(v, current),
+      problem: () => "Hélice : pas, hauteur et rayon positifs",
+    });
+  }
+
   async function editRadiate(surface) {
     let info;
     try {
