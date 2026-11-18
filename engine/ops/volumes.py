@@ -51,6 +51,16 @@ def _rejouer_enlevement_revolution(kernel, feat, sketch, cote):
         bodies=[])
 
 
+def _rejouer_helice(kernel, feat, sketch, cote):
+    # L'axe est toujours l'axe vertical de l'esquisse (add_helix).
+    try:
+        angle = cote("Angle")
+    except Exception:  # noqa: BLE001 — une hélice d'avant l'angle
+        angle = 0.0
+    kernel.add_helix(pitch=cote("Pitch"), height=cote("Height"),
+                     sketch=sketch, angle=angle)
+
+
 def _rejouer_percage(kernel, feat, sketch, cote):
     # add_hole consomme _latest_sketch — le profil a été cloné juste avant.
     diameter = cote("Diameter")
@@ -141,8 +151,8 @@ OPS = (
        no_replay="Profile + Spine, pas get_params"),  # optional: subtractive
     Op("add_helix", Req(("pitch", float), ("height", float),
                         optional={"angle": float}),
-       undo=True, preview=True,
-       no_replay="Pitch/Height hors whitelist get_params"),  # optional: sketch
+       undo=True, preview=True, creates="PartDesign::AdditiveHelix",
+       replay=_rejouer_helice),        # optional: sketch
     Op("add_hole", Req(("diameter", float), optional={"face": int, "points": list,
                                                      "bodies": list}),
        undo=True, preview=True, creates="PartDesign::Hole",

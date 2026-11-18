@@ -258,6 +258,8 @@ def _etapes():
         document.p139_fichier_atelier_part,
         fonctions.p140_desactiver_emporte_les_enfants,
         fonctions.p141_desactiver_reseau_et_suppression,
+        fonctions.p142_rejeu_helice,
+        fonctions.p143_reeditions_sans_etape,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,
