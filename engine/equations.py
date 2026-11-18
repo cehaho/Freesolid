@@ -87,6 +87,16 @@ class EquationsMixin:
         if getattr(obj, "FreeSolidCutsurface", ""):
             # Une coupe par surface : sa surface outil, son côté, sa bande.
             return self._set_surface_cut_params(obj, dict(values))
+        if (obj.TypeId in ("PartDesign::Pad", "PartDesign::Pocket")
+                and "thin" in values):
+            # Le genre de paroi mince : l'activer, la retirer, changer son
+            # type ou ses extrémités. Les autres réglages d'abord (les
+            # extrémités fermées veulent des profondeurs borgnes).
+            values = dict(values)
+            thin = values.pop("thin")
+            if values:
+                self.set_params(obj.Name, values)
+            return self._set_thin_wall(obj, thin)
         if (obj.TypeId in self._SWEPT_TYPES and set(values) & {
                 "profiles", "ruled", "closed", "profile", "spine"}):
             # Un lissage ou un balayage : ses profils, sa trajectoire ; les

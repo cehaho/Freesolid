@@ -7270,3 +7270,87 @@ def p145_texte_relief_ou_gravure(self, mark, report, etat):
         and seen["raised"] == (True, True, True, "Fuse", True, True)
         and seen["undone"] == (True, False, "Cut")
         and not self.rebuild_errors()["errors"])
+
+
+def p147_paroi_mince_change_de_genre(self, mark, report, etat):
+    """La paroi mince d'une extrusion ou d'un enlèvement s'active, se
+    retire, change de type et d'extrémités à la réédition (thème 5 de
+    docs/gestes-des-fonctions.md)."""
+    mark("p147: la paroi mince change de genre à la réédition")
+    from engine.kernel import dispatch
+    seen = etat.p147 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    def thin_of(name):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == name).get("thin")
+
+    def edit(name, thin, **more):
+        done = call("set_params", feature=name,
+                    values=dict(more, thin=thin))
+        spec = thin_of(name)
+        return (done.get("ok"), volume(),
+                spec and (spec["type"], spec["caps"]),
+                self.rebuild_errors()["errors"])
+
+    # Un pavé 20 × 20 × 10 : paroi d'un côté, plan milieu, extrémités
+    # fermées, retirée ; l'aperçu laisse la pièce telle quelle ; annuler
+    # ramène la précédente.
+    self.new_part("Paroi mince rééditée")
+    self.add_rect_sketch(20, 20)
+    tree = self.add_pad(10)
+    pad = [f["name"] for f in tree["features"]
+           if f["type"] == "PartDesign::Pad"][-1]
+    shown = dispatch(self, "preview", {"op": "set_params", "params": {
+        "feature": pad, "values": {"thin": {"type": "un", "thickness": 2}}}})
+    seen["preview"] = (shown.get("ok"), volume(), thin_of(pad))
+    seen["un"] = edit(pad, {"type": "un", "thickness": 2})
+    seen["milieu"] = edit(pad, {"type": "milieu", "thickness": 2})
+    seen["caps"] = edit(pad, {"type": "un", "thickness": 2, "caps": 1})
+    seen["off"] = edit(pad, None)
+    call("undo")
+    seen["undo"] = (volume(), (thin_of(pad) or {}).get("caps"))
+
+    # Au milieu du corps : un trou traverse le pavé, puis les extrémités se
+    # ferment ; la cavité vient juste après le pavé, le trou après elle.
+    self.new_part("Paroi mince au milieu du corps")
+    self.add_rect_sketch(20, 20)
+    tree = self.add_pad(10)
+    pad = [f["name"] for f in tree["features"]
+           if f["type"] == "PartDesign::Pad"][-1]
+    self.add_rect_sketch(4, 4, face=self._top_face_id())
+    self.add_pocket(through=True)
+    body = self._require_body()
+    seen["middle"] = edit(pad, {"type": "un", "thickness": 2, "caps": 1})
+    seen["order"] = [o.TypeId.split("::")[1] for o in body.Group
+                     if o.isDerivedFrom("PartDesign::Feature")]
+
+    # Un enlèvement traversant devient une rainure d'1 mm autour de son
+    # contour ; il refuse des extrémités fermées.
+    self.new_part("Enlèvement à paroi mince")
+    self.add_rect_sketch(30, 30)
+    self.add_pad(5)
+    self.add_rect_sketch(10, 10, face=self._top_face_id())
+    tree = self.add_pocket(through=True)
+    pocket = [f["name"] for f in tree["features"]
+              if f["type"] == "PartDesign::Pocket"][-1]
+    seen["pocket"] = edit(pocket, {"type": "un", "thickness": 1})
+    refused = call("set_params", feature=pocket, values={
+        "thin": {"type": "un", "thickness": 1, "caps": 1}})
+    seen["pocket_caps"] = (refused.get("ok"), volume())
+    report["p147_paroi_mince_change_de_genre"] = (
+        seen["preview"] == (True, 4000.0, None)
+        and seen["un"] == (True, 1760.0, ("un", 0.0), [])
+        and seen["milieu"] == (True, 1600.0, ("milieu", 0.0), [])
+        and seen["caps"] == (True, 2560.0, ("un", 1.0), [])
+        and seen["off"] == (True, 4000.0, None, [])
+        and seen["undo"] == (2560.0, 1.0)
+        and seen["middle"] == (True, 2528.0, ("un", 1.0), [])
+        and seen["order"] == ["Pad", "Pocket", "Pocket"]
+        and seen["pocket"] == (True, 4500.0 - 44 * 5, ("un", 0.0), [])
+        and seen["pocket_caps"] == (False, 4500.0 - 44 * 5))

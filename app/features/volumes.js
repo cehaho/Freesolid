@@ -317,8 +317,8 @@ const usesLength = (cond) => cond === "borgne" || cond === "milieu";
 
 /** Groupes du panneau extrusion / enlèvement. `edit` : les valeurs de la
  *  fonction qu'on réédite (`extrudeEditInitial`). La face d'arrivée se
- *  re-choisit sur la pièce à son rang ; la paroi mince garde son genre,
- *  ses épaisseurs et son côté se changent. */
+ *  re-choisit sur la pièce à son rang ; la paroi mince revient entière :
+ *  elle s'active, se retire, change de type ou d'extrémités. */
 export function extrudeGroups(kind, edit = null) {
   // Extrémités fermées : la cavité veut des profondeurs borgnes.
   const caps = (edit?.thin?.caps ?? 0) > 0;
@@ -375,49 +375,39 @@ export function extrudeGroups(kind, edit = null) {
             showIf: (v) => v.dir2 && v.cond !== "milieu" }] : []),
       ],
     },
-    ...(edit ? thinEditGroups(edit.thin) : [{
-      label: "Paroi mince",
-      rows: [
-        { type: "check", key: "thin", label: "Paroi d'épaisseur constante",
-          value: false },
-        { type: "select", key: "thinType", value: "un",
-          options: THIN_TYPES, showIf: (v) => v.thin },
-        { type: "number", key: "thinT", label: "Épaisseur", value: 2,
-          unit: "mm", min: 0.01, showIf: (v) => v.thin },
-        { type: "number", key: "thinT2", label: "Épaisseur côté 2",
-          value: 2, unit: "mm", min: 0.01,
-          showIf: (v) => v.thin && v.thinType === "deux" },
-        { type: "check", key: "thinReversed", label: "Inverser le côté",
-          value: false, showIf: (v) => v.thin && v.thinType !== "milieu" },
-        ...(kind === "pad" ? [
-          { type: "check", key: "thinCaps", label: "Extrémités fermées",
-            value: false, showIf: (v) => v.thin && capsAllowed(v) },
-          { type: "number", key: "thinCapT", label: "Épaisseur des extrémités",
-            value: 1, unit: "mm", min: 0.01,
-            showIf: (v) => v.thin && v.thinCaps && capsAllowed(v) },
-        ] : []),
-      ],
-    }]),
+    thinGroup(kind, edit),
   ];
 }
 
-/** Paroi mince d'une fonction qu'on réédite : ses épaisseurs et son côté. */
-function thinEditGroups(thin) {
-  if (!thin) return [];
-  return [{
+/** Groupe « Paroi mince », à la création et à la réédition : rempli de
+ *  celle de la fonction (`edit.thin`), cotes pilotées comprises. */
+function thinGroup(kind, edit) {
+  const thin = edit?.thin ?? null;
+  const measure = (key, label, value, showIf) => (edit
+    ? measureRow(key, label, value, "mm", showIf)
+    : { type: "number", key, label, value, unit: "mm", min: 0.01, showIf });
+  return {
     label: "Paroi mince",
     rows: [
-      measureRow("thinT", "Épaisseur", thin.thinT, "mm"),
-      ...(thin.type === "deux"
-        ? [measureRow("thinT2", "Épaisseur côté 2", thin.thinT2, "mm")] : []),
-      ...(thin.type !== "milieu" ? [
-        { type: "check", key: "thinReversed", label: "Inverser le côté",
-          value: !!thin.reversed }] : []),
-      ...(thin.caps > 0
-        ? [measureRow("thinCapT", "Épaisseur des extrémités", thin.thinCapT,
-                      "mm")] : []),
+      { type: "check", key: "thin", label: "Paroi d'épaisseur constante",
+        value: !!thin },
+      { type: "select", key: "thinType", value: thin?.type ?? "un",
+        options: THIN_TYPES, showIf: (v) => v.thin },
+      measure("thinT", "Épaisseur", thin?.thinT ?? 2, (v) => v.thin),
+      measure("thinT2", "Épaisseur côté 2", thin?.thinT2 || 2,
+              (v) => v.thin && v.thinType === "deux"),
+      { type: "check", key: "thinReversed", label: "Inverser le côté",
+        value: !!thin?.reversed,
+        showIf: (v) => v.thin && v.thinType !== "milieu" },
+      ...(kind === "pad" ? [
+        { type: "check", key: "thinCaps", label: "Extrémités fermées",
+          value: (thin?.caps ?? 0) > 0,
+          showIf: (v) => v.thin && capsAllowed(v) },
+        measure("thinCapT", "Épaisseur des extrémités", thin?.thinCapT || 1,
+                (v) => v.thin && v.thinCaps && capsAllowed(v)),
+      ] : []),
     ],
-  }];
+  };
 }
 
 /** Valeurs du panneau pour une fonction qu'on réédite : ses conditions
@@ -497,7 +487,22 @@ export function extrudeEditValues(v, feature) {
   if (cond2 === "borgne"
       && !measure("length2", 10, state.cond2 !== "borgne")) return null;
   const thin = feature.thin;
-  if (thin) {
+  const pad = feature.type_key !== "pocket";
+  const on = !!v.thin;
+  const type = v.thinType ?? "un";
+  const caps = pad && on && !!v.thinCaps && capsAllowed(v);
+  const sameKind = on === !!thin && (!on
+    || (type === thin.type && caps === (thin.caps > 0)));
+  if (!sameKind) {
+    // Activée, retirée, autre type, extrémités : la paroi est refaite.
+    if (!on) {
+      values.thin = null;
+    } else {
+      const rebuilt = thinParams(v, pad ? "add_pad" : "add_pocket");
+      if (!rebuilt) return null;
+      values.thin = rebuilt;
+    }
+  } else if (thin) {
     if (!measure("thinT", thin.thickness)) return null;
     if (thin.type === "deux" && !measure("thinT2", thin.thickness2)) {
       return null;
@@ -740,6 +745,10 @@ export function extrudeEditProblem(v, feature, tree) {
   const bad = (key) => key in v && readMeasure(
     v[key], storedMeasure(feature.params, key, 1),
     { min: 0, max: Infinity }) == null;
+  if (v.thin && thinParams(v, feature.type_key === "pocket"
+    ? "add_pocket" : "add_pad") === null) {
+    return "Épaisseur de paroi invalide";
+  }
   return feature.thin && ["thinT", "thinT2", "thinCapT"].some(bad)
     ? "Épaisseur de paroi invalide" : "Profondeur invalide";
 }
