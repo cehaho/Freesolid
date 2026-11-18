@@ -1403,6 +1403,11 @@ class TreeMixin:
                 graph = self._tree_graph_payload(obj)
                 if graph is not None:
                     item["graph"] = graph
+                mode = str(getattr(obj, "FreeSolidGraphMode", "") or "")
+                if mode in ("fuse", "cut"):
+                    # Un solide : ajout ou enlèvement, changeable à la
+                    # réédition (une courbe ou une surface n'en a pas).
+                    item["graph_mode"] = mode
             if "FreeSolidRepeatJson" in obj.PropertiesList:
                 try:
                     parsed = json.loads(obj.FreeSolidRepeatJson or "")
