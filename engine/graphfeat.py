@@ -344,8 +344,10 @@ class GraphMixin:
             raise
         return self.get_tree()
 
-    def edit_graph_feature(self, feature, graph):
-        """Réévalue une fonction graphe et remplace sa forme.
+    def edit_graph_feature(self, feature, graph, mode=None):
+        """Réévalue une fonction graphe et remplace sa forme ; ``mode``
+        (fuse ou cut) change l'ajout d'un solide en enlèvement, ou
+        l'inverse.
 
         Atomique : le graphe est évalué et la géométrie reconstruite
         **d'abord** ; si l'un ou l'autre échoue, la pièce n'est pas
@@ -361,6 +363,10 @@ class GraphMixin:
         instructions = self._evaluate_graph(graph)
         nature = self._graph_output_nature(instructions)
         if self._is_graph_surface(obj):
+            if mode is not None:
+                raise KernelError(
+                    "mode inconnu « {} » — une courbe ou une surface n'a "
+                    "pas de mode fuse ou cut".format(mode))
             if nature != "surface":
                 raise KernelError(
                     "cette fonction graphe est une courbe ou une surface ; "
@@ -388,21 +394,24 @@ class GraphMixin:
                 "cette fonction graphe est un enlèvement ou un bossage ; "
                 "le graphe ne produit plus de solide — la pièce n'a pas "
                 "été modifiée")
+        mode = self._edited_mode(
+            mode, getattr(obj, "FreeSolidGraphMode", "") or "cut")
         solid = self._build_graph_solid(instructions)
         _, shape_feature = self._graph_tool_parts(obj)
-        old_shape = shape_feature.Shape
+        old_shape, old_type = shape_feature.Shape, str(obj.Type)
         shape_feature.Shape = solid
+        obj.Type = "Fuse" if mode == "fuse" else "Cut"
         try:
             self._recompute()
         except KernelError as exc:
             shape_feature.Shape = old_shape
+            obj.Type = old_type
             try:
                 self._recompute()
             except KernelError:
                 pass
             raise KernelError(
                 "{} — la fonction graphe n'a pas été modifiée".format(exc))
-        mode = getattr(obj, "FreeSolidGraphMode", "") or "cut"
         self._persist_graph(
             obj, graph, mode,
             self._t("Fonction graphe — Ajout") if mode == "fuse"
@@ -429,6 +438,18 @@ class GraphMixin:
         else:
             mode = stored or "cut"
         return {"graph": migrate_graph(parsed), "mode": mode}
+
+    @staticmethod
+    def _edited_mode(mode, stored):
+        """Le mode d'une réédition : ``mode`` s'il est donné (fuse ou cut),
+        sinon celui de la création."""
+        from engine.kernel import KernelError
+        if mode is None:
+            return stored
+        if str(mode) not in ("fuse", "cut"):
+            raise KernelError(
+                "mode inconnu « {} » — attendu fuse ou cut".format(mode))
+        return str(mode)
 
     def _repeat_label(self, mode):
         return (self._t("Réseau variable — Ajout") if mode == "fuse"
@@ -562,9 +583,10 @@ class GraphMixin:
         return self.get_tree()
 
     def edit_repeat_feature(self, feature, instances=None, graph=None,
-                            features=None):
-        """Réédite une répétition variable (instances **ou** graphe), et
-        ses fonctions répétées.
+                            features=None, mode=None):
+        """Réédite une répétition variable (instances **ou** graphe), ses
+        fonctions répétées, et son mode (``mode`` : fuse ou cut, l'ajout
+        devient enlèvement ou l'inverse).
 
         ``features`` : les fonctions répétées, re-choisies ; chacune vient
         avant la répétition. Sans instances ni graphe, la source
@@ -584,8 +606,12 @@ class GraphMixin:
         if obj is None:
             raise KernelError("fonction inconnue : {}".format(feature))
         stored = self._load_repeat_json(obj)
-        mode = stored["mode"]
+        mode = self._edited_mode(mode, stored["mode"])
         names = stored["features"]
+        if mode != stored["mode"] and instances is None and graph is None:
+            # Le mode seul : la source enregistrée reste.
+            graph = stored.get("graph")
+            instances = stored.get("instances")
         if features is not None:
             if not isinstance(features, (list, tuple)):
                 raise KernelError("features doit être une liste de noms")
@@ -606,12 +632,14 @@ class GraphMixin:
             payload["instances"] = instances
         self._dump_json_payload(payload, "répétition")
         _, shape_feature = self._repeat_tool_parts(obj)
-        old_shape = shape_feature.Shape
+        old_shape, old_type = shape_feature.Shape, str(obj.Type)
         shape_feature.Shape = solid
+        obj.Type = "Fuse" if mode == "fuse" else "Cut"
         try:
             self._recompute()
         except KernelError as exc:
             shape_feature.Shape = old_shape
+            obj.Type = old_type
             try:
                 self._recompute()
             except KernelError:

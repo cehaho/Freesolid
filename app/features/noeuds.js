@@ -48,11 +48,7 @@ export const NOEUDS = [
     groups: (ctx) => [
       { label: "Fonctions",
         rows: [repeatFeaturesRow(ctx?.selection?.(["feature"]) ?? null)] },
-      { label: "Opération",
-        rows: [
-          { type: "select", key: "mode", value: "fuse",
-            options: [["fuse", "Ajouter"], ["cut", "Soustraire"]] },
-        ] },
+      { label: "Opération", rows: [repeatModeRow()] },
     ],
     note: "Rejoue un groupe de fonctions avec des cotes différentes. "
       + "Si la topologie d'une instance ne correspond plus, la "
@@ -74,6 +70,19 @@ export const NOEUDS = [
     openGraphEditor: true,
   },
 ];
+
+/** Ajouter ou soustraire : la rangée de la création d'une répétition
+ *  variable, reprise à sa réédition avec son mode. */
+export function repeatModeRow(value = "fuse") {
+  return { type: "select", key: "mode", value,
+           options: [["fuse", "Ajouter"], ["cut", "Soustraire"]] };
+}
+
+/** Le mode re-choisi : `{}` s'il ne change pas, `{ mode }` sinon. */
+export function repeatModeValues(v, repeat) {
+  const mode = v.mode === "cut" ? "cut" : "fuse";
+  return mode === (repeat?.mode ?? "fuse") ? {} : { mode };
+}
 
 /** La zone des fonctions d'une répétition variable : à la création, et à
  *  la réédition, remplie de celles qu'elle répète. */

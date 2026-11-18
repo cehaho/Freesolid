@@ -1308,6 +1308,15 @@ export function installGraphView(ctx) {
     graphFnBar.hidden = false;
     // Une répétition variable re-choisit aussi ses fonctions répétées.
     document.getElementById("graph-fn-features").hidden = kind !== "repetition";
+    // Un solide produit par un graphe : ajouter ou soustraire, appliqué
+    // avec le graphe. Une courbe ou une surface n'a pas de mode.
+    const modeEl = document.getElementById("graph-fn-mode");
+    const mode = kind === "repetition" ? null : feature.graph_mode ?? null;
+    ctx.graphFn.mode = mode;
+    if (modeEl) {
+      modeEl.hidden = !mode;
+      if (mode) modeEl.value = mode;
+    }
     const hintEl = document.getElementById("graph-fn-hint");
     if (hintEl) {
       hintEl.textContent = kind === "repetition"
@@ -1327,7 +1336,8 @@ export function installGraphView(ctx) {
 
   function exitGraphFeature({ force = false } = {}) {
     if (!ctx.graphFn.active) return true;
-    if (!force && !graphDraftsEqual(ctx.graphFn.draft, ctx.graphFn.saved)) {
+    if (!force && (!graphDraftsEqual(ctx.graphFn.draft, ctx.graphFn.saved)
+                   || pendingGraphMode() !== null)) {
       if (!confirm("Le graphe n'a pas été appliqué. Quitter sans appliquer ?")) {
         return false;
       }
@@ -1340,6 +1350,7 @@ export function installGraphView(ctx) {
     ctx.graphFn.errorNode = null;
     ctx.graphFn.selected = null;
     ctx.graphFn.draggingNode = null;
+    ctx.graphFn.mode = null;
     graphFnBar.hidden = true;
     graphView.classList.remove("fn");
     closeGraphPalette();
@@ -1386,6 +1397,14 @@ export function installGraphView(ctx) {
     });
   }
 
+  /** Le mode choisi dans la barre s'il diffère de celui de la fonction,
+   *  sinon null. */
+  function pendingGraphMode() {
+    const modeEl = document.getElementById("graph-fn-mode");
+    if (!ctx.graphFn.mode || !modeEl || modeEl.hidden) return null;
+    return modeEl.value !== ctx.graphFn.mode ? modeEl.value : null;
+  }
+
   async function applyGraphFeature() {
     if (!ctx.graphFn.active || !ctx.graphFn.feature) return;
     const composed = composeGraphPayload(ctx.graphFn.draft, ctx.graphFn.vocabulary);
@@ -1414,10 +1433,14 @@ export function installGraphView(ctx) {
       }
       const op = ctx.graphFn.kind === "repetition"
         ? "edit_repeat_feature" : "edit_graph_feature";
+      const mode = ctx.graphFn.kind === "repetition" ? null
+        : pendingGraphMode();
       const tree = await call(op, {
         feature: ctx.graphFn.feature.name,
         graph: composed.graph,
+        ...(mode ? { mode } : {}),
       });
+      if (mode) ctx.graphFn.mode = mode;
       ctx.graphFn.errorNode = null;
       ctx.graphFn.saved = cloneGraphDraft(ctx.graphFn.draft);
       ctx.lastTree = tree;

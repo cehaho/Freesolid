@@ -8,6 +8,7 @@ import {
   BODY_PATTERN_TYPES, patternEditGroups, patternEditValues,
   patternFeaturesPick, patternFeaturesValues, patternSourcesPick,
   patternSourcesValues, repeatFeaturesRow, repeatFeaturesValues,
+  repeatModeRow, repeatModeValues,
 } from "../../app/features.js";
 import { featureEditor } from "../../app/editkind.js";
 
@@ -207,5 +208,23 @@ describe("fonctions d'une répétition variable", () => {
     assert.deepEqual(repeatFeaturesValues(zone(["Pad"]), repeat),
                      { features: ["Pad"] });
     assert.equal(repeatFeaturesValues(zone([]), repeat), null);
+  });
+});
+
+describe("mode d'une répétition variable", () => {
+  it("revient dans la rangée de la création", () => {
+    assert.equal(repeatModeRow().value, "fuse");
+    assert.equal(repeatModeRow("cut").value, "cut");
+    assert.deepEqual(repeatModeRow().options.map(([key]) => key),
+                     ["fuse", "cut"]);
+  });
+
+  it("n'est envoyé que s'il change", () => {
+    const repeat = { features: ["Pad"], mode: "fuse" };
+    assert.deepEqual(repeatModeValues({ mode: "fuse" }, repeat), {});
+    assert.deepEqual(repeatModeValues({ mode: "cut" }, repeat),
+                     { mode: "cut" });
+    // Une répétition d'avant le mode enregistré : un ajout.
+    assert.deepEqual(repeatModeValues({ mode: "fuse" }, {}), {});
   });
 });

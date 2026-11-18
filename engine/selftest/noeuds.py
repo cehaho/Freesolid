@@ -904,3 +904,93 @@ def n11b_libelle_courbe_surface(self, mark, report, etat):
         and edited["label"] == "Fonction graphe — Surface"
         and edited["label"] != curve_line["label"]
         and surf_line["label"] == "Fonction graphe — Surface")
+
+
+def p146_ajout_ou_enlevement_se_change(self, mark, report, etat):
+    """Une fonction graphe solide et une répétition variable passent de
+    l'ajout à l'enlèvement à la réédition, leur graphe gardé (thème 5 de
+    docs/gestes-des-fonctions.md)."""
+    mark("p146: fonction graphe et répétition variable changent de mode")
+    from engine.kernel import dispatch
+    seen = etat.p146 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def row(name):
+        return next(f for f in self.get_tree()["features"]
+                    if f["name"] == name)
+
+    def volume():
+        return self._require_body().Shape.Volume
+
+    # Un cylindre Ø6 qui traverse une plaque de 8 : soustrait, puis ajouté
+    # (il dépasse de 6 dessous et de 6 dessus).
+    cylinder = {
+        "nodes": [
+            {"id": "x", "type": "nombre", "value": 0},
+            {"id": "y", "type": "nombre", "value": 0},
+            {"id": "z", "type": "nombre", "value": -6},
+            {"id": "pts", "type": "vecteur"},
+            {"id": "cyl", "type": "cylindre", "rayon": 3, "hauteur": 20},
+        ],
+        "edges": [
+            {"from": "x", "to": "pts", "input": "x"},
+            {"from": "y", "to": "pts", "input": "y"},
+            {"from": "z", "to": "pts", "input": "z"},
+            {"from": "pts", "to": "cyl", "input": "ancrage"},
+        ],
+        "output": "cyl",
+    }
+    self.new_part("Fonction graphe, ajout ou enlèvement")
+    self.add_rect_sketch(40, 20)
+    self.add_pad(8)
+    plate = volume()
+    tree = self.add_graph_feature(cylinder, mode="cut")
+    graph = next(f["name"] for f in tree["features"] if f.get("graph"))
+    hole = math.pi * 9 * 8
+    seen["graph_cut"] = (round(plate - volume(), 3) == round(hole, 3),
+                         row(graph).get("graph_mode"))
+    done = call("set_params", feature=graph, values={"mode": "fuse"})
+    added = math.pi * 9 * 12
+    seen["graph_fuse"] = (done.get("ok"), row(graph).get("graph_mode"),
+                          round(volume() - plate, 3) == round(added, 3),
+                          self.get_graph_feature(graph)["mode"],
+                          str(self._doc.getObject(graph).Type))
+    refused = call("set_params", feature=graph, values={"mode": "common"})
+    seen["graph_refused"] = (refused.get("ok"),
+                             row(graph).get("graph_mode"))
+    call("undo")
+    seen["graph_undone"] = (row(graph).get("graph_mode"),
+                            round(plate - volume(), 3) == round(hole, 3))
+
+    # Une répétition variable d'un bossage : ajoutée, puis soustraite —
+    # sa copie, posée dans la plaque, y creuse sa place.
+    self.new_part("Répétition variable, ajout ou enlèvement")
+    self.add_rect_sketch(40, 20)
+    self.add_pad(8)
+    body = self._require_body()
+    state = self.sketch_start(plane="XY")
+    self.sketch_add_rectangle(state["sketch"], -2, -2, 2, 2)
+    self.sketch_finish(state["sketch"])
+    self.add_pad(12, sketch=state["sketch"])
+    boss = self._thin_owner(body.Tip).Name
+    alone = volume()
+    tree = call("add_repeat_feature", features=[boss], mode="fuse",
+                instances=[{"offset": [10, 0, 0]}])
+    repeat = self._thin_owner(body.Tip).Name
+    seen["repeat_fuse"] = (tree.get("ok"),
+                           round(volume() - alone, 3) == round(16 * 4, 3))
+    done = call("set_params", feature=repeat, values={"mode": "cut"})
+    seen["repeat_cut"] = (done.get("ok"),
+                          (row(repeat).get("repeat") or {}).get("mode"),
+                          round(alone - volume(), 3) == round(16 * 8, 3),
+                          self.get_repeat_feature(repeat)["mode"])
+    report["p146_ajout_ou_enlevement_se_change"] = (
+        seen["graph_cut"] == (True, "cut")
+        and seen["graph_fuse"] == (True, "fuse", True, "fuse", "Fuse")
+        and seen["graph_refused"] == (False, "fuse")
+        and seen["graph_undone"] == ("cut", True)
+        and seen["repeat_fuse"] == (True, True)
+        and seen["repeat_cut"] == (True, "cut", True, "cut")
+        and not self.rebuild_errors()["errors"])

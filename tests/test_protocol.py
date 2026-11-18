@@ -437,7 +437,7 @@ def test_repeat_feature_ops_declared():
     assert protocol.OPS["add_repeat_feature"].optional == {
         "instances": list, "graph": dict}
     assert protocol.OPS["edit_repeat_feature"].optional == {
-        "instances": list, "graph": dict}
+        "instances": list, "graph": dict, "mode": str}
     protocol.validate_request(
         {"op": "add_repeat_feature",
          "params": {"features": ["Pad", "Pocket"],

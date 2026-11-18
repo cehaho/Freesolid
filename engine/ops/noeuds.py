@@ -12,8 +12,9 @@ OPS = (
        no_replay="JSON du graphe, pas un profil"),
                                        # mode : fuse | cut pour un solide ;
                                        # absent pour une courbe / surface
-    Op("edit_graph_feature", Req(("feature", str), ("graph", dict)),
-       undo=True),
+    Op("edit_graph_feature", Req(("feature", str), ("graph", dict),
+                                 optional={"mode": str}),
+       undo=True),                     # mode : fuse | cut, un solide seul
     Op("get_graph_feature", Req(("feature", str))),
     Op("add_repeat_feature", Req(("features", list), ("mode", str),
                                  optional={"instances": list, "graph": dict}),
@@ -21,7 +22,8 @@ OPS = (
        no_replay="JSON de répétition, pas un profil"),
                                        # exactement un de instances | graph
     Op("edit_repeat_feature", Req(("feature", str),
-                                  optional={"instances": list, "graph": dict}),
+                                  optional={"instances": list, "graph": dict,
+                                            "mode": str}),
        undo=True),
                                        # exactement un de instances | graph
     Op("get_repeat_feature", Req(("feature", str))),
