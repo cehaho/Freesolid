@@ -2437,6 +2437,14 @@ export function installTree(ctx) {
               params: { feature: feature.name, values } }
           : null);
       },
+      // L'œil de l'en-tête, comme à la création.
+      onPreview: (on, v) => {
+        const values = on ? build(v) : null;
+        schedulePreview(values
+          ? { op: "set_params",
+              params: { feature: feature.name, values } }
+          : null);
+      },
       onApply: (v) => {
         const values = build(v);
         if (values === null) {
@@ -2470,19 +2478,29 @@ export function installTree(ctx) {
     const build = (v) => (extrudeMergeProblem(v, feature, tree) ? null
       : withBodyChoices(extrudeEditValues(v, feature), v, feature, tree));
     let applied = false;
+    const preview = (v, how) => {
+      const values = build(v);
+      schedulePreview(values
+        ? { op: "set_params",
+            params: { feature: feature.name, values } }
+        : null, how);
+      return values;
+    };
+    // Comme à la création : la ligne « Profil » et l'œil de l'aperçu.
+    const sketch = (feature.children ?? []).find(
+      (child) => child.type_key === "sketch");
     panel.open({
       icon: TREE_ICONS[feature.type_key] ?? "body",
       title: feature.label,
-      groups: [...extrudeGroups(kind, initial),
+      groups: [{ label: "Profil", rows: [{ type: "note",
+                 text: t("Profil : {p}", { p: sketch?.label ?? "—" }) }] },
+               ...extrudeGroups(kind, initial),
                ...contourGroups(feature), ...bodyChoiceGroups(feature, tree)],
       onChange: (v, how) => {
-        const values = build(v);
-        schedulePreview(values
-          ? { op: "set_params",
-              params: { feature: feature.name, values } }
-          : null, how);
+        const values = preview(v, how);
         depth?.update(values && sameWay(values) ? v : {});
       },
+      onPreview: (on, v) => (on ? preview(v) : schedulePreview(null)),
       onClose: () => {
         depth?.close();
         // Fermé sans réédition : la barre revient (voir editAtRank).

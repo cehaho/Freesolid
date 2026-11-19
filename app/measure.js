@@ -3,7 +3,7 @@
 // le menu le lisent. Ici on le met à jour via ctx.
 
 import { t } from "./i18n.js";
-import { num } from "./num.js";
+import { fmtLocal, num } from "./num.js";
 
 /** Élément visé par Mesurer : l'arête survolée, sinon la face, sinon rien. */
 export function measurePick(hoveredEdgeGroup, edgeGroups, hoveredGroup, meshGroups) {
@@ -34,7 +34,10 @@ export function installMeasure(ctx) {
       say(error.message, true);
       return;
     }
-    const fixed = (v, n = 1) => v.toFixed(n);
+    const fixed = (v, n = 1) => fmtLocal(v, n);
+    // La densité garde ses décimales (1,24 ; 7,85), séparateur régional.
+    const density = fmtLocal(props.density,
+      Math.min(3, (String(props.density).split(".")[1] || "").length));
     panel.open({
       icon: "view-measurement",
       title: t("Évaluer"),
@@ -45,12 +48,12 @@ export function installMeasure(ctx) {
               { v: fixed(props.volume_mm3 / 1000, 2) }) },
             { label: props.material && lastDensity == null
               ? t("Masse : {m} g ({n}, {d} g/cm³)", { m: fixed(props.mass_g),
-                n: props.material, d: props.density })
+                n: props.material, d: density })
               : t("Masse : {m} g (à {d} g/cm³)",
-                { m: fixed(props.mass_g), d: props.density }) },
+                { m: fixed(props.mass_g), d: density }) },
             { label: t("Surface : {s} cm²", { s: fixed(props.area_mm2 / 100) }) },
             { label: t("Centre de gravité : ")
-                     + props.center_of_mass.map((v) => fixed(v)).join(", ") },
+                     + props.center_of_mass.map((v) => fixed(v)).join(" ; ") },
             { label: t("Encombrement : ")
                      + props.bounding_box.map((v) => fixed(v)).join(" × ")
                      + " mm" },
@@ -102,7 +105,7 @@ export function installMeasure(ctx) {
       call("measure", { a_kind: first.kind, a_id: first.id,
                         b_kind: pick.kind, b_id: pick.id })
         .then((r) => say(t("Distance {a} ↔ {b} : {d} mm",
-          { a: label(first), b: label(pick), d: r.distance.toFixed(3) })))
+          { a: label(first), b: label(pick), d: fmtLocal(r.distance, 3) })))
         .catch((error) => say(error.message, true));
     }
     return true;

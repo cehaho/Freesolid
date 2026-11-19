@@ -72,7 +72,7 @@ applyStaticIcons(document);
 // source en français, le dictionnaire fait le reste.
 const prompt = (message, fallback) => window.prompt(t(message), fallback);
 const confirm = (message) => window.confirm(t(message));
-import { installCoreRibbons } from "./ribbon.js";
+import { fitRibbon, installCoreRibbons } from "./ribbon.js";
 import RIBBON_LAYOUT from "./ribbon.json" with { type: "json" };
 import { edgeSnapPoints } from "./pointsnap.js";
 import { installCurve3d } from "./curve3d.js";
@@ -1091,7 +1091,7 @@ function saveScreenshot() {
   link.href = captureImage();
   link.download = "freesolid.png";
   link.click();
-  say(t("Capture enregistrée : freesolid.png"));
+  say(t("Capture enregistrée : freesolid.png"), false, { fade: true });
 }
 
 document.getElementById("view-prev").addEventListener("click", goPreviousView);
@@ -1369,10 +1369,18 @@ function showTab(name) {
     const ribbon = document.getElementById(id);
     if (ribbon) ribbon.classList.toggle("active", key === name);
   }
+  fitActiveRibbon();
 }
 for (const tab of document.querySelectorAll("header .tab")) {
   tab.addEventListener("click", () => showTab(tab.dataset.tab));
 }
+
+/** Le ruban actif tient dans la fenêtre (``fitRibbon``). */
+function fitActiveRibbon() {
+  fitRibbon(document.querySelector("header .ribbon.active"));
+}
+window.addEventListener("resize", () => requestAnimationFrame(fitActiveRibbon));
+requestAnimationFrame(fitActiveRibbon);
 
 // ---------- coin de confirmation ----------
 // En haut à droite de la vue : ✓ valide, ✗ abandonne. Il agit sur la
@@ -1843,7 +1851,8 @@ document.getElementById("btn-drawing").addEventListener("click", () => {
           if (params.dims && out.dims_ok === false) extra += t(" (sans cotes)");
           if (params.section && out.section_ok === false) extra += t(" (sans coupe)");
               say(t("Mise en plan exportée : {path} ({size} Ko — Face, Dessus, Iso)",
-            { path: out.path, size: (out.size / 1024).toFixed(1) }) + extra);
+            { path: out.path, size: (out.size / 1024).toFixed(1) }) + extra,
+            false, { fade: true });
         } catch (error) {
           say(error.message, true);
         }
@@ -2051,7 +2060,8 @@ async function saveAsTemplate() {
   if (name === null || !name.trim()) return;
   try {
     await call("save_template", { name: name.trim() });
-    say(t("Gabarit « {n} » enregistré — Nouveau le propose", { n: name.trim() }));
+    say(t("Gabarit « {n} » enregistré — Nouveau le propose", { n: name.trim() }),
+      false, { fade: true });
   } catch (error) {
     say(String(error.message ?? error), true);
   }
@@ -2446,7 +2456,8 @@ document.getElementById("btn-save").addEventListener("click", async () => {
   try {
     const saved = await call("save_part", { path });
     rememberRecent(localStore, saved.path);
-    say(t("Enregistré : {path} — ouvrable dans FreeCAD standard.", { path: saved.path }));
+    say(t("Enregistré : {path} — ouvrable dans FreeCAD standard.", { path: saved.path }),
+      false, { fade: true });
   } catch (error) {
     say(error.message, true);
   }
@@ -2457,7 +2468,8 @@ document.getElementById("btn-export").addEventListener("click", async () => {
   if (!path) return;
   try {
     const out = await call("export_part", { path });
-    say(t("Exporté : {path} ({size} Ko)", { path: out.path, size: (out.size / 1024).toFixed(1) }));
+    say(t("Exporté : {path} ({size} Ko)", { path: out.path, size: (out.size / 1024).toFixed(1) }),
+      false, { fade: true });
   } catch (error) {
     say(error.message, true);
   }

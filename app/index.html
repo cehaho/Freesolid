@@ -372,6 +372,13 @@
     grid-row: span 2; align-self: stretch; width: 1px; height: auto;
     margin: var(--space-1) var(--space-1);
   }
+  /* Ruban trop large (fitRibbon) : petits boutons sans texte, puis les
+     grands aussi. */
+  .ribbon.ribbon-tight .ribbon-group-btns button:not(.large):has(> img),
+  .ribbon.ribbon-tighter button:has(> img) {
+    font-size: 0; gap: 0; padding: 0 6px;
+  }
+  .ribbon.ribbon-tighter button.large { width: 40px; }
   body.ribbon-icons-only .ribbon button:has(> img) {
     font-size: 0; gap: 0; padding: 0 6px;
   }
