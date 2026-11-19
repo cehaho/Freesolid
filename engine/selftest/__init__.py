@@ -271,6 +271,7 @@ def _etapes():
         fonctions.p154_numerotation_des_fonctions,
         fonctions.p153_face_rognee_reste_a_sa_creatrice,
         assemblage.p152_piece_reenregistree_relue,
+        document.p155_feuille_de_mise_en_plan,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

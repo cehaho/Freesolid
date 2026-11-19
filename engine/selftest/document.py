@@ -1197,3 +1197,32 @@ def n4e_evaluer_apres_ouverture(self, mark, report, etat):
     mesh = self.tessellate()
     report["mesh_faces"] = len(mesh["groups"])
     report["mesh_triangles"] = len(mesh["indices"]) // 3
+
+
+def p155_feuille_de_mise_en_plan(self, mark, report, etat):
+    mark("p155: mise en plan — la feuille à l'écran et son DXF")
+    import tempfile
+    self.new_part("Feuille")
+    self.add_rect_sketch(40, 20)
+    self.add_pad(10)
+    sheet = self.drawing_views()
+    views = {v["name"]: v for v in sheet["views"]}
+    front = views.get("front", {})
+    report["p155_quatre_vues"] = (
+        set(views) == {"front", "top", "right", "iso"}
+        and abs(front.get("width", 0) - 40) < 1e-6
+        and abs(front.get("height", 0) - 10) < 1e-6
+        and abs(views["right"]["width"] - 20) < 1e-6)
+    # Premier dièdre : le dessus sous la face, la droite à sa gauche.
+    report["p155_premier_diedre"] = (
+        views["top"]["center"][1] > front["center"][1]
+        and views["right"]["center"][0] < front["center"][0])
+    report["p155_echelle_normalisee"] = sheet["scale_label"] == "2:1"
+    path = os.path.join(tempfile.gettempdir(), "freesolid-selftest-feuille.dxf")
+    out = self.write_drawing_dxf(path, 297, 210, [
+        {"k": "line", "a": [10, 10], "b": [287, 10], "layer": "cadre"},
+        {"k": "text", "at": [20, 20], "text": "Pièce", "size": 3.5,
+         "anchor": "start", "angle": 0, "layer": "texte"}])
+    with open(out["path"], encoding="cp1252") as handle:
+        text = handle.read()
+    report["p155_dxf_ecrit"] = "AC1009" in text and "Pièce" in text

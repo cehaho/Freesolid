@@ -1,4 +1,10 @@
 {
+ "mise en plan : feuille illisible ({})": "drawing: unreadable sheet ({})",
+ "Face": "Front",
+ "Dessus": "Top",
+ "Droite": "Right",
+ "Isométrique": "Isometric",
+ "mise en plan : la pièce n'a pas de volume": "drawing: the part has no volume",
  "Extrusion": "Extrude",
  "Enlèvement extrudé": "Extrude Cut",
  "Esquisse": "Sketch",

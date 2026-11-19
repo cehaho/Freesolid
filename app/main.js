@@ -7,7 +7,8 @@ import {
   filletRadiusLabel,
 } from "./dims.js";
 import { createPropertyPanel } from "./panel.js";
-import { num, setDisplayDecimals } from "./num.js";
+import { displayDecimals, num, setDisplayDecimals } from "./num.js";
+import { installDrawingSheet } from "./drawingsheet.js";
 import { ndcToScreen } from "./screen.js";
 import { readScene } from "./theme.js";
 import {
@@ -1810,53 +1811,19 @@ ctx.openPoles = (surface) => polesTool.open(surface);
 document.getElementById("btn-surf-poles").addEventListener("click", () =>
   featureCommand(() => polesTool.open()));
 
+// Mise en plan : la feuille à l'écran (drawingsheet.js), comme la mise en
+// plan des modeleurs courants ; on l'imprime ou on l'exporte en DXF.
+const drawingSheet = installDrawingSheet({
+  viewport: document.getElementById("viewport"),
+  call, say, pickFile: (mode) => pickFile(mode),
+  decimals: () => displayDecimals().length,
+});
 document.getElementById("btn-drawing").addEventListener("click", () => {
-  panel.open({
-    icon: "TechDraw_PageDefault",
-    title: t("Mise en plan"),
-    groups: [
-      {
-        label: t("Vues"),
-        rows: [
-          { type: "number", key: "scale", label: t("Échelle"), value: "",
-            min: 0.01 },
-        ],
-      },
-      {
-        label: t("Annotations"),
-        rows: [
-          { type: "check", key: "dims", label: t("Cotes d'encombrement"),
-            value: true },
-          { type: "select", key: "section", value: "", label: t("Coupe"),
-            options: [["", "Aucune"], ["X", "X"], ["Y", "Y"],
-                      ["Z", "Z"]] },
-        ],
-      },
-    ],
-    note: t("Trois vues (Face, Dessus, Iso) exportées en DXF ; OK demande où."),
-    onApply: (v) => {
-      const params = { dims: !!v.dims };
-      const scale = num(v.scale);
-      if (scale) params.scale = scale;
-      if (v.section) params.section = v.section;
-      (async () => {
-        // Le fichier se choisit comme partout : le dialogue de fichiers.
-        params.path = await pickFile("drawing");
-        if (!params.path) return;
-        try {
-          const out = await call("make_drawing", params);
-          let extra = "";
-          if (params.dims && out.dims_ok === false) extra += t(" (sans cotes)");
-          if (params.section && out.section_ok === false) extra += t(" (sans coupe)");
-              say(t("Mise en plan exportée : {path} ({size} Ko — Face, Dessus, Iso)",
-            { path: out.path, size: (out.size / 1024).toFixed(1) }) + extra,
-            false, { fade: true });
-        } catch (error) {
-          say(error.message, true);
-        }
-      })();
-    },
-  });
+  if (!lastTree) {
+    say("Mise en plan : ouvrez d'abord une pièce", true);
+    return;
+  }
+  drawingSheet.open();
 });
 
 // ---------- assemblage ----------

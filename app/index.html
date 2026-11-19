@@ -372,6 +372,40 @@
     grid-row: span 2; align-self: stretch; width: 1px; height: auto;
     margin: var(--space-1) var(--space-1);
   }
+  /* Mise en plan : la feuille A4 par-dessus la vue 3D (drawingsheet.js). */
+  #drawing-sheet {
+    position: absolute; inset: 0; z-index: 30;
+    display: flex; flex-direction: column;
+    background: var(--panel-2);
+  }
+  #drawing-sheet[hidden] { display: none; }
+  #drawing-sheet .ds-bar {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border-bottom: 1px solid var(--line); background: var(--panel);
+    font-size: var(--text-xs);
+  }
+  #drawing-sheet .ds-grow { flex: 1; }
+  #drawing-sheet .ds-paper {
+    flex: 1; min-height: 0; padding: var(--space-3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #drawing-sheet .ds-svg {
+    width: 100%; height: 100%; max-width: 100%; max-height: 100%;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  }
+  @media print {
+    @page { size: A4 landscape; margin: 0; }
+    body.drawing-open * { visibility: hidden; }
+    body.drawing-open #drawing-sheet .ds-paper,
+    body.drawing-open #drawing-sheet .ds-paper * { visibility: visible; }
+    body.drawing-open #drawing-sheet .ds-paper {
+      position: fixed; inset: 0; padding: 0;
+    }
+    body.drawing-open #drawing-sheet .ds-svg {
+      width: 297mm; height: 210mm; box-shadow: none;
+    }
+  }
   /* Ruban trop large (fitRibbon) : petits boutons sans texte, puis les
      grands aussi. */
   .ribbon.ribbon-tight .ribbon-group-btns button:not(.large):has(> img),

@@ -568,6 +568,7 @@ def test_ops_snapshot_keys():
             "document_options",
             "document_properties",
             "document_status",
+            "drawing_views",
             "edge_chain",
             "edit_curve3d",
             "edit_graph_feature",
@@ -733,6 +734,7 @@ def test_ops_snapshot_keys():
             "tip_to_end",
             "undo",
             "undo_history",
+            "write_drawing_dxf",
         ]
 
 
