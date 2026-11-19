@@ -311,7 +311,7 @@ def _assert_in_jail(resolved, *, allow_root=False):
 #: Extensions qu'un dialogue peut montrer. Le filtre fin est côté client.
 _LIST_EXTENSIONS = frozenset({
     ".fcstd", ".step", ".stp", ".stl", ".3mf", ".iges", ".igs",
-    ".sldprt", ".x_t", ".x_b",
+    ".sldprt", ".x_t", ".x_b", ".dxf",
 })
 
 
@@ -330,10 +330,26 @@ def resolve_user_dir(path):
     return resolved
 
 
+#: Attributs Windows d'un nom caché du dialogue : caché ou système
+#: (« AppData », « Cookies », « Application Data »…).
+_HIDDEN_ATTRIBUTES = 0x2 | 0x4
+
+
+def _hidden_by_system(full):
+    """Vrai pour un nom que l'explorateur du système cache. Ailleurs que
+    sous Windows, le point en tête suffit (voir ``list_user_dir``)."""
+    try:
+        attributes = getattr(os.lstat(full), "st_file_attributes", 0)
+    except OSError:
+        return False
+    return bool(attributes & _HIDDEN_ATTRIBUTES)
+
+
 def list_user_dir(path=None):
     """Contenu d'un dossier de la prison : dossiers, puis fichiers connus.
 
-    Les noms qui commencent par ``.`` sont omis. Un lien dont la cible
+    Les noms qui commencent par ``.`` sont omis, et ceux que Windows
+    marque cachés ou système. Un lien dont la cible
     sort de la prison est omis aussi. ``parent`` est ``None`` si remonter
     sortirait de la prison.
     """
@@ -354,6 +370,8 @@ def list_user_dir(path=None):
         if not name or name.startswith("."):
             continue
         full = os.path.join(resolved, name)
+        if _hidden_by_system(full):
+            continue
         try:
             real = os.path.realpath(full)
         except OSError:

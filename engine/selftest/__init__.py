@@ -269,6 +269,7 @@ def _etapes():
         noeuds.p150_desactiver_graphe_repetition_texte,
         surfaces.p151_forme_figee_qui_casse,
         fonctions.p153_face_rognee_reste_a_sa_creatrice,
+        assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

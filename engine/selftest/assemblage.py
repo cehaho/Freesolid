@@ -23,6 +23,12 @@ def p10_deux_instances(self, mark, report, etat):
     report["p10_genre_composant"] = all(
         c.get("type_key") == "component" for c in tree["components"])
     second = tree["components"][1]["name"]
+    # La seconde arrive à côté de la première, pas dedans : on voit ses
+    # faces, on peut la contraindre.
+    import Part
+    boxes = [Part.getShape(self._doc.getObject(c["name"])).BoundBox
+             for c in tree["components"]]
+    report["p10_insertion_a_cote"] = boxes[1].XMin > boxes[0].XMax
     tree = self.move_component(second, x=30, z=10, yaw=45)
     moved = next(c for c in tree["components"]
                  if c["name"] == second)
@@ -79,3 +85,26 @@ def spike_solveur_assemblage(self, mark, report, etat):
     import json
     print("selftest> spike assemblage : " + json.dumps(
         report["spike_assembly"], ensure_ascii=False), flush=True)
+
+
+def p152_piece_reenregistree_relue(self, mark, report, etat):
+    mark("p152: assemblage — une pièce réenregistrée est relue")
+    # La pièce, déjà ouverte (cachée) pour un assemblage précédent, a
+    # changé sur disque : l'insertion suivante lit le fichier, pas la
+    # copie périmée (FreeCAD note le chemin avec « / » sous Windows).
+    path = os.path.join(tempfile.gettempdir(),
+                        "freesolid-selftest-relue.FCStd")
+    self.new_part("Relue")
+    self.add_rect_sketch(30, 10)
+    self.save_part(path)
+    self.new_assembly()
+    self.insert_component(path)
+    self.new_part("Relue")
+    self.add_rect_sketch(30, 10)
+    self.add_pad(5)
+    self.save_part(path)
+    self.new_assembly()
+    tree = self.insert_component(path)
+    link = self._doc.getObject(tree["components"][0]["name"])
+    report["p152_piece_relue"] = abs(
+        link.LinkedObject.Shape.Volume - 1500.0) < 1e-6

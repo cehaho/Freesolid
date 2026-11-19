@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   baseName, existingName, joinPath, nativeFileDialog, nativeFilters,
-  needsOverwrite, parentDir, pickNative, visibleEntries, withAllowedExtension,
+  needsOverwrite, parentDir, pickNative, splitTyped, visibleEntries,
+  withAllowedExtension,
   withExtension, writeFileDir,
 } from "../../app/filedialog.js";
 
@@ -16,6 +17,21 @@ const ENTRIES = [
 ];
 
 describe("dialogue de fichiers", () => {
+  it("un chemin tapé ouvre son dossier, puis prend le nom", () => {
+    assert.deepEqual(splitTyped("bloc.FCStd", "C:\Users\PC"),
+      { dir: null, name: "bloc.FCStd" });
+    assert.deepEqual(splitTyped("C:/Temp/bloc.FCStd", "C:\Users\PC"),
+      { dir: "C:/Temp", name: "bloc.FCStd" });
+    assert.deepEqual(splitTyped("C:\Temp\walk\\", "C:\Users\PC"),
+      { dir: "C:\Temp\walk", name: "" });
+    assert.deepEqual(splitTyped("~/pieces/a.FCStd", "/home/x"),
+      { dir: "~/pieces", name: "a.FCStd" });
+    assert.deepEqual(splitTyped("pieces/a.FCStd", "/home/x"),
+      { dir: "/home/x/pieces", name: "a.FCStd" });
+    assert.deepEqual(splitTyped("/tmp/a.stl", "/home/x"),
+      { dir: "/tmp", name: "a.stl" });
+  });
+
   it("montre les dossiers et seulement le filtre", () => {
     const shown = visibleEntries(ENTRIES, [".fcstd"]);
     assert.deepEqual(shown.map((entry) => entry.name), ["pieces", "a.FCStd"]);

@@ -900,8 +900,14 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
 
     def document_status(self):
         """État du document pour le client : ouvert, modifié depuis le
-        dernier enregistrement (ou depuis sa création / son ouverture)."""
-        return {"open": self._doc is not None, "modified": self._modified}
+        dernier enregistrement (ou depuis sa création / son ouverture), et
+        le fichier .FCStd où il s'enregistre (``path``, None pour un
+        document neuf ou importé) : Ctrl+S y écrit sans redemander."""
+        path = getattr(self._doc, "FileName", "") if self._doc else ""
+        if not str(path or "").lower().endswith(".fcstd"):
+            path = None
+        return {"open": self._doc is not None, "modified": self._modified,
+                "path": path}
 
     def new_part(self, name=None):
         App = self._app()
