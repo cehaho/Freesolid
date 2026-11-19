@@ -264,6 +264,8 @@ def _etapes():
         fonctions.p145_texte_relief_ou_gravure,
         noeuds.p146_ajout_ou_enlevement_se_change,
         fonctions.p147_paroi_mince_change_de_genre,
+        surfaces.p148_barre_et_masquer_surfaces,
+        fonctions.p149_desactiver_fonction_par_fonction,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

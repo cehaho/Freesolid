@@ -1139,3 +1139,88 @@ def p144_helice_3d_reeditee(self, mark, report, etat):
         and seen["refused"] == (False, False,
                                 {"kind": "helix", "axis": "X", "left": True},
                                 6.0, 10.0))
+
+
+def p148_barre_et_masquer_surfaces(self, mark, report, etat):
+    """La barre de retour et Masquer sur les surfaces et courbes de chaque
+    genre courant, pas seulement sur une extrusion ou un corps (thème 10
+    de docs/gestes-des-fonctions.md)."""
+    mark("p148: barre de retour et Masquer, surface par surface")
+    from engine.kernel import dispatch
+    seen = etat.p148 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def line(x1, y1, x2, y2, plane="XY"):
+        sk = self.sketch_start(plane=plane)["sketch"]
+        self.sketch_add_line(sk, x1, y1, x2, y2)
+        self.sketch_finish(sk)
+        return sk
+
+    def last(tree):
+        return tree["surfaces"][-1]["name"]
+
+    def rows():
+        return {s["name"]: s for s in self.get_tree()["surfaces"]}
+
+    def meshed():
+        return {s.get("name") for s in self.tessellate().get("surfaces") or []}
+
+    self.new_part("Barre et Masquer, surfaces")
+    self.add_rect_sketch(40, 20)
+    pad = next(f["name"] for f in self.add_pad(10)["features"]
+               if f["type"] == "PartDesign::Pad")
+    made = {}
+    made["extrude"] = last(self.surface_extrude(15, sketch=line(0, 30, 20, 30)))
+    made["revolve"] = last(self.surface_revolve(
+        180, sketch=line(30, 0, 30, 10, plane="XZ")))
+    made["offset"] = last(self.surface_offset(made["extrude"], 2))
+    rect = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_rectangle(rect, 50, 0, 60, 10)
+    self.sketch_finish(rect)
+    made["planar"] = last(self.surface_planar(sketch=rect))
+    made["helix"] = last(self.curve_helix(5, 20, 8))
+    made["thicken"] = last(self.surface_thicken(made["planar"], 1))
+    made["extend"] = last(self.surface_extend(made["extrude"], 5))
+    names = list(made.values())
+    seen["made"] = len(set(names)) == len(names)
+
+    # Barre sous le bloc : tout recule et la vue ne dessine plus rien.
+    call("set_tip", feature=pad)
+    state = rows()
+    seen["rolled"] = sorted(k for k, n in made.items()
+                            if state[n].get("rolled_back"))
+    seen["absent"] = not (meshed() & set(names))
+    # Barre sur la surface décalée : celles d'avant reviennent, celles
+    # d'après (même celles qui en dérivent) restent reculées.
+    call("set_tip", feature=made["offset"])
+    state = rows()
+    seen["middle"] = sorted(k for k, n in made.items()
+                            if state[n].get("rolled_back"))
+    call("tip_to_end")
+    state = rows()
+    seen["end"] = (sorted(k for k, n in made.items()
+                          if state[n].get("rolled_back")),
+                   self.rebuild_errors()["errors"])
+
+    # Masquer puis afficher chacune : drapeau de l'arbre, rien d'autre ne
+    # bouge.
+    hidden = []
+    for key, name in made.items():
+        done = call("set_hidden", objects=[name], hidden=True)
+        state = rows()
+        others = [k for k, n in made.items()
+                  if n != name and state[n].get("hidden")]
+        call("set_hidden", objects=[name], hidden=False)
+        back = rows()[name].get("hidden")
+        if done.get("ok") and state[name].get("hidden") and not others \
+                and not back:
+            hidden.append(key)
+    seen["hidden"] = sorted(hidden)
+    keys = sorted(made)
+    report["p148_barre_et_masquer_surfaces"] = (
+        seen["made"] and seen["rolled"] == keys and seen["absent"]
+        and seen["middle"] == sorted(["planar", "helix", "thicken",
+                                      "extend"])
+        and seen["end"] == ([], []) and seen["hidden"] == keys)

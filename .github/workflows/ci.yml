@@ -106,7 +106,9 @@ jobs:
   smoke:
     name: Smoke navigateur (FreeCAD + Chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Le smoke tourne en ~6 min ; l'installation de Chromium varie de
+    # 25 s à 10 min selon le runner (2026-11-18).
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
