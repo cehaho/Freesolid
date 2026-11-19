@@ -59,10 +59,18 @@ describe("contenu", () => {
     assert.equal(byId.file.items[0].action, "create");
     assert.equal(byId.file.items[0].shortcut, "Ctrl+N");
     assert.equal(byId.file.items[1].action, "home");
-    assert.deepEqual(byId.file.items.slice(2, 6).map((entry) => entry.click), [
-      "btn-open", "btn-save", "btn-export", "btn-drawing",
+    assert.deepEqual(byId.file.items.slice(2, 4).map((entry) => entry.click), [
+      "btn-open", "btn-save",
     ]);
-    assert.equal(byId.file.items[6].action, "screenshot");
+    // Comme ailleurs : Ctrl+O, Ctrl+S, et Enregistrer sous (Ctrl+Maj+S).
+    assert.deepEqual(byId.file.items.slice(2, 5).map((entry) => entry.shortcut), [
+      "Ctrl+O", "Ctrl+S", "Ctrl+Shift+S",
+    ]);
+    assert.equal(byId.file.items[4].action, "save-as");
+    assert.deepEqual(byId.file.items.slice(5, 7).map((entry) => entry.click), [
+      "btn-export", "btn-drawing",
+    ]);
+    assert.equal(byId.file.items[7].action, "screenshot");
     assert.equal(byId.tools.items.find((entry) => entry.label === "Mesurer").click,
       "btn-measure");
     assert.equal(byId.help.items.find((entry) => entry.label === "À propos").action,

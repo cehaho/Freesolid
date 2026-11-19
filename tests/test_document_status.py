@@ -48,3 +48,17 @@ def test_lecture_et_echec_ne_modifient_pas(monkeypatch):
     monkeypatch.setattr(k, "add_pad", refuse, raising=False)
     kernel_mod.dispatch(k, "add_pad", {})
     assert _status(k)["modified"] is False
+
+
+def test_le_fichier_du_document(monkeypatch):
+    # Ctrl+S écrit dans le .FCStd du document ; un document neuf ou
+    # importé (STEP) n'en a pas encore.
+    import types
+    k = Kernel()
+    assert _status(k)["path"] is None
+    k._doc = types.SimpleNamespace(FileName="")
+    assert _status(k)["path"] is None
+    k._doc = types.SimpleNamespace(FileName="C:/pieces/bloc.FCStd")
+    assert _status(k)["path"] == "C:/pieces/bloc.FCStd"
+    k._doc = types.SimpleNamespace(FileName="C:/pieces/cube.step")
+    assert _status(k)["path"] is None
