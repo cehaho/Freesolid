@@ -1071,8 +1071,10 @@
     background: var(--scene-part); border: 1px solid var(--line);
   }
   .mgr-swatch.surface { background: var(--scene-curve); }
+  /* Des boutons d'action en plus (Construction, Supprimer…) passent à la
+     ligne plutôt que d'écraser le titre lettre par lettre. */
   #panel .phead-main {
-    display: flex; align-items: center; gap: var(--space-2);
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2);
     padding: var(--space-2) 10px;
     background: var(--panel-2);
     border-bottom: 1px solid var(--line);
@@ -1081,7 +1083,7 @@
   /* Un titre long (« Enlèvement par révolution ») passe sur deux lignes
      plutôt que d'être coupé. */
   #panel .ptitle {
-    flex: 1; min-width: 0; font-weight: 600; font-size: var(--text-s);
+    flex: 1; min-width: min(7em, 100%); font-weight: 600; font-size: var(--text-s);
     line-height: 1.2; overflow-wrap: anywhere;
   }
   #panel .pok, #panel .pcancel {
