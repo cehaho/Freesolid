@@ -251,7 +251,7 @@ ordre.
 
 | Élément | SolidWorks | FreeSolid | Écart | Prio |
 |---|---|---|---|---|
-| Création | Nouveau, Mise en plan : choix du format (A0 à A4, relevé), feuille avec cartouche (ici en français : auteur, matière, échelle, n° de plan…). Le PropertyManager « Model View » s'ouvre tout seul. Onglets de feuilles en bas. | Panneau d'export : chemin, échelle, cotes d'encombrement, coupe X/Y/Z facultative. Le résultat est **un fichier DXF** à 3 vues (`main.js:4152`, `kernel.py:1448`). | Pas de feuille interactive, de cartouche, de vues déplaçables, de cotes éditables, d'annotations ni de PDF. | **P1** pour qui produit des plans (chantier lourd) |
+| Création | Nouveau, Mise en plan : choix du format (A0 à A4, relevé), feuille avec cartouche (ici en français : auteur, matière, échelle, n° de plan…). Le PropertyManager « Model View » s'ouvre tout seul. Onglets de feuilles en bas. | Fichier › Mise en plan ouvre **la feuille à l'écran** : A4 paysage, cadre, cartouche (nom du fichier, matière, échelle, date, projection, feuille), vues Face, Dessus, Droite au premier dièdre (norme ISO) avec arêtes cachées en traits interrompus, isométrique, cotes d'encombrement ; échelle normalisée choisie pour tenir (ou imposée), groupe de vues centré. Imprimer / PDF donne la feuille seule sur une page A4 ; Exporter en DXF écrit la même feuille, calques cadre / visible / cache / cote / texte (`app/drawingsheet.js`, `engine/drawing.py` `drawing_views`, `engine/dxfwrite.py`). | Reste : un seul format (A4), vues non déplaçables, pas de cotes de la pièce (seulement l'encombrement), pas d'annotations, pas de vue en coupe à l'écran (l'op `make_drawing` la garde pour le DXF TechDraw), pas de feuilles multiples ni d'enregistrement du plan. | P1 restant (vues déplaçables, cotes de la pièce) |
 
 ---
 
@@ -286,4 +286,4 @@ ordre.
 4. **Menu et barre contextuels** au clic sur la géométrie. (§2)
 5. **Contraintes d'assemblage standard** : coïncidente, concentrique,
    parallèle, distance, angle. (§6)
-6. **Mise en plan interactive**. (§7, chantier à part)
+6. **Mise en plan interactive**. (§7, chantier à part — la feuille à l'écran est faite le 2026-11-19 ; restent vues déplaçables, cotes de la pièce, annotations)

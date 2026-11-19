@@ -44,6 +44,11 @@ OPS = (
     Op("set_face_color", Req(("faces", list), "color"), undo=True),
     Op("measure", Req(("a_kind", str), ("a_id", int),
                       ("b_kind", str), ("b_id", int))),  # face|edge + id
+    # La feuille à l'écran : vues projetées, échelle, cotes (lecture).
+    Op("drawing_views", Req(optional={"scale": float, "hidden": bool})),
+    # La feuille de l'écran en DXF (entités de app/drawingsheet.js).
+    Op("write_drawing_dxf", Req(("path", str), ("width", float),
+                                ("height", float), ("entities", list))),
     Op("make_drawing", Req(("path", str)), undo=True),
                                        # optional: scale, dims (bool, défaut True),
                                        # section ("X"|"Y"|"Z") — 3 vues + cotes + coupe, export DXF

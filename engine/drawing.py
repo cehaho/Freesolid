@@ -228,3 +228,148 @@ class DrawingMixin:
         if section_ok is not None:
             result["section_ok"] = bool(section_ok)
         return result
+
+    # -- feuille à l'écran -------------------------------------------------
+
+    @staticmethod
+    def _view_matrix(App, right, up, toward):
+        """Repère pièce → repère de la vue (x à droite, y en haut, z vers
+        l'observateur) ; l'isométrique déduit droite et haut de Z."""
+        t = App.Vector(*toward)
+        t.normalize()
+        if right is None:
+            z = App.Vector(0, 0, 1)
+            u = z - t * z.dot(t)
+            u.normalize()
+            r = u.cross(t)
+        else:
+            r, u = App.Vector(*right), App.Vector(*up)
+        return App.Matrix(r.x, r.y, r.z, 0,
+                          u.x, u.y, u.z, 0,
+                          t.x, t.y, t.z, 0,
+                          0, 0, 0, 1)
+
+    @staticmethod
+    def _polylines(shape, deflection):
+        lines = []
+        if shape is None or shape.isNull():
+            return lines
+        for edge in shape.Edges:
+            try:
+                points = edge.discretize(Deflection=deflection)
+            except Exception:  # noqa: BLE001 — arête dégénérée
+                continue
+            if len(points) >= 2:
+                lines.append([[round(p.x, 3), round(p.y, 3)]
+                              for p in points])
+        return lines
+
+    def _drawing_part_name(self, body):
+        import os
+        path = getattr(self._doc, "FileName", "") or ""
+        if path.lower().endswith(".fcstd"):
+            return os.path.splitext(os.path.basename(path))[0]
+        return body.Label
+
+    def drawing_views(self, scale=None, hidden=True):
+        """La feuille de mise en plan à l'écran : les quatre vues projetées
+        (face, dessus, droite, isométrique), leurs arêtes vues et cachées
+        en mm réels, centrées, l'échelle normalisée, la place de chaque
+        vue sur l'A4 et les cotes d'encombrement. Rien n'entre dans le
+        document ; ``make_drawing`` reste l'export DXF."""
+        from engine.kernel import KernelError
+        from engine import drawingsheet
+        import TechDraw
+        App = self._app()
+        body = self._require_body()
+        shape = getattr(body, "Shape", None)
+        if shape is None or shape.isNull() or not shape.Solids:
+            raise KernelError("mise en plan : la pièce n'a pas de volume")
+        extent = max(shape.BoundBox.XLength, shape.BoundBox.YLength,
+                     shape.BoundBox.ZLength, 1e-3)
+        deflection = extent * 0.002
+        views = []
+        sizes = {}
+        for name, label, right, up, toward in drawingsheet.VIEWS:
+            placed = shape.copy()
+            placed.transformShape(
+                self._view_matrix(App, right, up, toward))
+            parts = TechDraw.projectEx(placed, App.Vector(0, 0, 1))
+            seen = [parts[i] for i in (0, 1, 3) if i < len(parts)]
+            unseen = [parts[i] for i in (5, 6, 8) if i < len(parts)]
+            boxes = [s.BoundBox for s in seen if not s.isNull()
+                     and s.Edges]
+            if not boxes:
+                continue
+            x0 = min(b.XMin for b in boxes)
+            x1 = max(b.XMax for b in boxes)
+            y0 = min(b.YMin for b in boxes)
+            y1 = max(b.YMax for b in boxes)
+            cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+
+            def centred(lines, cx=cx, cy=cy):
+                return [[[round(x - cx, 3), round(y - cy, 3)]
+                         for x, y in line] for line in lines]
+
+            visible = []
+            for part in seen:
+                visible += self._polylines(part, deflection)
+            hidden_lines = []
+            # Les vues de base montrent leurs arêtes cachées en traits
+            # interrompus ; l'isométrique, non.
+            if hidden and name != "iso":
+                for part in unseen:
+                    hidden_lines += self._polylines(part, deflection)
+            sizes[name] = (x1 - x0, y1 - y0)
+            views.append({"name": name, "label": self._t(label),
+                          "width": round(x1 - x0, 3),
+                          "height": round(y1 - y0, 3),
+                          "visible": centred(visible),
+                          "hidden": centred(hidden_lines)})
+        placed = drawingsheet.layout(sizes, scale)
+        for view in views:
+            view["center"] = [round(c, 3)
+                              for c in placed["centers"][view["name"]]]
+        box = shape.BoundBox
+        material = (self._material_of(body) or {}).get("name")
+        return {
+            "sheet": dict(drawingsheet.SHEET),
+            "title_block": dict(drawingsheet.TITLE_BLOCK),
+            "scale": placed["scale"],
+            "scale_label": drawingsheet.scale_label(placed["scale"]),
+            "views": views,
+            # Cotes d'encombrement : largeur et hauteur sur la face,
+            # profondeur sur le dessus (mm réels).
+            "dims": [
+                {"view": "front", "axis": "x",
+                 "value": round(box.XLength, 3)},
+                {"view": "front", "axis": "y",
+                 "value": round(box.ZLength, 3)},
+                {"view": "top", "axis": "y",
+                 "value": round(box.YLength, 3)},
+            ],
+            # Le nom du fichier, comme le cartouche des modeleurs courants ;
+            # le corps tant que la pièce n'est pas enregistrée.
+            "part": self._drawing_part_name(body),
+            "material": material,
+        }
+
+    def write_drawing_dxf(self, path, width, height, entities):
+        """Enregistre la feuille vue à l'écran en DXF : les entités de
+        ``sheetEntities`` (client), mêmes vues, cotes et cartouche."""
+        import os
+        from engine.kernel import KernelError
+        from engine.dxfwrite import DxfError, drawing_dxf
+        path = str(path)
+        if not path.lower().endswith(".dxf"):
+            path += ".dxf"
+        path = self._user_path(path, (".dxf",), must_exist=False)
+        try:
+            text = drawing_dxf(width, height, entities)
+        except (DxfError, TypeError, ValueError) as exc:
+            raise KernelError("mise en plan : feuille illisible ({})".format(
+                exc))
+        with open(path, "w", encoding="cp1252", errors="replace",
+                  newline="\r\n") as handle:
+            handle.write(text)
+        return {"path": path, "size": os.path.getsize(path)}

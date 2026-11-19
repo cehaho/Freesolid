@@ -55,6 +55,7 @@
   "document_options": {"requis": [], "types": [], "optionnels": []},
   "document_properties": {"requis": [], "types": [], "optionnels": []},
   "document_status": {"requis": [], "types": [], "optionnels": []},
+  "drawing_views": {"requis": [], "types": [], "optionnels": [["scale", "float"], ["hidden", "bool"]]},
   "edge_chain": {"requis": ["edge"], "types": [["edge", "int"]], "optionnels": [["mode", "str"], ["face", "int"]]},
   "edit_curve3d": {"requis": ["curve", "points"], "types": [["curve", "str"], ["points", "list"]], "optionnels": []},
   "edit_graph_feature": {"requis": ["feature", "graph"], "types": [["feature", "str"], ["graph", "dict"]], "optionnels": [["mode", "str"]]},
@@ -219,7 +220,8 @@
   "tessellate_edges": {"requis": [], "types": [], "optionnels": []},
   "tip_to_end": {"requis": [], "types": [], "optionnels": []},
   "undo": {"requis": [], "types": [], "optionnels": [["steps", "int"], ["sketch", "str"]]},
-  "undo_history": {"requis": [], "types": [], "optionnels": [["sketch", "str"]]}
+  "undo_history": {"requis": [], "types": [], "optionnels": [["sketch", "str"]]},
+  "write_drawing_dxf": {"requis": ["path", "width", "height", "entities"], "types": [["path", "str"], ["width", "float"], ["height", "float"], ["entities", "list"]], "optionnels": []}
  },
  "annulables": [
   "activate_configuration",
