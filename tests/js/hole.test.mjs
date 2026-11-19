@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  holePositionValues, holePositions, holePositionsPick, holePositionsRow,
+  FEATURES, hasFreeSketch, holePositionValues, holePositions, holePositionsPick, holePositionsRow,
   holeSamePosition,
 } from "../../app/features.js";
 import { zoneToggle } from "../../app/panel.js";
@@ -84,5 +84,32 @@ describe("perçage : la zone des positions", () => {
   it("deux positions de faces différentes ne se confondent pas", () => {
     assert.equal(holeSamePosition(at(5, 0, 0, 10), at(1, 0, 0, 10),
                                   { diameter: 4 }), false);
+  });
+});
+
+describe("perçage : rien à percer tant qu'on n'a pas cliqué", () => {
+  const hole = FEATURES.find((e) => e.button === "btn-hole");
+  const values = { diameter: 6, cond: "travers", cut: "none" };
+  const at = { items: [{ kind: "point", face: 0, x: 1, y: 2, z: 3 }] };
+
+  it("ni position ni esquisse libre : pas d'aperçu, le panneau le dit",
+     () => {
+    const ctx = { lastTree: { bodies: [], features: [
+      { name: "Revolution", type_key: "revolution" }] } };
+    assert.equal(hasFreeSketch(ctx.lastTree), false);
+    assert.equal(hole.build(values, ctx), null);
+    assert.equal(hole.invalid(values, ctx),
+                 "Cliquez les centres des trous sur une face");
+    assert.deepEqual(hole.build({ ...values, pos: at }, ctx).params.points,
+                     [[1, 2, 3]]);
+  });
+
+  it("une esquisse libre sert sans position ; une désactivée non", () => {
+    const free = { lastTree: { bodies: [], features: [
+      { name: "Sketch", type_key: "sketch" }] } };
+    assert.equal(hole.build(values, free).op, "add_hole");
+    const off = { lastTree: { bodies: [], features: [
+      { name: "Sketch", type_key: "sketch", suppressed: true }] } };
+    assert.equal(hole.build(values, off), null);
   });
 });

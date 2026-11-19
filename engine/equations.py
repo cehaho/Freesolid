@@ -468,7 +468,7 @@ class EquationsMixin:
                 invalid = self._invalid_dressup_message(obj)
                 if invalid is not None:
                     raise KernelError(invalid)
-            if shelled and self._shell_left_full(obj):
+            if shelled and not self._settle_shell(obj):
                 raise KernelError(shell_too_thick_message())
             if (draft and (targets is not None or neutral is not None)
                     and self._draft_without_effect(obj)):
@@ -486,6 +486,34 @@ class EquationsMixin:
                 "{} — la pièce n'a pas été modifiée".format(exc))
         self._drop_unused_axis_tools()
         return self.get_tree()
+
+    def _settle_shell(self, obj):
+        """La coque a-t-elle donné un solide évidé et valide ? Sinon, on
+        réessaie une fois avec l'intersection des faces décalées
+        d'OpenCascade : sur une pièce chanfreinée, le mode par défaut rend
+        un solide invalide là où celui-ci réussit."""
+        def good():
+            shape = getattr(obj, "Shape", None)
+            broken = shape is not None and (shape.isNull()
+                                            or not shape.isValid())
+            return not broken and not self._shell_left_full(obj)
+        if good():
+            return True
+        if not hasattr(obj, "Intersection") or obj.Intersection:
+            return False
+        obj.Intersection = True
+        try:
+            self._recompute()
+        except Exception:  # noqa: BLE001
+            pass
+        if good():
+            return True
+        obj.Intersection = False
+        try:
+            self._recompute()
+        except Exception:  # noqa: BLE001
+            pass
+        return False
 
     @staticmethod
     def _shell_left_full(obj):

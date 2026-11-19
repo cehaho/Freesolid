@@ -1469,8 +1469,11 @@ function updateEditMode() {
   editModeEl.textContent = editModeText({
     sketch: editing ? label(editing) : null,
     assembly: !!assemblyState,
-    part: lastTree?.body ?? null,
+    part: lastTree?.file ?? lastTree?.body ?? null,
   });
+  // Comme la barre de titre des modeleurs courants : le nom de la pièce.
+  const name = assemblyState ? null : (lastTree?.file ?? lastTree?.body);
+  document.title = name ? `${name} — FreeSolid` : "FreeSolid";
 }
 document.addEventListener("freesolid:sketch-exit", () => {
   coordsEl.textContent = "";
@@ -2466,6 +2469,11 @@ async function saveDocument({ askPath = false } = {}) {
   try {
     const saved = await call("save_part", { path });
     rememberRecent(localStore, saved.path);
+    // La pièce prend le nom de son fichier (titre, barre d'état).
+    if (lastTree && !assemblyState) {
+      lastTree.file = saved.path.split(/[\\/]/).pop().replace(/\.fcstd$/i, "");
+      updateEditMode();
+    }
     say(t("Enregistré : {path} — ouvrable dans FreeCAD standard.", { path: saved.path }),
       false, { fade: true });
   } catch (error) {

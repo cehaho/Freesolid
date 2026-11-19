@@ -535,7 +535,9 @@ describe("corps concernés d'un enlèvement", () => {
     { name: "Body001", label: "Extrusion1", active: false, has_solid: true },
     { name: "Body002", label: "Corps", active: false, has_solid: false },
   ];
-  const ctx = { lastTree: { bodies, features: [] },
+  // Une esquisse libre : un perçage sans position cliquée la prend.
+  const ctx = { lastTree: { bodies, features: [
+                  { name: "Sketch", type_key: "sketch" }] },
                 selectedSketch: { name: "Sketch", label: "Esquisse" } };
   const entry = (button) => FEATURES.find((e) => e.button === button);
   const scope = (button, c = ctx) => entry(button).groups(c)

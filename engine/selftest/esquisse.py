@@ -1411,3 +1411,38 @@ def p80_glisser_courbe_entiere(self, mark, report, etat):
     report["p80_glisser_courbe_entiere"] = (
         slid_line and slid_circle and slid_arc and slid_spline and refused
         and kept and undone)
+
+
+def p156_esquisse_rouverte_sous_contrainte(self, mark, report, etat):
+    mark("p156: une esquisse rouverte depuis un fichier garde ses DDL")
+    # Comme dans les modeleurs courants : une esquisse libre reste bleue
+    # et « sous-contrainte » quand on la réédite après avoir rouvert le
+    # fichier — le solveur ne donne la liste des géométries libres qu'une
+    # fois l'esquisse recalculée.
+    import os
+    import tempfile
+    from engine.kernel import dispatch
+
+    def run(op, **params):
+        out = dispatch(self, op, params)
+        if not out["ok"]:
+            raise KernelError(out["error"])
+        return out["result"]
+
+    self.new_part("Pièce esquisse rouverte")
+    name = run("sketch_start")["sketch"]
+    run("sketch_add_circle", sketch=name, cx=10, cy=5, r=4)
+    run("sketch_finish", sketch=name)
+    path = os.path.join(tempfile.gettempdir(), "freesolid-esquisse-libre.FCStd")
+    run("save_part", path=path)
+    tree = run("open_part", path=path)
+    # La pièce rouverte porte le nom de son fichier (titre, barre d'état).
+    report["p156_piece_nommee_comme_son_fichier"] = (
+        tree.get("file") == "freesolid-esquisse-libre")
+    state = run("sketch_edit", feature=name)
+    sk = self._get_sketch(name)
+    report["p156_esquisse_rouverte_sous_contrainte"] = (
+        state["definition"] == "under" and state["dof"] == 3
+        and [e["status"] for e in state["entities"]] == ["under"]
+        and "Touched" not in sk.State)
+    run("sketch_cancel", sketch=name)

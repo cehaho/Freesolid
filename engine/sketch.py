@@ -410,10 +410,7 @@ class SketchMixin:
             pass
         # Bleu / blanc / rouge côté client : entité libre, définie, en trop.
         from engine.sketchstatus import entity_status, sketch_definition
-        try:
-            dependent = list(sk.getGeometryWithDependentParameters())
-        except Exception:
-            dependent = []
+        dependent = self._free_geometry(sk)
         status = entity_status(
             len(entities), dependent,
             [c["geos"] for c in constraints],
@@ -506,6 +503,31 @@ class SketchMixin:
                 pass
             self._enrich_poly_entity(entity, geo, type_id)
         return entity
+
+    @staticmethod
+    def _free_geometry(sk):
+        """Les géométries qui peuvent encore bouger, [(geo, pos)].
+
+        Juste après l'ouverture d'un fichier, ``solve()`` donne bien les
+        DDL mais pas cette liste : seul un calcul de l'esquisse la
+        remplit. On le fait alors une fois — la géométrie est déjà
+        résolue, rien ne bouge — sans laisser l'esquisse à recalculer."""
+        def read():
+            try:
+                return list(sk.getGeometryWithDependentParameters())
+            except Exception:  # noqa: BLE001
+                return []
+        found = read()
+        if found or not int(getattr(sk, "DoF", 0) or 0):
+            return found
+        touched = "Touched" in sk.State
+        try:
+            sk.recompute()
+            if not touched:
+                sk.purgeTouched()
+        except Exception:  # noqa: BLE001
+            return found
+        return read()
 
     @staticmethod
     def _sketch_definition(sk):

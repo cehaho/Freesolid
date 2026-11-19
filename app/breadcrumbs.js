@@ -23,7 +23,7 @@ export function findFeature(features, name) {
  *  corps : elle est dans `other_features`. */
 export function breadcrumbTrail(tree, groups, faceId) {
   if (faceId === null || faceId === undefined || !tree) return [];
-  const trail = [{ kind: "part", label: tree.body ?? t("Pièce"), icon: "body" }];
+  const trail = [{ kind: "part", label: tree.file ?? tree.body ?? t("Pièce"), icon: "body" }];
   const group = (groups ?? []).find((g) => g.faceId === faceId);
   const feature = group?.feature
     ? findFeature([...(tree.features ?? []), ...(tree.other_features ?? [])],

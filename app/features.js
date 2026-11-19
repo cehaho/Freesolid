@@ -38,6 +38,7 @@ export {
   extrudeGroups,
   extrudeInvalid,
   extrudeMergeProblem,
+  hasFreeSketch,
   holeEditInitial,
   holeEditValues,
   holeGroups,

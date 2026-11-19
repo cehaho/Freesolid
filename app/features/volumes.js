@@ -29,6 +29,13 @@ export function holePositions(sel) {
   return { face, points: items.map((i) => [i.x, i.y, i.z]) };
 }
 
+/** L'arbre a-t-il une esquisse libre (pas encore prise par une
+ *  fonction) ? Les esquisses prises se rangent sous leur fonction. */
+export function hasFreeSketch(tree) {
+  return (tree?.features ?? []).some(
+    (f) => f.type_key === "sketch" && !f.suppressed);
+}
+
 /** Deux positions d'un perçage se confondent quand le clic tombe dans
  *  le trou : même face, à moins d'un rayon du centre. */
 export function holeSamePosition(a, b, values) {
@@ -1060,6 +1067,9 @@ export const VOLUMES = [
                        ...cutParams(v, ctx?.lastTree?.bodies) };
       const positions = holePositions(v.pos);
       if (positions?.error) return null;
+      // Ni position cliquée ni esquisse libre : on attend les clics, sans
+      // aperçu en erreur.
+      if (!positions && !hasFreeSketch(ctx?.lastTree)) return null;
       if (positions) Object.assign(params, positions);
       if (v.cond === "borgne") {
         const depth = num(v.depth);
@@ -1083,8 +1093,10 @@ export const VOLUMES = [
       }
       return { op: "add_hole", params };
     },
-    invalid: (v) => (holePositions(v.pos)?.error
-      ?? "Valeurs du perçage invalides"),
+    invalid: (v, ctx) => (holePositions(v.pos)?.error
+      ?? (!holePositions(v.pos) && !hasFreeSketch(ctx?.lastTree)
+        ? "Cliquez les centres des trous sur une face"
+        : "Valeurs du perçage invalides")),
     refresh: "part",
   },
   {
