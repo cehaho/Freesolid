@@ -686,7 +686,79 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
             for index in tuple(unmatched):
                 self._claim_face(
                     unmatched, producer, how, index, tip.Name, "tip")
+            self._trimmed_face_creators(body, tip, producer, tip_geo, skip)
         return producer, how, hash_errors
+
+    @staticmethod
+    def _names_a_face(element):
+        """Nom d'élément d'une face : « Face3 » ou nom topologique « …,F »."""
+        text = str(element or "")
+        return text.startswith("Face") or text.endswith(",F")
+
+    @staticmethod
+    def _history_face(obj, elements):
+        """La face de ``obj.Shape`` que nomme le premier de ``elements``
+        (nom d'élément de l'historique, puis ses intermédiaires), ou None."""
+        for element in elements:
+            try:
+                indexed = obj.Shape.getElementName(str(element))
+            except Exception:  # noqa: BLE001
+                continue
+            match = re.fullmatch(r"Face(\d+)", str(indexed or ""))
+            if match:
+                try:
+                    return obj.Shape.Faces[int(match.group(1)) - 1]
+                except IndexError:
+                    continue
+        return None
+
+    def _trimmed_face_creators(self, body, tip, producer, tip_geo, skip):
+        """Une face rognée par une fonction plus tardive (enlèvement qui
+        entame le dessus, congé qui mange un flanc) reste à la fonction
+        qui l'a créée, comme dans les modeleurs courants : on remonte son
+        historique d'élément tant que la face de la fonction plus ancienne
+        n'existe plus telle quelle dans la pièce. Si elle y est encore,
+        la face du Tip en est une copie (réseau, symétrie) : elle reste à
+        la fonction qui l'a copiée."""
+        order = {obj.Name: obj for obj in body.Group
+                 if obj.TypeId not in skip}
+        members = {obj.Name for obj in body.Group}
+        try:
+            reverse = tip.Shape.ElementReverseMap
+        except Exception:  # noqa: BLE001 — sans carte, rien à remonter
+            return
+        present = {key for key in tip_geo if key is not None}
+        for index, name in list(producer.items()):
+            mapped = reverse.get("Face{}".format(index + 1))
+            if not mapped:
+                continue
+            try:
+                history = tip.getElementHistory(mapped) or ()
+            except Exception:  # noqa: BLE001
+                continue
+            # Dans ce corps seulement : une face venue d'un autre corps
+            # (combiner, réseau de corps) suit ``_fused_face_producers``.
+            chain = []
+            for step in history:
+                step_name = getattr(step[0], "Name", None)
+                if step_name not in members:
+                    break
+                if step_name in order:
+                    chain.append((step[0], [step[1], *list(step[2] or ())]))
+            names = [obj.Name for obj, _ in chain]
+            if name not in names:
+                continue
+            creator = name
+            for older, elements in chain[names.index(name) + 1:]:
+                if not self._names_a_face(elements[0]):
+                    break  # née d'une arête (congé, chanfrein) : créée ici
+                face = self._history_face(older, elements)
+                if face is None:
+                    continue  # nom intermédiaire : l'étape suivante dira
+                if self._face_geo_key(face) in present:
+                    break  # encore là, ailleurs : la face du Tip est une copie
+                creator = older.Name
+            producer[index] = creator
 
     # Les combiners qui gardent des faces de leurs corps outils.
     _FACE_KEEPING_BOOLEANS = ("Fuse", "Common")

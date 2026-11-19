@@ -7444,3 +7444,53 @@ def p149_desactiver_fonction_par_fonction(self, mark, report, etat):
         and seen["emptied"] == (0.0, 0, [])
         and seen["refilled"] == (True, [])
         and not self.rebuild_errors()["errors"])
+
+
+def p153_face_rognee_reste_a_sa_creatrice(self, mark, report, etat):
+    mark("p153: une face rognée reste à la fonction qui l'a créée")
+    # Comme dans les modeleurs courants : le dessus d'une extrusion entamé
+    # par un enlèvement, ou un flanc mangé par un congé, désigne toujours
+    # l'extrusion ; les copies d'un réseau désignent le réseau.
+    self.new_part("Face rognée")
+    self.add_rect_sketch(40, 20)
+    pad = self.add_pad(10) and self._require_body().Tip.Name
+    body = self._require_body()
+
+    def face_at(x, y, z):
+        for index, face in enumerate(body.Shape.Faces):
+            c = face.CenterOfMass
+            if abs(c.x - x) < 0.05 and abs(c.y - y) < 0.05 \
+                    and abs(c.z - z) < 0.05:
+                return index
+        return None
+
+    top = face_at(0, 0, 10)
+    self.add_rect_sketch(6, 6, face=top)
+    self.add_pocket(length=4)
+    pocket = body.Tip.Name
+    self.add_linear_pattern(12, 2, features=[pocket], axis="X")
+    pattern = body.Tip.Name
+    owners = self._face_producers()
+    top = next(i for i, f in enumerate(body.Shape.Faces)
+               if abs(f.CenterOfMass.z - 10) < 1e-6)
+    report["p153_dessus_a_l_extrusion"] = owners.get(top) == pad
+    report["p153_copie_au_reseau"] = (
+        owners.get(face_at(12, 0, 6)) == pattern
+        and owners.get(face_at(0, 0, 6)) == pocket)
+    edge = next(i for i, e in enumerate(body.Shape.Edges)
+                if abs(e.CenterOfMass.z - 10) < 1e-6
+                and abs(e.CenterOfMass.y + 10) < 1e-6)
+    self.add_fillet(1.0, edges=[edge])
+    fillet = body.Tip.Name
+    owners = self._face_producers()
+    flank = next(i for i, f in enumerate(body.Shape.Faces)
+                 if abs(f.CenterOfMass.y + 10) < 1e-6)
+    rounded = next(i for i, f in enumerate(body.Shape.Faces)
+                   if f.Surface.__class__.__name__ == "Cylinder")
+    report["p153_flanc_rogne_a_l_extrusion"] = (
+        owners.get(flank) == pad and owners.get(rounded) == fillet)
+    top = next(i for i, f in enumerate(body.Shape.Faces)
+               if abs(f.CenterOfMass.z - 10) < 1e-6
+               and f.Surface.__class__.__name__ == "Plane")
+    drag = self.face_drag_info(top)["drag"] or {}
+    report["p153_tirer_le_dessus"] = drag.get("feature") == pad
