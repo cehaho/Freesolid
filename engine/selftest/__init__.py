@@ -270,6 +270,8 @@ def _etapes():
         surfaces.p151_forme_figee_qui_casse,
         fonctions.p154_numerotation_des_fonctions,
         fonctions.p153_face_rognee_reste_a_sa_creatrice,
+        esquisse.p156_esquisse_rouverte_sous_contrainte,
+        fonctions.p157_coque_sur_piece_chanfreinee,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,

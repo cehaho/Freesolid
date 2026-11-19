@@ -2270,7 +2270,6 @@ class SolidsMixin:
         if tip is None:
             raise KernelError("pas de solide à habiller")
         previous_tip = tip
-        volume_before = float(body.Shape.Volume)
         feature = body.newObject("PartDesign::Thickness", "Thickness")
         feature.Base = (tip, ["Face{}".format(f + 1) for f in picked])
         feature.Value = float(thickness)
@@ -2282,9 +2281,9 @@ class SolidsMixin:
             self._drop_failed_feature(body, doc, feature, previous_tip)
             raise
         # Une épaisseur supérieure à la pièce est parfois acceptée sans
-        # rien évider (le volume ne baisse pas). On refuse, comme un échec.
-        if (not outward
-                and float(body.Shape.Volume) >= volume_before - 1e-3):
+        # rien évider (le volume ne baisse pas), ou le solide sort
+        # invalide : on réessaie autrement, puis on refuse, comme un échec.
+        if not self._settle_shell(feature):
             if not getattr(self, "_previewing", False):
                 self._drop_failed_feature(body, doc, feature, previous_tip)
                 self._recompute()

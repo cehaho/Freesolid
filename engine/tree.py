@@ -4,6 +4,8 @@ Mixin de ``Kernel``. Pas d'import FreeCAD au niveau du module :
 les méthodes importent le noyau à l'appel, pour éviter un cycle.
 """
 
+import os
+
 #: Esquisse sortie de sa fonction par la barre de retour (propriété du corps).
 _BAR_SKETCH_PROP = "FreeSolidBarSketch"
 #: Corps nommé à la main : le dossier garde son nom (propriété du corps).
@@ -1503,7 +1505,12 @@ class TreeMixin:
                 entry["hidden"] = True
             if entry["name"] in removed:
                 entry["removed"] = True  # hors du dossier, pas de l'histoire
-        tree = {"body": body.Label, "tip": tip, "bodies": bodies,
+        # Le nom de la pièce, comme dans les modeleurs courants : celui de
+        # son fichier une fois enregistrée ou ouverte (titre, barre d'état).
+        path = str(getattr(self._doc, "FileName", "") or "")
+        file = (os.path.splitext(os.path.basename(path))[0]
+                if path.lower().endswith(".fcstd") else None)
+        tree = {"body": body.Label, "file": file, "tip": tip, "bodies": bodies,
                 "planes": planes, "features": items,
                 "other_features": other_items,
                 "surfaces": surfaces,

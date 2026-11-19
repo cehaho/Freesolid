@@ -7514,3 +7514,29 @@ def p153_face_rognee_reste_a_sa_creatrice(self, mark, report, etat):
                and f.Surface.__class__.__name__ == "Plane")
     drag = self.face_drag_info(top)["drag"] or {}
     report["p153_tirer_le_dessus"] = drag.get("feature") == pad
+
+
+def p157_coque_sur_piece_chanfreinee(self, mark, report, etat):
+    mark("p157: coque d'une pièce chanfreinée")
+    # Comme dans les modeleurs courants : un bloc dont une face est
+    # chanfreinée se creuse. Le mode par défaut d'OpenCascade y rend un
+    # solide invalide ; la coque réessaie avec l'intersection des faces.
+    self.new_part("Coque chanfreinée")
+    self.add_rect_sketch(100, 40)
+    self.add_pad(30)
+    body = self._require_body()
+
+    def plane_at(axis, value):
+        for index, face in enumerate(body.Shape.Faces):
+            if (abs(getattr(face.CenterOfMass, axis) - value) < 0.05
+                    and face.Surface.__class__.__name__ == "Plane"):
+                return index
+        return None
+
+    self.add_chamfer(size=2, face=plane_at("y", -20))
+    before = float(body.Shape.Volume)
+    self.add_thickness(faces=[plane_at("x", 50)], thickness=2)
+    shell = body.Tip
+    report["p157_coque_sur_piece_chanfreinee"] = (
+        shell.TypeId == "PartDesign::Thickness" and shell.Shape.isValid()
+        and 20000 < float(body.Shape.Volume) < before / 2)
