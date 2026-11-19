@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  displayDecimals, fmtMm, num, plainNumber, setDisplayDecimals, simpleDecimal,
+  displayDecimals, fmtLocal, fmtMm, num, plainNumber, setDisplayDecimals,
+  simpleDecimal,
 } from "../../app/num.js";
 
 describe("nombres", () => {
@@ -47,5 +48,14 @@ describe("nombres", () => {
       setDisplayDecimals();
     }
     assert.deepEqual(displayDecimals(), { length: 2, angle: 1 });
+  });
+});
+describe("fmtLocal", () => {
+  it("prend le séparateur décimal des réglages régionaux, sans groupes", () => {
+    assert.equal(fmtLocal(1.24, 2, "fr-FR"), "1,24");
+    assert.equal(fmtLocal(1.24, 2, "en-US"), "1.24");
+    assert.equal(fmtLocal(12345.678, 1, "fr-FR"), "12345,7");
+    assert.equal(fmtLocal("x", 1, "fr-FR"), "x");
+    assert.equal(fmtLocal(-0.004, 1, "fr-FR"), "0,0");
   });
 });

@@ -52,3 +52,20 @@ export function fmtMm(value, { snap = false } = {}) {
   const shown = snap && Math.abs(number) < 0.5 * 10 ** -decimals.length ? 0 : number;
   return shown.toFixed(decimals.length);
 }
+
+/** Un nombre lu (Évaluer, mesure) avec le séparateur décimal des réglages
+ *  régionaux, comme le champ de saisie à côté : « 1,24 » en français.
+ *  `locale` sert aux tests. */
+export function fmtLocal(value, digits = 1, locale = undefined) {
+  let number = Number(value);
+  if (!Number.isFinite(number)) return String(value);
+  if (Number(number.toFixed(digits)) === 0) number = 0; // pas de « -0,0 »
+  try {
+    return number.toLocaleString(locale, {
+      minimumFractionDigits: digits, maximumFractionDigits: digits,
+      useGrouping: false,
+    });
+  } catch {
+    return number.toFixed(digits);
+  }
+}

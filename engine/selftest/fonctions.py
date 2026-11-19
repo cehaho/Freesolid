@@ -2952,7 +2952,8 @@ def p85_supprimer_des_corps(self, mark, report, etat):
     report["p85_un_solide"] = (
         len(body.Shape.Solids) == 1 and abs(body.Shape.Volume - 700) < 1e-6
         and body.Shape.Solids[0].CenterOfMass.x < 15
-        and row["removes"] == ["Extrusion[{}]".format(right + 1)]
+        and row["removes"] == ["{}[{}]".format(
+            self._doc.getObject(pad).Label, right + 1)]
         and row["rolled_back"] is False and not row.get("keep"))
     # Le second corps et la surface : ni dans les dossiers, ni dans la
     # vue, ni actifs ; leur histoire reste.
@@ -7444,6 +7445,25 @@ def p149_desactiver_fonction_par_fonction(self, mark, report, etat):
         and seen["emptied"] == (0.0, 0, [])
         and seen["refilled"] == (True, [])
         and not self.rebuild_errors()["errors"])
+
+
+def p154_numerotation_des_fonctions(self, mark, report, etat):
+    mark("p154: Esquisse1, Extrusion1, Esquisse2… comme les modeleurs courants")
+    from engine.kernel import dispatch
+    self.new_part("Numérotation")
+    dispatch(self, "add_rect_sketch", {"width": 40, "height": 20})
+    dispatch(self, "add_pad", {"length": 10})
+    dispatch(self, "add_rect_sketch", {"width": 10, "height": 10})
+    dispatch(self, "add_pad", {"length": 20})
+    labels = [o.Label for o in self._require_body().Group]
+    report["p154_numerote_des_1"] = labels == [
+        self._t("Esquisse") + "1", self._t("Extrusion") + "1",
+        self._t("Esquisse") + "2", self._t("Extrusion") + "2"]
+    # Ctrl+Z puis une nouvelle extrusion : le numéro libre revient.
+    dispatch(self, "undo", {})
+    dispatch(self, "add_pad", {"length": 5})
+    report["p154_numero_libre_apres_annuler"] = (
+        self._require_body().Tip.Label == self._t("Extrusion") + "2")
 
 
 def p153_face_rognee_reste_a_sa_creatrice(self, mark, report, etat):

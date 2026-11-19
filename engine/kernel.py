@@ -429,8 +429,54 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
                      if o.TypeId == "PartDesign::Body"
                      and not self._is_internal_tool(o)), None)
 
+    # Ce que l'arbre numérote comme les modeleurs courants : Esquisse1,
+    # Extrusion2, Plan3… Le corps (« Pièce ») et les objets cachés, non.
+    _NUMBERED_SKIP = frozenset({
+        "PartDesign::Body", "PartDesign::FeatureBase",
+        "PartDesign::ShapeBinder", "PartDesign::SubShapeBinder",
+    })
+
+    @staticmethod
+    def _object_key(obj):
+        """Identifiant unique dans le document (``ID``), sinon le nom."""
+        return getattr(obj, "ID", None) or obj.Name
+
+    def _number_new_labels(self, doc):
+        """Esquisse1, Esquisse2… plutôt qu'« Esquisse », « Esquisse001 » :
+        un objet neuf de l'arbre prend le premier numéro libre de son nom.
+        Dans la transaction de l'opération : Ctrl+Z le défait avec elle."""
+        seen = self.__dict__.setdefault("_label_seen", {})
+        known = seen.get(doc.Name)
+        if known is None:
+            seen[doc.Name] = {self._object_key(o) for o in doc.Objects}
+            return
+        # Par identifiant, pas par nom : après Ctrl+Z, la fonction suivante
+        # reprend le nom interne de la défaite, elle est pourtant neuve.
+        fresh = [o for o in doc.Objects if self._object_key(o) not in known]
+        known.update(self._object_key(o) for o in fresh)
+        labels = None
+        for obj in fresh:
+            type_id = getattr(obj, "TypeId", "")
+            if not (type_id == "Sketcher::SketchObject"
+                    or type_id.startswith("PartDesign::")):
+                continue
+            if type_id in self._NUMBERED_SKIP or self._is_internal_tool(obj):
+                continue
+            match = re.fullmatch(r"(.*?[^\d\s])(\d{3})?", obj.Label or "")
+            if not match or " — " in obj.Label:
+                continue
+            base = match.group(1)
+            if labels is None:
+                labels = [o.Label for o in doc.Objects]
+            taken = [int(m.group(1)) for m in (
+                re.fullmatch(re.escape(base) + r"(\d+)", label)
+                for label in labels) if m]
+            obj.Label = "{}{}".format(base, max(taken, default=0) + 1)
+            labels.append(obj.Label)
+
     def _recompute(self):
         doc = self._require_doc()
+        self._number_new_labels(doc)
         self._sync_revolution_axes()
         self._sync_bar_booleans()
         doc.recompute()
@@ -884,6 +930,10 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         en Python — la pile C++ est déjà bornée (défaut 20). Sur les
         versions qui exposent l'API, on fixe 80.
         """
+        # Les objets déjà là gardent leur nom ; seuls les neufs se
+        # numérotent (``_number_new_labels``).
+        self.__dict__.setdefault("_label_seen", {})[doc.Name] = {
+            self._object_key(o) for o in doc.Objects}
         doc.UndoMode = 1
         if hasattr(doc, "UndoLimit"):
             doc.UndoLimit = 80

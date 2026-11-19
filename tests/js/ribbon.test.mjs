@@ -9,6 +9,7 @@ import { existsSync } from "node:fs";
 import {
   buildRibbonElement,
   buildTabButton,
+  fitRibbon,
   installCoreRibbons,
   isButtonId,
   safeIconSrc,
@@ -387,5 +388,39 @@ describe("buildTabButton", () => {
     const doc = fakeDoc();
     assert.equal(buildTabButton(doc, "exemple", "  ").textContent, "exemple");
     assert.equal(buildTabButton(doc, "exemple", "Exemple").textContent, "Exemple");
+  });
+});
+
+describe("fitRibbon", () => {
+  // Un faux ruban : sa largeur dépend des paliers posés.
+  function fakeRibbon(widths) {
+    const classes = new Set();
+    return {
+      classes,
+      classList: {
+        add: (...names) => names.forEach((n) => classes.add(n)),
+        remove: (...names) => names.forEach((n) => classes.delete(n)),
+      },
+      width() {
+        if (classes.has("ribbon-tighter")) return widths.tighter;
+        if (classes.has("ribbon-tight")) return widths.tight;
+        return widths.full;
+      },
+    };
+  }
+  const fits = (limit) => (el) => el.width() > limit;
+
+  it("ne compacte pas un ruban qui tient", () => {
+    const el = fakeRibbon({ full: 900, tight: 700, tighter: 500 });
+    assert.equal(fitRibbon(el, fits(1000)), null);
+    assert.equal(el.classes.size, 0);
+  });
+
+  it("ôte d'abord le texte des petits boutons, puis des grands", () => {
+    const el = fakeRibbon({ full: 1500, tight: 1300, tighter: 1100 });
+    assert.equal(fitRibbon(el, fits(1400)), "ribbon-tight");
+    assert.equal(fitRibbon(el, fits(1200)), "ribbon-tighter");
+    assert.equal(fitRibbon(el, fits(2000)), null);
+    assert.equal(el.classes.size, 0);
   });
 });

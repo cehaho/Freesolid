@@ -268,6 +268,7 @@ def _etapes():
         fonctions.p149_desactiver_fonction_par_fonction,
         noeuds.p150_desactiver_graphe_repetition_texte,
         surfaces.p151_forme_figee_qui_casse,
+        fonctions.p154_numerotation_des_fonctions,
         fonctions.p153_face_rognee_reste_a_sa_creatrice,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,

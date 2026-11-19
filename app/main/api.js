@@ -5,6 +5,9 @@
 import { formatProgressStatus } from "../progress.js";
 import { currentLang, t } from "../i18n.js";
 
+/** Durée d'un compte rendu dans la barre d'état. */
+const STATUS_FADE_MS = 6000;
+
 export function installApi(ctx) {
   const { statusEl } = ctx;
 
@@ -82,10 +85,25 @@ export function installApi(ctx) {
     document.body.removeAttribute("aria-busy");
   }
 
-  function say(text, isError = false) {
+  let fadeTimer = null;
+
+  /** `fade` : un compte rendu (« Enregistré… », « Exporté… ») s'efface
+   *  seul, comme dans les modeleurs courants ; une invite de commande, non. */
+  function say(text, isError = false, { fade = false } = {}) {
     if (ctx.statusSticky && !isError) return;
     if (!isError) ctx.statusSticky = false;
+    clearTimeout(fadeTimer);
+    fadeTimer = null;
     statusEl.textContent = t(text);
+    if (fade && !isError) {
+      const shown = statusEl.textContent;
+      fadeTimer = setTimeout(() => {
+        if (statusEl.textContent === shown && !ctx.statusSticky) {
+          statusEl.textContent = "";
+          statusEl.title = "";
+        }
+      }, STATUS_FADE_MS);
+    }
     statusEl.className = isError ? "err" : "";
     if (ctx.statusSticky) statusEl.classList.add("sticky");
     // Le texte entier en infobulle : la barre l'abrège s'il est trop long.

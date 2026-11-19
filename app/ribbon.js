@@ -129,3 +129,21 @@ export function installCoreRibbons(doc, layout) {
   }
   return map;
 }
+
+/** Les paliers d'un ruban trop large pour la fenêtre, comme dans les
+ *  modeleurs courants : les petits boutons perdent leur texte, puis les
+ *  grands. L'infobulle garde le nom. */
+export const RIBBON_FIT_STEPS = ["ribbon-tight", "ribbon-tighter"];
+
+/** Ajuste le ruban actif à sa largeur : le premier palier qui tient
+ *  (aucun si tout tient). `measure` sert aux tests. */
+export function fitRibbon(ribbonEl, measure = (el) => el.scrollWidth > el.clientWidth + 1) {
+  if (!ribbonEl) return null;
+  ribbonEl.classList.remove(...RIBBON_FIT_STEPS);
+  if (!measure(ribbonEl)) return null;
+  for (const step of RIBBON_FIT_STEPS) {
+    ribbonEl.classList.add(step);
+    if (!measure(ribbonEl)) return step;
+  }
+  return RIBBON_FIT_STEPS[RIBBON_FIT_STEPS.length - 1];
+}
