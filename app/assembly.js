@@ -215,6 +215,16 @@ export function installAssembly(ctx) {
       empty.textContent = t("— insérez une pièce (.FCStd) —");
       treeEl.appendChild(empty);
     }
+    // Les liaisons sous leur propre dossier : alignées sous le dernier
+    // composant, elles avaient l'air de lui appartenir.
+    if (tree.joints?.length) {
+      const folder = document.createElement("li");
+      folder.className = "folder joints";
+      folder.appendChild(treeIcon("mate"));
+      folder.appendChild(document.createTextNode(
+        t("Liaisons") + ` (${tree.joints.length})`));
+      treeEl.appendChild(folder);
+    }
     for (const joint of tree.joints ?? []) {
       const row = document.createElement("li");
       row.className = "child";
@@ -274,14 +284,19 @@ export function installAssembly(ctx) {
     if (ctx.assemblyState) insertComponents();
   });
 
+  // Le dialogue de fichiers, comme pour ouvrir : une pièce après l'autre,
+  // Annuler termine. La suivante arrive à côté des autres (moteur).
   async function insertComponents() {
     for (;;) {
       const first = !ctx.assemblyState?.components.length;
-      const path = prompt(first
-        ? "Premier composant (chemin .FCStd) — il sera fixé à l'origine :"
-        : "Composant suivant (chemin .FCStd) — Annuler pour terminer :",
-      "~/piece-freesolid.FCStd");
-      if (!path) return;
+      say(first
+        ? "Premier composant : il sera fixé à l'origine"
+        : "Composant suivant — Annuler pour terminer");
+      const path = await ctx.pickFile?.("component");
+      if (!path) {
+        say("À jour.");
+        return;
+      }
       await refreshAssembly(call("insert_component", { path }));
     }
   }

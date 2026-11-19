@@ -108,10 +108,27 @@ class AssemblyMixin:
                                     "freesolid-assemblage.FCStd"))
         part_doc = None
         opened_here = False
+        def same_file(other):
+            # FreeCAD garde « / », le chemin vérifié a « \ » sous Windows.
+            return bool(other) and os.path.normcase(
+                os.path.normpath(other)) == os.path.normcase(
+                os.path.normpath(path))
+
         for open_doc in App.listDocuments().values():
-            if getattr(open_doc, "FileName", "") == path:
+            if open_doc is not doc and same_file(
+                    getattr(open_doc, "FileName", "")):
                 part_doc = open_doc
                 break
+        if part_doc is not None and not self._linked_from(doc, part_doc):
+            # Ouverte pour un assemblage d'avant, peut-être enregistrée
+            # depuis : la copie en mémoire serait périmée. On relit le
+            # fichier (gardée seulement si cet assemblage la vise déjà).
+            try:
+                App.closeDocument(part_doc.Name)
+            except Exception:  # noqa: BLE001
+                pass
+            else:
+                part_doc = None
         if part_doc is None:
             try:
                 part_doc = App.openDocument(path, True)  # hidden
@@ -153,8 +170,50 @@ class AssemblyMixin:
                 self._ground(link)
             except Exception:
                 pass  # sans ancrage, le solveur bougera tout — non fatal
+        else:
+            # Les suivants arrivent à côté, pas dans le premier : on voit
+            # leurs faces, on peut les contraindre.
+            doc.recompute()
+            self._place_beside(link, existing)
         doc.recompute()
         return self.assembly_tree()
+
+    @staticmethod
+    def _linked_from(doc, part_doc):
+        """Vrai si un composant de ``doc`` vise déjà ``part_doc``."""
+        for obj in doc.Objects:
+            target = getattr(obj, "LinkedObject", None)
+            if target is not None and getattr(target, "Document", None)                     is part_doc:
+                return True
+        return False
+
+    @staticmethod
+    def _place_beside(link, others):
+        """Pose ``link`` sur +X, après l'encombrement de ``others``, avec
+        un jeu d'un dixième de sa largeur (10 mm au moins)."""
+        import FreeCAD as App
+        import Part
+        boxes = []
+        for other in others:
+            try:
+                shape = Part.getShape(other)
+            except Exception:  # noqa: BLE001 — lien cassé : on l'ignore
+                continue
+            if not shape.isNull():
+                boxes.append(shape.BoundBox)
+        try:
+            own = Part.getShape(link).BoundBox
+        except Exception:  # noqa: BLE001
+            return
+        if not boxes or not own.isValid():
+            return
+        x_max = max(box.XMax for box in boxes)
+        gap = max(10.0, own.XLength / 10.0)
+        base = link.Placement.Base
+        shift = x_max + gap - own.XMin
+        link.Placement = App.Placement(
+            App.Vector(base.x + shift, base.y, base.z),
+            link.Placement.Rotation)
 
     def _ground(self, link):
         """Fixer un composant (GroundedJoint du module natif)."""

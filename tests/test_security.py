@@ -147,6 +147,32 @@ def test_list_dir_dirs_first_and_skips_hidden_and_unknown(tmp_path, monkeypatch)
     assert listed["entries"][0]["kind"] == "dir"
 
 
+def test_list_dir_skips_names_the_system_hides(tmp_path, monkeypatch):
+    # Windows : « AppData », « Cookies »… portent l'attribut caché ou
+    # système ; l'explorateur ne les montre pas, le dialogue non plus.
+    _jail_only(monkeypatch, tmp_path)
+    (tmp_path / "AppData").mkdir()
+    (tmp_path / "Documents").mkdir()
+    real_lstat = os.lstat
+
+    class _Stat:
+        def __init__(self, base, attributes):
+            self._base = base
+            self.st_file_attributes = attributes
+
+        def __getattr__(self, name):
+            return getattr(self._base, name)
+
+    def lstat(path, *args, **kwargs):
+        base = real_lstat(path, *args, **kwargs)
+        hidden = os.path.basename(str(path)) == "AppData"
+        return _Stat(base, 0x2 if hidden else 0)
+
+    monkeypatch.setattr(os, "lstat", lstat)
+    listed = protocol.list_user_dir(None)
+    assert [entry["name"] for entry in listed["entries"]] == ["Documents"]
+
+
 def test_list_dir_skips_entry_on_another_mount(tmp_path, monkeypatch):
     # Windows : un fichier « nul » se résout en périphérique, et relpath
     # lève ValueError (autre « lecteur ») — l'entrée est omise, la liste reste.

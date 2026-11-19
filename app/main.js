@@ -1267,6 +1267,8 @@ installMenuBar(document, menuBarModel(RIBBON_LAYOUT), {
       openShortcutPanel();
     } else if (name === "config-table") {
       openConfigTable();
+    } else if (name === "save-as") {
+      saveDocument({ askPath: true });
     } else if (name === "save-template") {
       saveAsTemplate();
     } else if (name === "copy") {
@@ -1814,10 +1816,8 @@ document.getElementById("btn-drawing").addEventListener("click", () => {
     title: t("Mise en plan"),
     groups: [
       {
-        label: t("Fichier"),
+        label: t("Vues"),
         rows: [
-          { type: "text", key: "path", label: t("Chemin"),
-            value: "~/piece-freesolid.dxf" },
           { type: "number", key: "scale", label: t("Échelle"), value: "",
             min: 0.01 },
         ],
@@ -1833,18 +1833,16 @@ document.getElementById("btn-drawing").addEventListener("click", () => {
         ],
       },
     ],
-    note: t("Trois vues (Face, Dessus, Iso) exportées en DXF."),
+    note: t("Trois vues (Face, Dessus, Iso) exportées en DXF ; OK demande où."),
     onApply: (v) => {
-      const path = (v.path ?? "").trim();
-      if (!path) {
-        say("Mise en plan : chemin du fichier requis", true);
-        return;
-      }
-      const params = { path, dims: !!v.dims };
+      const params = { dims: !!v.dims };
       const scale = num(v.scale);
       if (scale) params.scale = scale;
       if (v.section) params.section = v.section;
       (async () => {
+        // Le fichier se choisit comme partout : le dialogue de fichiers.
+        params.path = await pickFile("drawing");
+        if (!params.path) return;
         try {
           const out = await call("make_drawing", params);
           let extra = "";
@@ -2398,6 +2396,7 @@ const pickFile = installFileDialog(document, {
   // Application de bureau : le dialogue du système, avec le vrai chemin.
   native: nativeFileDialog(window),
 });
+ctx.pickFile = pickFile; // assemblage : insérer une pièce
 
 async function openDocument(path) {
   if (!path) return;
@@ -2450,8 +2449,19 @@ document.getElementById("btn-open").addEventListener("click", async () => {
   if (path) openDocument(path);
 });
 
-document.getElementById("btn-save").addEventListener("click", async () => {
-  const path = await pickFile("save");
+/** Enregistrer : dans le fichier du document s'il en a un (Ctrl+S), sinon
+ *  — ou avec ``askPath`` (Enregistrer sous, Ctrl+Maj+S) — là où le
+ *  dialogue de fichiers le dit. */
+async function saveDocument({ askPath = false } = {}) {
+  let path = null;
+  if (!askPath) {
+    try {
+      path = (await call("document_status"))?.path ?? null;
+    } catch {
+      path = null;
+    }
+  }
+  if (!path) path = await pickFile("save");
   if (!path) return;
   try {
     const saved = await call("save_part", { path });
@@ -2461,6 +2471,21 @@ document.getElementById("btn-save").addEventListener("click", async () => {
   } catch (error) {
     say(error.message, true);
   }
+}
+
+document.getElementById("btn-save").addEventListener("click", () => saveDocument());
+
+// Ctrl+S, Ctrl+Maj+S, Ctrl+O : comme dans les autres logiciels. Une boîte
+// ouverte (dialogue de fichiers, accueil) garde ses touches.
+document.addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+  const key = event.key.toLowerCase();
+  if (key !== "s" && key !== "o") return;
+  if (!document.getElementById("file-dialog")?.hidden) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (key === "s") saveDocument({ askPath: event.shiftKey });
+  else if (!event.shiftKey) document.getElementById("btn-open").click();
 });
 
 document.getElementById("btn-export").addEventListener("click", async () => {
