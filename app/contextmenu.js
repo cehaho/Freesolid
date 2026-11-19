@@ -405,9 +405,12 @@ export function installContextMenu(ctx) {
       const feature = findFeatureInTree(ctx.lastTree, group.feature);
       const sketch = (feature?.children ?? [])
         .find((child) => child.type_key === "sketch");
+      // Les faces dessinées sont celles du corps actif.
+      const body = (ctx.lastTree?.bodies ?? []).find((b) => b.active);
       hit = {
         kind: "face",
         face: group.faceId,
+        body: body ? { name: body.name, label: body.label } : null,
         colored: !!group.color && !group.solid_tint,
         feature: feature ? {
           name: feature.name, label: feature.label, sketch: sketch?.name,
@@ -483,6 +486,20 @@ export function installContextMenu(ctx) {
     "delete-feature": (hit) => {
       if (confirm(t("Supprimer « {f} » ?", { f: hit.feature.label }))) {
         refreshAny(call("delete_feature", { feature: hit.feature.name }));
+      }
+    },
+    "hide-body": (hit) =>
+      refreshAny(call("set_hidden", { objects: [hit.body.name], hidden: true })),
+    "hide-surface": (hit) =>
+      refreshAny(call("set_hidden", { objects: [hit.surface.name], hidden: true })),
+    "delete-surface": (hit) => {
+      if (confirm(t("Supprimer « {f} » ?", { f: hit.label }))) {
+        refreshAny(call("delete_feature", { feature: hit.surface.name }));
+      }
+    },
+    "delete-sketch": (hit) => {
+      if (confirm(t("Supprimer « {f} » ?", { f: hit.sketch.label }))) {
+        refreshAny(call("delete_feature", { feature: hit.sketch.name }));
       }
     },
     pad: (hit) => withSketchSelected(hit, "btn-pad"),

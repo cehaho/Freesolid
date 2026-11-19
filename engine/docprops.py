@@ -524,7 +524,8 @@ class DocPropsMixin:
         out = []
         for obj in doc.Objects:
             state = obj.State or ()
-            if "Invalid" not in state and "Error" not in state:
+            if ("Invalid" not in state and "Error" not in state
+                    and not self._frozen_failed(obj)):
                 continue
             if (self._is_internal_tool(obj)
                     or self._emptied_by_suppression(obj)):

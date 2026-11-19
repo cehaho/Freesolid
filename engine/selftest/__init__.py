@@ -266,6 +266,8 @@ def _etapes():
         fonctions.p147_paroi_mince_change_de_genre,
         surfaces.p148_barre_et_masquer_surfaces,
         fonctions.p149_desactiver_fonction_par_fonction,
+        noeuds.p150_desactiver_graphe_repetition_texte,
+        surfaces.p151_forme_figee_qui_casse,
         _etapes_des_plugins,
         document.bilan,
         document.n4e_evaluer_apres_ouverture,

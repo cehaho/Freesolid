@@ -434,6 +434,7 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         self._sync_revolution_axes()
         self._sync_bar_booleans()
         doc.recompute()
+        self._frozen_failures = {}
         # Formes figées (suppression de face), copies d'un réseau de
         # corps, outils des corps concernés : ils suivent les fonctions
         # d'avant, une passe par niveau d'imbrication.
@@ -449,7 +450,7 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
             self._plugins.run_after_recompute(self)
             doc.recompute()
         broken = [o for o in doc.Objects
-                  if "Invalid" in (o.State or ())
+                  if ("Invalid" in (o.State or ()) or self._frozen_failed(o))
                   and not self._is_internal_tool(o)
                   and not self._emptied_by_suppression(o)
                   and not self._plugins.run_tolerates_invalid(self, o)]
@@ -473,6 +474,10 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         Phrase utile selon la fonction quand on la connaît, texte brut
         entre parenthèses. Sinon le texte brut, ou « en erreur ».
         """
+        frozen = getattr(self, "_frozen_failures", {}).get(obj.Name)
+        if frozen is not None:
+            return "{} : sa forme ne se recalcule plus ({})".format(
+                obj.Label, frozen)
         text = ""
         try:
             text = obj.getStatusString() or ""
@@ -486,6 +491,12 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         if explained:
             return explained
         return "{} : {}".format(obj.Label, text or "en erreur")
+
+    def _frozen_failed(self, obj):
+        """Vrai si la forme figée de ``obj`` n'a pas pu se recalculer à la
+        dernière reconstruction (``_frozen_fail``)."""
+        return getattr(obj, "Name", None) in getattr(
+            self, "_frozen_failures", {})
 
     def _force_recompute(self):
         """Recalcul complet, drapeaux « à jour » ignorés."""

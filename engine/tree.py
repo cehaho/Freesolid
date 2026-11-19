@@ -1246,7 +1246,8 @@ class TreeMixin:
                 "kind": label_for_type(obj.TypeId, self.lang),
                 "type": obj.TypeId,
                 "type_key": type_key_for(obj.TypeId),
-                "error": "Invalid" in (obj.State or ()),
+                "error": ("Invalid" in (obj.State or ())
+                          or self._frozen_failed(obj)),
                 "order": order_of.get(obj.Name, -1),
                 "has_params": self._has_params(obj),
                 "suppressible": self._is_suppressible(obj),
