@@ -45,6 +45,22 @@ describe("viewMenuItems", () => {
     assert.ok(keys(viewMenuItems({ hit: open })).includes("edit-surface"));
   });
 
+  it("comme le menu de l'arbre : masquer et supprimer (thème 1)", () => {
+    const face = viewMenuItems({ hit: { kind: "face",
+      feature: { name: "Pad", label: "Extrusion" },
+      body: { name: "Body", label: "Corps" } } });
+    assert.ok(keys(face).includes("hide-body"));
+    assert.ok(face.length <= 11, String(face.length));
+    assert.ok(!keys(viewMenuItems({ hit: { kind: "face",
+      feature: { name: "Pad", label: "Extrusion" } } })).includes("hide-body"));
+    const surface = keys(viewMenuItems({ hit: { kind: "surface",
+      label: "Surface extrudée" } }));
+    assert.ok(surface.includes("hide-surface"));
+    assert.ok(surface.includes("delete-surface"));
+    const sketch = viewMenuItems({ hit: { kind: "sketch", label: "Esquisse2" } });
+    assert.ok(sketch.find((i) => i.key === "delete-sketch").danger);
+  });
+
   it("face d'une fonction sans esquisse : pas de « Modifier l'esquisse »", () => {
     const k = keys(viewMenuItems({
       hit: { kind: "face", feature: { name: "Fillet", label: "Congé" } } }));
@@ -64,7 +80,8 @@ describe("viewMenuItems", () => {
 
   it("chaque action a une icône présente dans app/icons", () => {
     const hits = [{ kind: "edge" }, { kind: "sketch" }, { kind: "surface" },
-      { kind: "face", feature: { name: "Pad", label: "P", sketch: "S" } }];
+      { kind: "face", feature: { name: "Pad", label: "P", sketch: "S" },
+        body: { name: "Body", label: "B" } }];
     const all = new Set();
     for (const ctx of [...hits.map((hit) => ({ hit })), { mode: "sketch" },
                        { mode: "sketch", drawing: true, quickSnap: { kind: "on" } }]) {

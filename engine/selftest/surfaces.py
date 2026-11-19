@@ -1224,3 +1224,38 @@ def p148_barre_et_masquer_surfaces(self, mark, report, etat):
         and seen["middle"] == sorted(["planar", "helix", "thicken",
                                       "extend"])
         and seen["end"] == ([], []) and seen["hidden"] == keys)
+
+
+def p151_forme_figee_qui_casse(self, mark, report, etat):
+    """Une surface médiane qui ne se recalcule plus ne garde pas son
+    ancienne forme en silence : la modification qui la casse est refusée
+    et la nomme (thème 8 de docs/gestes-des-fonctions.md)."""
+    mark("p151: une forme figée qui casse le dit")
+    from engine.kernel import dispatch
+    seen = etat.p151 = {}
+    self.new_part("Surface médiane qui casse")
+    self.add_rect_sketch(40, 20)
+    tree = self.add_pad(2)
+    pad = [f["name"] for f in tree["features"]
+           if f["type"] == "PartDesign::Pad"][-1]
+    mid = self.surface_mid(thickness=3)["surfaces"][-1]
+    area = round(self._doc.getObject(mid["name"]).Shape.Area, 6)
+    # La plaque s'épaissit à 10 : plus aucune paroi sous 3 mm.
+    refused = dispatch(self, "set_params",
+                       {"feature": pad, "values": {"length": 10}})
+    seen["refused"] = (refused.get("ok"),
+                       mid["label"] in str(refused.get("error")),
+                       self._doc.getObject(pad).Length.Value,
+                       round(self._doc.getObject(mid["name"]).Shape.Area, 6)
+                       == area,
+                       self.rebuild_errors()["errors"])
+    # À 2,5 la paroi reste sous 3 : accepté, la surface suit.
+    done = dispatch(self, "set_params",
+                    {"feature": pad, "values": {"length": 2.5}})
+    row = next(s for s in self.get_tree()["surfaces"]
+               if s["name"] == mid["name"])
+    seen["accepted"] = (done.get("ok"), row.get("error"),
+                        self.rebuild_errors()["errors"])
+    report["p151_forme_figee_qui_casse"] = (
+        seen["refused"] == (False, True, 2.0, True, [])
+        and seen["accepted"] == (True, None, []))

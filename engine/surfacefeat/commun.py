@@ -153,6 +153,8 @@ class SurfaceCommonMixin:
         }
         if self._is_disabled(obj):
             entry["suppressed"] = True
+        if "Invalid" in (obj.State or ()) or self._frozen_failed(obj):
+            entry["error"] = True
         wire(entry, obj)
         # Couture / courbe / fichiers legacy : pas d'objet paramétrique.
         if obj.TypeId == "Part::Feature":
@@ -432,7 +434,9 @@ class SurfaceCommonMixin:
         corps (supprimer, remplacer une face) ; vrai si l'une a changé."""
         doc = self._require_doc()
         changed = False
+        failures = self.__dict__.setdefault("_frozen_failures", {})
         for obj in doc.Objects:
+            failures.pop(obj.Name, None)  # la dernière passe décide
             if self._sketch3d_spec(obj) is not None:
                 changed = self._refresh_sketch3d(obj) or changed
                 continue
@@ -444,7 +448,8 @@ class SurfaceCommonMixin:
                     points = self.solve_curve_rules(
                         points, curve.get("rules"),
                         [i for i, l in enumerate(links) if l])
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
                     continue
                 if any(abs(a - b) > 1e-9 for p, q in zip(points,
                                                            curve["points"])
@@ -466,7 +471,8 @@ class SurfaceCommonMixin:
                     continue
                 try:
                     result = self._sew_shape([s.Shape for s in sources])
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
                     continue
                 old = obj.Shape
                 if (old.isNull() or abs(old.Area - result.Area) > 1e-9
@@ -479,7 +485,8 @@ class SurfaceCommonMixin:
             if cap_spec:
                 try:
                     result = self._cap_shape(cap_spec)
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
                     continue
                 old = obj.Shape
                 if (old.isNull() or abs(old.Area - result.Area) > 1e-9
@@ -497,7 +504,8 @@ class SurfaceCommonMixin:
                     result = self._halves_shape(src.Shape,
                                                 obj.FreeSolidHalvesedge,
                                                 obj.FreeSolidHalvesface)
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
                     continue
                 old = obj.Shape
                 if (old.isNull() or abs(old.Length - result.Length) > 1e-9
@@ -520,7 +528,8 @@ class SurfaceCommonMixin:
                     else:
                         result = self._free_shape(src.Shape,
                                                   self._frozen_stamps(obj))
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
                     continue
                 old = obj.Shape
                 if (old.isNull() or abs(old.Area - result.Area) > 1e-6
@@ -538,7 +547,8 @@ class SurfaceCommonMixin:
                 try:
                     result = self._mid_from_spec(base.Shape,
                                                  obj.FreeSolidMidfaces)
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
                     continue
                 old = obj.Shape
                 if (old.isNull() or abs(old.Area - result.Area) > 1e-9
@@ -571,8 +581,9 @@ class SurfaceCommonMixin:
                 continue
             try:
                 result = self._frozen_result(stamps, base.Shape)
-            except Exception:  # noqa: BLE001
-                continue  # l'ancienne forme reste ; l'erreur se verra
+            except Exception as exc:  # noqa: BLE001
+                self._frozen_fail(obj, exc)
+                continue
             old = obj.Shape
             if (old.isNull() or len(old.Faces) != len(result.Faces)
                     or abs(old.Volume - result.Volume) > 1e-9
@@ -580,6 +591,16 @@ class SurfaceCommonMixin:
                 obj.Shape = result
                 changed = True
         return changed
+
+    def _frozen_fail(self, obj, exc):
+        """Une forme figée qui ne se recalcule plus garde l'ancienne : on
+        le note, pour que la ligne passe en erreur comme une fonction du
+        modeleur (thème 8 de docs/gestes-des-fonctions.md). Reculée ou
+        désactivée, elle ne compte pas."""
+        if self._is_disabled(obj) or self._is_rolled_back(obj):
+            return
+        self.__dict__.setdefault("_frozen_failures", {})[obj.Name] = (
+            str(exc) or type(exc).__name__)
 
     def _consumed_surfaces(self, counts=None):
         """Noms des surfaces remplacées par une autre : source d'un

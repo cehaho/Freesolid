@@ -673,6 +673,7 @@
  "{} dépend de {}": "{} depends on {}",
  "choisissez une surface, pas une courbe": "choose a surface, not a curve",
  "{} : booléen attendu": "{}: boolean expected",
+ "{} : sa forme ne se recalcule plus ({})": "{}: its shape no longer rebuilds ({})",
  "réseau non réduit : cela toucherait {}": "pattern not reduced: it would affect {}",
  "Réduire « {} » supprime {} copie(s) ; cela touche aussi {}. Continuer ?": "Reducing « {} » removes {} copy(ies); this also affects {}. Continue?",
  "nom de gabarit invalide — lettres, chiffres, espaces et tirets": "invalid template name — letters, digits, spaces and dashes",

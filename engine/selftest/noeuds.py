@@ -994,3 +994,119 @@ def p146_ajout_ou_enlevement_se_change(self, mark, report, etat):
         and seen["repeat_fuse"] == (True, True)
         and seen["repeat_cut"] == (True, "cut", True, "cut")
         and not self.rebuild_errors()["errors"])
+
+
+def p150_desactiver_graphe_repetition_texte(self, mark, report, etat):
+    """Désactiver une fonction graphe (solide et courbe), une répétition
+    variable et un texte (relief et gravure) : la pièce se calcule sans
+    eux, leurs corps outils cachés ne se montrent pas, et tout revient à
+    la réactivation (thème 2 de docs/gestes-des-fonctions.md)."""
+    mark("p150: Désactiver une fonction graphe, une répétition, un texte")
+    from engine.kernel import dispatch
+    seen = etat.p150 = {}
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    def volume():
+        return round(self._require_body().Shape.Volume, 3)
+
+    def drawn():
+        """Les corps, surfaces et courbes que la vue dessine, hors corps
+        actif."""
+        mesh = self.tessellate()
+        return sorted({o.get("name") for key in ("other_bodies", "surfaces",
+                                                 "curves")
+                       for o in (mesh.get(key) or [])})
+
+    def toggle(name):
+        """(volume désactivé, dessinés, erreurs, volume réactivé, erreurs)."""
+        off = call("set_suppressed", features=[name], suppressed=True)
+        state = (off.get("ok"), volume(), drawn(),
+                 self.rebuild_errors()["errors"])
+        on = call("set_suppressed", features=[name], suppressed=False)
+        return state + (on.get("ok"), volume(), drawn(),
+                        self.rebuild_errors()["errors"])
+
+    cylinder = {
+        "nodes": [
+            {"id": "x", "type": "nombre", "value": 0},
+            {"id": "y", "type": "nombre", "value": 0},
+            {"id": "z", "type": "nombre", "value": -6},
+            {"id": "pts", "type": "vecteur"},
+            {"id": "cyl", "type": "cylindre", "rayon": 3, "hauteur": 20},
+        ],
+        "edges": [
+            {"from": "x", "to": "pts", "input": "x"},
+            {"from": "y", "to": "pts", "input": "y"},
+            {"from": "z", "to": "pts", "input": "z"},
+            {"from": "pts", "to": "cyl", "input": "ancrage"},
+        ],
+        "output": "cyl",
+    }
+    self.new_part("Désactiver une fonction graphe")
+    self.add_rect_sketch(40, 20)
+    self.add_pad(8)
+    plate = volume()
+    tree = self.add_graph_feature(cylinder, mode="cut")
+    graph = next(f["name"] for f in tree["features"] if f.get("graph"))
+    holed, shown = volume(), drawn()
+    seen["graph"] = (plate, holed, shown, toggle(graph))
+
+    circle = {
+        "nodes": [{"id": "c", "type": "cercle", "rayon": 5,
+                   "point": {"x": 0, "y": 0, "z": 20},
+                   "direction": {"x": 0, "y": 0, "z": 1}}],
+        "edges": [],
+        "output": "c",
+    }
+    tree = self.add_graph_feature(circle)
+    curve = tree["surfaces"][-1]["name"]
+    seen["curve"] = (curve in drawn(), toggle(curve))
+
+    self.new_part("Désactiver une répétition variable")
+    self.add_rect_sketch(40, 20)
+    self.add_pad(8)
+    body = self._require_body()
+    state = self.sketch_start(plane="XY")
+    self.sketch_add_rectangle(state["sketch"], -2, -2, 2, 2)
+    self.sketch_finish(state["sketch"])
+    self.add_pad(12, sketch=state["sketch"])
+    boss = self._thin_owner(body.Tip).Name
+    alone, shown = volume(), drawn()
+    call("add_repeat_feature", features=[boss], mode="fuse",
+         instances=[{"offset": [10, 0, 0]}])
+    repeat = self._thin_owner(body.Tip).Name
+    seen["repeat"] = (alone, volume(), shown, toggle(repeat))
+
+    texts = {}
+    for kind, emboss in (("relief", True), ("gravure", False)):
+        self.new_part("Désactiver un texte en " + kind)
+        self.add_rect_sketch(60, 30)
+        self.add_pad(8)
+        base, shown = volume(), drawn()
+        self.add_text("AB", self._top_face_id(), size=8, depth=1,
+                      emboss=emboss)
+        text = self._require_body().Tip.Name
+        texts[kind] = (base, volume(), shown, toggle(text))
+    seen["text"] = texts
+
+    def restored(full, before, shown, t):
+        """Désactivée : la pièce d'avant, rien de plus dessiné ; réactivée :
+        la pièce entière ; aucune erreur aux deux moments."""
+        return (t[0] is True and t[1] == before and t[2] == shown
+                and t[3] == [] and t[4] is True and t[5] == full
+                and t[6] == shown and t[7] == [])
+
+    graph_ok = restored(seen["graph"][1], seen["graph"][0],
+                        seen["graph"][2], seen["graph"][3])
+    present, t = seen["curve"]
+    curve_ok = (present and t[0] is True and curve not in t[2]
+                and t[3] == [] and t[4] is True and curve in t[6]
+                and t[7] == [])
+    repeat_ok = restored(seen["repeat"][1], seen["repeat"][0],
+                         seen["repeat"][2], seen["repeat"][3])
+    text_ok = all(restored(full, base, shown, t) and full != base
+                  for base, full, shown, t in texts.values())
+    seen["ok"] = (graph_ok, curve_ok, repeat_ok, text_ok)
+    report["p150_desactiver_graphe_repetition_texte"] = all(seen["ok"])

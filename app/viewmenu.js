@@ -52,6 +52,10 @@ const MENU_ICONS = {
   "face-color-reset": "face_color",
   "select-loop": "sel_loop",
   "delete-feature": "delete",
+  "delete-surface": "delete",
+  "delete-sketch": "delete",
+  "hide-surface": "vb_visibility",
+  "hide-body": "vb_visibility",
   "zoom-fit": "zoom_fit",
   orient: "orient",
   origin: "origin",
@@ -200,6 +204,7 @@ export function viewMenuItems(ctx = {}) {
         "measure", "face-color"] },
       ...(hit.colored ? [{ key: "face-color-reset", label: "Couleur de face par défaut" }] : []),
       ...featureSection(hit.feature),
+      ...(hit.body ? [{ key: "hide-body", label: "Masquer le corps" }] : []),
     ];
   } else if (hit?.kind === "edge") {
     items = [
@@ -211,12 +216,17 @@ export function viewMenuItems(ctx = {}) {
     items = [
       { header: hit.label ?? "Esquisse" },
       { bar: ["edit-sketch", "pad", "pocket", "revolve"] },
+      { key: "delete-sketch", label: "Supprimer", danger: true },
     ];
   } else if (hit?.kind === "surface") {
+    // Comme le menu de l'arbre : masquer, supprimer (thème 1 de
+    // docs/gestes-des-fonctions.md).
     items = [
       { header: hit.label ?? "Surface" },
       ...(hit.editable !== false
         ? [{ key: "edit-surface", label: "Modifier" }] : []),
+      { key: "hide-surface", label: "Masquer" },
+      { key: "delete-surface", label: "Supprimer", danger: true },
     ];
   }
   if (items.length) items.push(SEP);
