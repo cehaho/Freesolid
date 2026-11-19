@@ -36,6 +36,27 @@ const FILE_MODES = {
       { label: "Pièce (.FCStd)", extensions: [".FCStd"] },
     ],
   },
+  // Insérer une pièce dans l'assemblage : un .FCStd qui existe.
+  component: {
+    title: "Insérer une pièce",
+    accept: "Insérer",
+    mustExist: true,
+    overwrite: false,
+    defaultName: "",
+    filters: [
+      { label: "Pièce (.FCStd)", extensions: [".FCStd"] },
+    ],
+  },
+  drawing: {
+    title: "Mise en plan",
+    accept: "Exporter",
+    mustExist: false,
+    overwrite: true,
+    defaultName: "piece-freesolid.dxf",
+    filters: [
+      { label: "Mise en plan (.dxf)", extensions: [".dxf"] },
+    ],
+  },
   export: {
     title: "Exporter",
     accept: "Exporter",
@@ -146,6 +167,21 @@ export function parentDir(path) {
   if (cut === 0) return text[0];
   const dir = text.slice(0, cut);
   return /^[A-Za-z]:$/.test(dir) ? dir + text[cut] : dir;
+}
+
+/** Ce que l'on tape dans « Nom du fichier » : un nom seul (`dir` null), ou
+ *  un chemin — absolu, « ~/… » ou relatif au dossier affiché — dont on
+ *  ouvre le dossier (`dir`) avant de prendre le nom (`name`, "" si le
+ *  chemin finit par un séparateur : on ne fait qu'y aller). Le moteur
+ *  garde la prison de chemins. */
+export function splitTyped(typed, currentDir) {
+  const text = String(typed || "").trim();
+  if (!/[\\/]/.test(text)) return { dir: null, name: text };
+  const endsWithSep = /[\\/]$/.test(text);
+  const dir = endsWithSep ? text.replace(/[\\/]+$/, "") || text[0] : parentDir(text);
+  const name = endsWithSep ? "" : baseName(text);
+  const absolute = /^([\\/]|~|[A-Za-z]:)/.test(text);
+  return { dir: absolute ? dir : joinPath(currentDir, dir), name };
 }
 
 /** Le nom de fichier d'un chemin, quel que soit le séparateur. */
@@ -337,9 +373,24 @@ export function installFileDialog(doc, { listDir, storage, confirmReplace, nativ
   }
 
   async function accept(typed) {
+    const parts = splitTyped(typed, listing?.path);
+    if (parts.dir !== null) {
+      // Un chemin tapé : on va dans son dossier, puis on prend le nom.
+      const field = root.querySelector(".file-name input");
+      if (field) field.value = parts.name || mode.defaultName;
+      try {
+        await load(parts.dir);
+      } catch (error) {
+        showError(error?.message || t("Dossier introuvable."), false);
+        return;
+      }
+      if (!parts.name) return;
+      typed = parts.name;
+    }
     let name = withExtension(typed, extensions());
     if (!name || !listing?.path) {
-      showError("Fichier introuvable.");
+      showError(String(typed || "").trim()
+        ? "Nom de fichier invalide." : "Tapez un nom de fichier.");
       return;
     }
     if (mode.mustExist) {

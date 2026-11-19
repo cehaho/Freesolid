@@ -23,6 +23,7 @@ export const RESERVED = new Set([
   "F", "Z", "Shift+Z", "Space", "Tab", "Shift+Tab", "Escape", "Enter",
   "Delete", "Backspace", "F2", "F5", "F11", "F12",
   "Ctrl+Z", "Ctrl+Y", "Ctrl+Shift+Z", "Ctrl+N", "Ctrl+F", "Ctrl+A",
+  "Ctrl+S", "Ctrl+Shift+S", "Ctrl+O",
   "Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+W", "Ctrl+T", "Ctrl+R", "Ctrl+L",
   "Ctrl+P", "Ctrl+Shift+I", "Ctrl+Shift+R",
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `Ctrl+${n}`),

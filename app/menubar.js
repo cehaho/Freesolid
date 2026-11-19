@@ -46,8 +46,9 @@ export function menuBarModel(ribbon) {
     { id: "file", label: "Fichier", items: [
       item("Nouveau", { action: "create", shortcut: "Ctrl+N" }),
       item("Accueil", { action: "home" }),
-      item("Ouvrir", { click: "btn-open" }),
-      item("Enregistrer", { click: "btn-save" }),
+      item("Ouvrir", { click: "btn-open", shortcut: "Ctrl+O" }),
+      item("Enregistrer", { click: "btn-save", shortcut: "Ctrl+S" }),
+      item("Enregistrer sous…", { action: "save-as", shortcut: "Ctrl+Shift+S" }),
       item("Exporter", { click: "btn-export" }),
       item("Mise en plan", { click: "btn-drawing" }),
       item("Capture d'écran", { action: "screenshot" }),
