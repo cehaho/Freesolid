@@ -58,6 +58,30 @@ describe("dimGeometry", () => {
     assert.deepEqual(g.segments[0], [10, 6, 10, 0]);
   });
 
+  it("point → ligne posée : glissée le long de la ligne", () => {
+    // L'extrémité haute du côté droit (vertical), cotée au bas.
+    const g = dimGeometry({ type: "Distance", geo: 1, offset: -4 },
+      { geos: [1, 0, null], pos: [2, 0, 0] }, rect, 1);
+    // La ligne de cote, puis une seule attache : depuis le point ; elle
+    // tombe sur la ligne cotée, qui n'en a pas besoin.
+    assert.deepEqual(g.segments.at(-1), [6, 6, 6, 0]);
+    assert.equal(g.segments.length, 2);
+    assert.deepEqual(g.segments[0].slice(0, 2), [10, 6]);
+    assert.equal(dimOffsetAt({ type: "Distance", geo: 1 },
+      { geos: [1, 0, null], pos: [2, 0, 0] }, rect, { x: 6, y: 3 }), -4);
+  });
+
+  it("lignes parallèles : attaches depuis le bout le plus proche", () => {
+    const two = [{ id: 0, type: "line", p1: [0, 0], p2: [10, 0] },
+                 { id: 1, type: "line", p1: [20, 5], p2: [30, 5] }];
+    const g = dimGeometry({ type: "Distance", geo: 0, offset: -15 },
+      { geos: [0, 1, null], pos: [1, 0, 0] }, two, 1);
+    // Posée en x = 15, entre les deux : chaque attache part d'un bout.
+    assert.deepEqual(g.segments.at(-1), [15, 0, 15, 5]);
+    assert.deepEqual(g.segments[0].slice(0, 2), [10, 0]);
+    assert.deepEqual(g.segments[1].slice(0, 2), [20, 5]);
+  });
+
   it("rayon d'un arc : une flèche sur l'arc", () => {
     const arc = [{ id: 0, type: "arc", c: [0, 0], r: 5, p1: [5, 0], p2: [0, 5] }];
     const g = dimGeometry({ type: "Radius", geo: 0 },
