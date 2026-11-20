@@ -1105,22 +1105,102 @@ class SketchMixin:
         if len(chains) != 1:
             raise KernelError(
                 "les entités à décaler doivent former une chaîne connexe")
+        # Comme dans les modeleurs courants : des coins vifs (les lignes
+        # prolongées se rejoignent), et une chaîne ouverte donne une seule
+        # copie, d'un côté — pas un contour fermé autour d'elle.
+        sharp = 2  # GeomAbs_Intersection
         try:
             wire = Part.Wire(chains[0])
-            offset_shape = wire.makeOffset2D(signed)
+            straight = self._straight_chain(wire)
+            if straight is not None:
+                # Lignes alignées : pas de plan pour makeOffset2D — on les
+                # pousse de côté (à droite du parcours, comme lui).
+                d = straight
+                shift = self._app().Vector(d.y, -d.x, 0) * signed
+                offset_edges = [edge.translated(shift)
+                                for edge in wire.Edges]
+                return self._merge_collinear(offset_edges, Part)
             if wire.isClosed():
+                offset_shape = wire.makeOffset2D(signed, sharp)
                 # Le signe suit le sens de parcours : on vérifie à l'aire.
                 grows = (Part.Face(Part.Wire(offset_shape.Edges)).Area
                          > Part.Face(wire).Area)
                 if grows == bool(reversed):
-                    offset_shape = wire.makeOffset2D(-signed)
+                    offset_shape = wire.makeOffset2D(-signed, sharp)
+            else:
+                offset_shape = wire.makeOffset2D(signed, sharp, False, True)
+        except KernelError:
+            raise
         except Exception as exc:  # noqa: BLE001
             raise KernelError("décalage impossible : {}".format(_explain(exc)))
 
-        offset_edges = list(offset_shape.Edges)
+        offset_edges = self._merge_collinear(list(offset_shape.Edges), Part)
         if not offset_edges:
             raise KernelError("décalage impossible : aucun contour produit")
         return offset_edges
+
+    @staticmethod
+    def _straight_chain(wire):
+        """La direction (unitaire) d'une chaîne de lignes toutes alignées,
+        sinon None."""
+        line_types = ("Part::GeomLine", "Part::GeomLineSegment")
+        if any(e.Curve.TypeId not in line_types for e in wire.Edges):
+            return None
+        points = [v.Point for v in wire.Vertexes]
+        d = points[-1] - points[0]
+        if d.Length < 1e-9:
+            return None
+        d = d.normalize()
+        for p in points:
+            q = p - points[0]
+            if abs(q.x * d.y - q.y * d.x) > 1e-7:
+                return None
+        return d
+
+    @staticmethod
+    def _merge_collinear(edges, Part):
+        """Deux lignes bout à bout et alignées n'en font qu'une : le
+        décalage d'une chaîne ouverte coupe parfois un côté en deux."""
+        line_types = ("Part::GeomLine", "Part::GeomLineSegment")
+        segs = []
+        others = []
+        for e in edges:
+            if e.Curve.TypeId in line_types and len(e.Vertexes) == 2:
+                segs.append([e.Vertexes[0].Point, e.Vertexes[1].Point])
+            else:
+                others.append(e)
+        merged = True
+        while merged:
+            merged = False
+            for i in range(len(segs)):
+                for j in range(i + 1, len(segs)):
+                    a, b = segs[i], segs[j]
+                    for (p, q), (r, t) in (((a[0], a[1]), (b[0], b[1])),
+                                           ((a[1], a[0]), (b[0], b[1])),
+                                           ((a[0], a[1]), (b[1], b[0])),
+                                           ((a[1], a[0]), (b[1], b[0]))):
+                        # q bout commun : p → q → t alignés.
+                        if (q - r).Length > 1e-7:
+                            continue
+                        u, w = q - p, t - r
+                        if (u.Length < 1e-12 or w.Length < 1e-12
+                                or abs(u.x * w.y - u.y * w.x)
+                                > 1e-9 * u.Length * w.Length
+                                or u.dot(w) <= 0):
+                            continue
+                        segs[i] = [p, t]
+                        del segs[j]
+                        merged = True
+                        break
+                    if merged:
+                        break
+                if merged:
+                    break
+        out = others + [Part.LineSegment(p, q).toShape() for p, q in segs]
+        try:  # dans l'ordre de la chaîne : l'aperçu les relie bout à bout
+            return [e for chain in Part.sortEdges(out) for e in chain]
+        except Exception:  # noqa: BLE001
+            return out
 
     @staticmethod
     def _geom_from_offset_edge(edge, Part, App):
