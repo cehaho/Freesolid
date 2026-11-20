@@ -315,7 +315,8 @@ const EXTRUDE_CONDITIONS = {
   pad: [["borgne", "Borgne"], ["suivant", "Jusqu'au suivant"],
         ["dernier", "Jusqu'au dernier"], ["face", "Jusqu'à la face"],
         ["milieu", "Plan milieu"]],
-  pocket: [["travers", "À travers tout"], ["borgne", "Borgne"],
+  // Borgne d'abord, comme dans les modeleurs courants.
+  pocket: [["borgne", "Borgne"], ["travers", "À travers tout"],
            ["suivant", "Jusqu'au suivant"], ["face", "Jusqu'à la face"],
            ["milieu", "Plan milieu"]],
 };
