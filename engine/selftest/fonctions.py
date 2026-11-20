@@ -7469,7 +7469,13 @@ def p154_numerotation_des_fonctions(self, mark, report, etat):
     report["p154_esquisse_numerotee_des_l_ouverture"] = (
         self._require_doc().getObject(opened).Label
         == self._t("Esquisse") + "3")
+    # La page rechargée retrouve l'esquisse ouverte (ping), plus rien
+    # une fois quittée.
+    report["p154_ping_dit_l_esquisse_ouverte"] = (
+        self.ping()["sketch"] == opened)
     dispatch(self, "sketch_cancel", {"sketch": opened})
+    report["p154_ping_sans_esquisse_apres_sortie"] = (
+        self.ping()["sketch"] == "")
 
 
 def p153_face_rognee_reste_a_sa_creatrice(self, mark, report, etat):

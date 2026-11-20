@@ -45,6 +45,11 @@ export function installBoot(ctx) {
         if (gen !== ctx.viewGen) return;
         renderTree(tree);
         await updateViewport(gen);
+        // Une esquisse était ouverte : on y retourne, comme avant le
+        // rechargement — sa session (Annuler compris) est intacte.
+        if (info.sketch && gen === ctx.viewGen) {
+          ctx.sketchMode.enter(call("sketch_state", { sketch: info.sketch }));
+        }
       } catch {
         try {
           // Peut-être un assemblage en cours dans le moteur.
