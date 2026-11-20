@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   applicableRelations, clickSelection, pickLabel, relationOrder, samePick,
+  touchesOnly,
 } from "../../app/geom2d.js";
 import { setLang } from "../../app/i18n.js";
 
@@ -101,5 +102,24 @@ describe("sélection au clic", () => {
     assert.equal(pickLabel({ geo: 0, point: 1 }, entities), "Endpoint of Line 1");
     assert.equal(pickLabel({ geo: 2, point: 3 }, entities), "Center of Circle 3");
     setLang("fr");
+  });
+});
+
+describe("relations existantes d'une sélection", () => {
+  const perp = { geos: [0, 1], refs: [[0, 0], [1, 0]] };
+  const joint = { geos: [0, 1], refs: [[0, 2], [1, 1]] };
+  it("deux extrémités ne montrent pas la relation de leurs lignes", () => {
+    const ends = [{ geo: 0, point: 2 }, { geo: 1, point: 1 }];
+    assert.equal(touchesOnly(perp, ends), false);
+    assert.equal(touchesOnly(joint, ends), true);
+  });
+  it("deux lignes couvrent aussi leurs extrémités", () => {
+    const lines = [{ geo: 0 }, { geo: 1 }];
+    assert.equal(touchesOnly(perp, lines), true);
+    assert.equal(touchesOnly(joint, lines), true);
+  });
+  it("une relation qui sort de la sélection n'est pas listée", () => {
+    assert.equal(touchesOnly(joint, [{ geo: 0, point: 2 }]), false);
+    assert.equal(touchesOnly({ geos: [], refs: [] }, [{ geo: 0 }]), false);
   });
 });

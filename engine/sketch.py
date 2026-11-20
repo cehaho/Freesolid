@@ -1908,12 +1908,21 @@ class SketchMixin:
                     if g is not None and g != undefined]
             if geo is not None and int(geo) not in geos:
                 continue
+            # [entité, point] de chaque appui (point 0 : l'entité entière)
+            # — pour ne lister, au panneau d'une sélection de points, que
+            # les relations de ces points-là.
+            refs = [[int(g), int(getattr(constraint, attr + "Pos", 0) or 0)]
+                    for g, attr in ((constraint.First, "First"),
+                                    (constraint.Second, "Second"),
+                                    (constraint.Third, "Third"))
+                    if g is not None and g != undefined]
             entry = {
                 "id": cid,
                 "type": constraint.Type,
                 "label": self._CONSTRAINT_LABELS.get(
                     constraint.Type, constraint.Type),
                 "geos": geos,
+                "refs": refs,
                 "name": constraint.Name or "",
             }
             if constraint.Type in ("Distance", "DistanceX", "DistanceY",

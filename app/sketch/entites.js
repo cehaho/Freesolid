@@ -6,7 +6,7 @@
 import { t } from "../i18n.js";
 import {
   entityKindTitle, entityPropertyLines, isDrivingConstraint, pickLabel,
-  samePick,
+  samePick, touchesOnly,
 } from "../geom2d.js";
 import { ORIGIN_GEO } from "./commun.js";
 
@@ -132,9 +132,8 @@ export function installEntites(sk) {
     if (gen !== sk.entityPanelGen || !mode.active) return;
     if (selectionKey() !== key) return;
     const entities = mode.state?.entities ?? [];
-    const geos = new Set(mode.selection.map((pick) => pick.geo));
-    const existing = (listed.constraints ?? []).filter((c) => c.geos.length
-      && c.geos.every((g) => geos.has(g)));
+    const existing = (listed.constraints ?? []).filter(
+      (c) => touchesOnly(c, mode.selection));
     sk.entityPanelOpen = true;
     sk.entityPanelGeo = key;
     panel.open({
