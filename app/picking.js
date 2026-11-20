@@ -515,8 +515,11 @@ export function installPicking(ctx) {
       parts.push(t("Face {n}", { n: ctx.meshGroups[ctx.hoveredGroup].faceId }));
     }
     if (ctx.selectedEdges.size) {
-      parts.push(t("sél. {n} arête(s) — Ctrl+clic : ajouter",
-        { n: ctx.selectedEdges.size }));
+      parts.push(panel.accepts("edges")
+        ? t("sél. {n} arête(s) — un second clic retire",
+            { n: ctx.selectedEdges.size })
+        : t("sél. {n} arête(s) — Ctrl+clic : ajouter",
+            { n: ctx.selectedEdges.size }));
     } else if (ctx.selectedFaceId !== null) {
       parts.push(t("sél. Face {n}", { n: ctx.selectedFaceId }));
     } else if (ctx.selectedSurface) {
@@ -833,7 +836,10 @@ export function installPicking(ctx) {
             label: t("Solide"), edge: id })) {
         return;
       }
-      if (event.ctrlKey || event.metaKey) {
+      // Ctrl+clic ajoute ou retire ; dans une zone d'arêtes ouverte
+      // (congé, chanfrein…), le clic simple aussi, comme dans les
+      // modeleurs courants.
+      if (event.ctrlKey || event.metaKey || panel.accepts("edges")) {
         if (!ctx.selectedEdges.delete(id)) ctx.selectedEdges.add(id);
       } else {
         ctx.selectedEdges = new Set([id]);
