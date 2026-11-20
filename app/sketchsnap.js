@@ -427,6 +427,73 @@ export function entityCrossings(e1, e2) {
   return out;
 }
 
+/**
+ * Ce que l'outil Ajuster supprimera sous le curseur `at`, comme le
+ * montrent les modeleurs courants au survol : le tronçon de `entity`
+ * entre les croisements avec `others` qui encadrent `at` — jusqu'au bout
+ * de l'entité s'il n'y en a pas de ce côté ; l'entité entière sans
+ * croisement (un cercle : moins de deux). Une polyligne `[[x, y], …]`,
+ * ou null pour une entité que l'aperçu ne sait pas découper (elle part
+ * alors entière : sa propre polyligne fera l'affaire chez l'appelant).
+ */
+export function trimPiece(entity, others, at, steps = 48) {
+  const hits = (others ?? [])
+    .filter((o) => o && o.id !== entity.id)
+    .flatMap((o) => entityCrossings(entity, o));
+  const TAU = Math.PI * 2;
+  if (entity.type === "line") {
+    const [a, b] = [entity.p1, entity.p2];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const len2 = dx * dx + dy * dy;
+    if (len2 < 1e-18) return null;
+    const param = (p) => ((p.x - a[0]) * dx + (p.y - a[1]) * dy) / len2;
+    const u = Math.min(1, Math.max(0, param(at)));
+    const cuts = hits.map(param).filter((c) => c > 1e-7 && c < 1 - 1e-7);
+    const lo = Math.max(0, ...cuts.filter((c) => c < u));
+    const hi = Math.min(1, ...cuts.filter((c) => c > u));
+    return [[a[0] + lo * dx, a[1] + lo * dy], [a[0] + hi * dx, a[1] + hi * dy]];
+  }
+  if (entity.type === "circle" || entity.type === "arc") {
+    const [cx, cy] = entity.c;
+    const angle = (p) => Math.atan2(p.y - cy, p.x - cx);
+    const start = entity.type === "arc" ? arcAngles(entity).a1 : 0;
+    const span = entity.type === "arc"
+      ? arcAngles(entity).a2 - arcAngles(entity).a1 : TAU;
+    // Angles ramenés au balayage : 0 au début, `span` à la fin.
+    const along = (t) => ((t - start) % TAU + TAU) % TAU;
+    // Un arc ne se coupe pas à ses bouts ; un cercle n'en a pas : tout
+    // croisement compte (2π ≡ 0).
+    const round = entity.type === "circle";
+    const cuts = [...new Set(hits.map((h) => along(angle(h)))
+      .map((c) => (round && c > TAU - 1e-7 ? 0 : c))
+      .filter((c) => round || (c > 1e-7 && c < span - 1e-7))
+      .map((c) => Math.round(c * 1e9) / 1e9))].sort((x, y) => x - y);
+    let lo, hi;
+    const t = along(angle(at));
+    if (entity.type === "circle") {
+      if (cuts.length < 2) {
+        lo = 0; hi = TAU;
+      } else {
+        const after = cuts.find((c) => c > t);
+        const before = [...cuts].reverse().find((c) => c < t);
+        lo = before ?? cuts[cuts.length - 1] - TAU;
+        hi = after ?? cuts[0] + TAU;
+      }
+    } else {
+      const u = Math.min(span, t);
+      lo = Math.max(0, ...cuts.filter((c) => c < u));
+      hi = Math.min(span, ...cuts.filter((c) => c > u));
+    }
+    const out = [];
+    for (let i = 0; i <= steps; i++) {
+      const th = start + lo + (hi - lo) * (i / steps);
+      out.push([cx + entity.r * Math.cos(th), cy + entity.r * Math.sin(th)]);
+    }
+    return out;
+  }
+  return null;
+}
+
 /** Où la droite passant par `origin`, de direction `dir`, coupe
  *  l'entité. */
 export function crossingsAlong(entity, origin, dir) {

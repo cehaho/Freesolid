@@ -179,6 +179,10 @@ class SketchMixin:
                     "plan inconnu « {} » — attendu XY, XZ ou YZ".format(plane))
             self._attach_to_support(
                 sketch, [(self._origin_feature(role), ("",))])
+        # Comme dans les modeleurs courants : l'esquisse a son numéro
+        # (Esquisse2) dès qu'elle s'ouvre, pas « Esquisse001 » jusqu'à
+        # la sortie.
+        self._number_new_labels(doc)
         doc.recompute()  # resolves the placement before the client reads it
         return self.sketch_state(sketch.Name)
 

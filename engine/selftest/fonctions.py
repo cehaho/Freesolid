@@ -7464,6 +7464,12 @@ def p154_numerotation_des_fonctions(self, mark, report, etat):
     dispatch(self, "add_pad", {"length": 5})
     report["p154_numero_libre_apres_annuler"] = (
         self._require_body().Tip.Label == self._t("Extrusion") + "2")
+    # Une esquisse qui s'ouvre a déjà son numéro (pas « Esquisse001 »).
+    opened = dispatch(self, "sketch_start", {})["result"]["sketch"]
+    report["p154_esquisse_numerotee_des_l_ouverture"] = (
+        self._require_doc().getObject(opened).Label
+        == self._t("Esquisse") + "3")
+    dispatch(self, "sketch_cancel", {"sketch": opened})
 
 
 def p153_face_rognee_reste_a_sa_creatrice(self, mark, report, etat):

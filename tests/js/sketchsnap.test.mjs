@@ -602,3 +602,41 @@ describe("arêtes de la pièce", () => {
     });
   });
 });
+
+describe("Ajuster : le tronçon supprimé au survol", async () => {
+  const { trimPiece } = await import("../../app/sketchsnap.js");
+  const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
+  const h = { id: 0, type: "line", p1: [0, 0], p2: [10, 0] };
+  const v1 = { id: 1, type: "line", p1: [3, -5], p2: [3, 5] };
+  const v2 = { id: 2, type: "line", p1: [7, -5], p2: [7, 5] };
+  it("ligne : entre les deux croisements qui encadrent le curseur", () => {
+    const piece = trimPiece(h, [h, v1, v2], { x: 5, y: 0.2 });
+    assert.ok(near(piece[0], [3, 0]) && near(piece[1], [7, 0]));
+  });
+  it("ligne : jusqu'au bout quand rien ne la coupe de ce côté", () => {
+    const piece = trimPiece(h, [h, v1, v2], { x: 9, y: 0 });
+    assert.ok(near(piece[0], [7, 0]) && near(piece[1], [10, 0]));
+  });
+  it("sans croisement : l'entité entière", () => {
+    const piece = trimPiece(h, [h], { x: 5, y: 0 });
+    assert.ok(near(piece[0], [0, 0]) && near(piece[1], [10, 0]));
+  });
+  it("cercle coupé deux fois : l'arc sous le curseur", () => {
+    const circle = { id: 3, type: "circle", c: [0, 0], r: 5 };
+    const cut = { id: 4, type: "line", p1: [-10, 0], p2: [10, 0] };
+    const piece = trimPiece(circle, [cut], { x: 0, y: 5 });
+    // Le demi-cercle du haut : de (5, 0) à (−5, 0) en passant par (0, 5).
+    assert.ok(near(piece[0], [5, 0]) && near(piece.at(-1), [-5, 0]));
+    assert.ok(piece.every(([, y]) => y >= -1e-6));
+  });
+  it("cercle coupé une fois : entier", () => {
+    const circle = { id: 3, type: "circle", c: [0, 0], r: 5 };
+    const touch = { id: 4, type: "line", p1: [0, 0], p2: [10, 0] };
+    const piece = trimPiece(circle, [touch], { x: 0, y: 5 });
+    assert.ok(near(piece[0], piece.at(-1)));
+  });
+  it("une spline : rien à découper ici", () => {
+    assert.equal(trimPiece({ id: 5, type: "bspline" }, [], { x: 0, y: 0 }),
+      null);
+  });
+});
