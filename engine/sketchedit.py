@@ -263,6 +263,8 @@ class SketchEditMixin:
             self._copy_transformed(sk, ids, apply, theta, scale)
             if not copy:
                 sk.delGeometries(ids)
+                from engine import sketchoffset
+                sketchoffset.heal(sk)
         except KernelError:
             raise
         except Exception as exc:  # noqa: BLE001

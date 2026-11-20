@@ -274,6 +274,7 @@ def _etapes():
         fonctions.p157_coque_sur_piece_chanfreinee,
         esquisse.p158_cote_entre_paralleles,
         esquisse.p159_decaler_ligne_et_chaine_ouverte,
+        esquisse.p160_decalage_parametrique,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,

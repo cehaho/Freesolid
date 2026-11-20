@@ -1560,3 +1560,98 @@ def p159_decaler_ligne_et_chaine_ouverte(self, mark, report, etat):
         len(new) == 4 and all(e["type"] == "line" for e in new)
         and xs == [-5, 45] and ys == [-5, 35])
     run("sketch_cancel", sketch=name)
+
+
+def p160_decalage_parametrique(self, mark, report, etat):
+    mark("p160: le décalage reste lié à ses originaux par une seule cote")
+    # Comme dans les modeleurs courants : décaler pose une cote, la
+    # distance ; la changer déplace toute la copie, et la copie suit les
+    # originaux quand ils bougent.
+    import Sketcher
+    from engine.kernel import dispatch
+
+    def run(op, **params):
+        out = dispatch(self, op, params)
+        if not out["ok"]:
+            raise KernelError(out["error"])
+        return out["result"]
+
+    def span(state, before):
+        new = state["entities"][before:]
+        xs = sorted({round(c, 6) for e in new
+                     for c in (e["p1"][0], e["p2"][0])})
+        ys = sorted({round(c, 6) for e in new
+                     for c in (e["p1"][1], e["p2"][1])})
+        return xs, ys
+
+    self.new_part("Pièce décalage paramétrique")
+    name = run("sketch_start")["sketch"]
+    state = run("sketch_add_rectangle", sketch=name, x1=0, y1=0, x2=40, y2=30)
+    before = len(state["entities"])
+    dims_before = {d["id"] for d in state["dims"]}
+    state = run("sketch_offset", sketch=name,
+                geos=[e["id"] for e in state["entities"]], distance=5)
+    shown = [d for d in state["dims"] if d["id"] not in dims_before]
+    report["p160_une_seule_cote_de_decalage"] = (
+        len(shown) == 1 and abs(shown[0]["value"] - 5) < 1e-9
+        and shown[0]["name"] == "")
+    dim = shown[0]["id"] if shown else None
+    state = run("sketch_set_dim", sketch=name, dim=dim, value=8)
+    report["p160_la_cote_deplace_toute_la_copie"] = (
+        span(state, before) == ([-8, 48], [-8, 38]))
+    sk = self._require_doc().getObject(name)
+    # L'original s'allonge (60 de large) : la copie suit.
+    sk.addConstraint(Sketcher.Constraint("DistanceX", 0, 1, 0, 2, 60.0))
+    self._require_doc().recompute()
+    state = run("sketch_state", sketch=name)
+    # Le solveur l'allonge d'un côté ou de l'autre : la copie l'entoure
+    # toujours à 8.
+    (x0, x1), (y0, y1) = span({"entities": state["entities"][:before]}, 0)
+    report["p160_la_copie_suit_l_original"] = (
+        abs(x1 - x0 - 60) < 1e-6
+        and span(state, before) == ([x0 - 8, x1 + 8], [y0 - 8, y1 + 8]))
+    relations = run("sketch_constraints", sketch=name)["constraints"]
+    report["p160_suiveuses_hors_du_panneau"] = sum(
+        1 for c in relations if c["type"] == "Distance") == 1
+    # Supprimer la cote : la copie redevient libre, rien d'orphelin.
+    count = len(sk.Constraints)
+    run("sketch_delete_constraint", sketch=name, constraint=dim)
+    report["p160_supprimer_la_cote_libere_la_copie"] = (
+        len(sk.Constraints) == count - 4
+        and not any((c.Name or "").startswith("_decalage")
+                    for c in sk.Constraints))
+    run("sketch_cancel", sketch=name)
+
+    # Une chaîne ouverte : bouts libres compris.
+    name = run("sketch_start")["sketch"]
+    run("sketch_add_line", sketch=name, x1=0, y1=0, x2=40, y2=0)
+    state = run("sketch_add_line", sketch=name, x1=40, y1=0, x2=40, y2=30)
+    before = len(state["entities"])
+    dims_before = {d["id"] for d in state["dims"]}
+    state = run("sketch_offset", sketch=name, geos=[0, 1], distance=5)
+    shown = [d for d in state["dims"] if d["id"] not in dims_before]
+    ok = len(shown) == 1
+    if ok:
+        state = run("sketch_set_dim", sketch=name, dim=shown[0]["id"],
+                    value=8)
+        # Les bouts libres glissent sur leur ligne : à 1e-4 près.
+        ends = sorted(tuple(round(c, 4) + 0.0 for c in p)
+                      for e in state["entities"][before:]
+                      for p in (e["p1"], e["p2"]))
+        ok = ends == [(0, -8), (48, -8), (48, -8), (48, 30)]
+    report["p160_chaine_ouverte_pilotee"] = ok
+    run("sketch_cancel", sketch=name)
+
+    # Un cercle : concentrique, le rayon suit la cote.
+    name = run("sketch_start")["sketch"]
+    state = run("sketch_add_circle", sketch=name, cx=0, cy=0, r=10)
+    dims_before = {d["id"] for d in state["dims"]}
+    state = run("sketch_offset", sketch=name, geos=[0], distance=5)
+    shown = [d for d in state["dims"] if d["id"] not in dims_before]
+    ok = len(shown) == 1
+    if ok:
+        state = run("sketch_set_dim", sketch=name, dim=shown[0]["id"],
+                    value=3)
+        ok = abs(state["entities"][-1]["r"] - 13) < 1e-6
+    report["p160_cercle_concentrique_pilote"] = ok
+    run("sketch_cancel", sketch=name)

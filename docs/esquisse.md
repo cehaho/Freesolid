@@ -50,7 +50,7 @@ Un outil est **fait** quand :
 |---|---|---|---|
 | Congé, chanfrein (une ou deux distances) | ✅ | `sketch_fillet`, `sketch_chamfer` | `p3`, `p51_edition` |
 | Ajuster, prolonger, coin, scinder | ✅ | `sketch_trim`, `sketch_extend`, `sketch_corner`, `sketch_split` | `p3`, `p51_edition`, `p51_complements` |
-| Décaler (aperçu, côté, originaux en construction) | ✅ | `sketch_offset` | `p17` |
+| Décaler (aperçu, côté, originaux en construction ; copie pilotée par une cote de décalage) | ✅ | `sketch_offset` | `p17`, `p160` |
 | Symétrie | ✅ | `sketch_mirror` | `p17` |
 | Répétition linéaire, répétition circulaire | ✅ | `sketch_array`, `sketch_polar_array` | `p17`, `p51_edition` |
 | Déplacer, copier, tourner, mettre à l'échelle | ✅ | `sketch_transform` | `p51_edition` |
