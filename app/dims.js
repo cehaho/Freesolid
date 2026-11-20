@@ -184,6 +184,47 @@ function projectOnLine(p, line) {
   return { x: ax + u * vx, y: ay + u * vy };
 }
 
+/** Une cote point → ligne glissée le long de la ligne : ses lignes
+ *  d'attache partent du bout le plus proche de la ligne (et, pour deux
+ *  lignes parallèles, de la 1re aussi), pas du pied de la perpendiculaire
+ *  — rien quand la cote tombe sur la ligne même. */
+function trimExtensions(out, e1, e2, size) {
+  const [extA, , line] = out.segments;
+  const ext = size * 0.6;
+  const clampOn = (q, l) => {
+    const ax = l.p1[0], ay = l.p1[1];
+    const vx = l.p2[0] - ax, vy = l.p2[1] - ay;
+    const len2 = vx * vx + vy * vy;
+    if (len2 < 1e-18) return { x: ax, y: ay };
+    const u = Math.min(1, Math.max(0,
+      ((q.x - ax) * vx + (q.y - ay) * vy) / len2));
+    return { x: ax + u * vx, y: ay + u * vy };
+  };
+  const parallel = (l1, l2) => {
+    const d1 = [l1.p2[0] - l1.p1[0], l1.p2[1] - l1.p1[1]];
+    const d2 = [l2.p2[0] - l2.p1[0], l2.p2[1] - l2.p1[1]];
+    return Math.abs(d1[0] * d2[1] - d1[1] * d2[0])
+      <= 1e-7 * Math.hypot(...d1) * Math.hypot(...d2);
+  };
+  // Le bout de la ligne de cote (sur l'attache), puis l'attache refaite
+  // depuis le point le plus proche de l'entité ; rien si elle y est.
+  const redo = (end, entity) => {
+    const from = clampOn(end, entity);
+    const d = unit(end.x - from.x, end.y - from.y);
+    if (!d || Math.hypot(end.x - from.x, end.y - from.y) < ext) return null;
+    return [from.x, from.y, end.x + d.x * ext, end.y + d.y * ext];
+  };
+  const a2 = { x: line[0], y: line[1] }, b2 = { x: line[2], y: line[3] };
+  const segments = [];
+  const first = e1.type === "line" && parallel(e1, e2)
+    ? redo(a2, e1) : extA;
+  if (first) segments.push(first);
+  const second = redo(b2, e2);
+  if (second) segments.push(second);
+  segments.push(line);
+  return { ...out, segments };
+}
+
 /** Direction de lecture d'un rayon ou d'un diamètre : 45°, ou le milieu
  *  d'un arc. */
 function radialDirection(entity) {
@@ -343,8 +384,16 @@ export function dimGeometry(dim, constraint, entities, size = 2) {
       const a = pointOf(e1, p1), b = pointOf(e2, p2);
       if (a && b) out = alignedDim(a, b, entities, size, dim.offset);
     } else if (e2 && p1 && e2.type === "line") {
+      // Point → ligne (et lignes parallèles) : là où elle a été posée,
+      // glissée le long de la ligne ; sinon droit du point à la ligne.
       const a = pointOf(e1, p1);
-      if (a) out = directDim(a, projectOnLine(a, e2), size);
+      const b = a && projectOnLine(a, e2);
+      if (a) {
+        const placed = dim.offset != null
+          && alignedDim(a, b, entities, size, dim.offset);
+        out = placed ? trimExtensions(placed, e1, e2, size)
+          : directDim(a, b, size);
+      }
     }
   } else if ((dim.type === "DistanceX" || dim.type === "DistanceY")
              && e1 && e2 && p1 && p2) {
@@ -412,6 +461,9 @@ export function dimOffsetAt(dim, constraint, entities, at) {
   } else if (g2 != null && p1 && p2) {
     a = pointOf(e1, p1);
     b = pointOf(byId(g2), p2);
+  } else if (g2 != null && p1 && byId(g2)?.type === "line") {
+    a = pointOf(e1, p1);
+    b = a && projectOnLine(a, byId(g2));
   }
   if (!a || !b) return null;
   if (dim.type === "DistanceX") return at.y - a.y;

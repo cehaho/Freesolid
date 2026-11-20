@@ -1735,6 +1735,37 @@ class SketchMixin:
     #: Position de cote par défaut de Sketcher : « jamais posée ».
     _DEFAULT_LABEL = (10.0, 0.0)
 
+    @staticmethod
+    def _keep_parallel(sk, dim):
+        """Une cote entre deux lignes parallèles (choisies entières, pas
+        par une extrémité) les garde parallèles,
+        comme dans les modeleurs courants : Sketcher ne cote que d'une
+        extrémité de la 1re à la 2e, qui sinon tournerait autour. La
+        relation Parallèle s'ajoute, sauf si elle est déjà là ou
+        qu'autre chose la tient (deux horizontales) — elle serait de
+        trop."""
+        line = "Part::GeomLineSegment"
+        second = getattr(dim, "Second", -2000)
+        if (dim.Type != "Distance" or second is None or second < 0
+                or int(getattr(dim, "SecondPos", 0) or 0) != 0
+                or dim.First < 0 or dim.First == second
+                or geo_of(sk, dim.First).TypeId != line
+                or geo_of(sk, second).TypeId != line):
+            return
+        pair = {dim.First, second}
+        if any(c.Type == "Parallel" and {c.First, c.Second} == pair
+               for c in sk.Constraints):
+            return
+        import Sketcher
+        index = sk.addConstraint(
+            Sketcher.Constraint("Parallel", dim.First, second))
+        sk.solve()
+        extra = (set(sk.RedundantConstraints)
+                 | set(getattr(sk, "PartiallyRedundantConstraints", [])))
+        if index + 1 in extra:  # numérotées depuis 1
+            sk.delConstraint(index)
+            sk.solve()
+
     def _place_dim(self, sk, index, at):
         """Retient où la cote a été posée : le décalage (signé, en mm) de
         sa ligne par rapport à son premier point — au-dessus pour une
@@ -1801,9 +1832,19 @@ class SketchMixin:
             if geo1 is None or geo1.TypeId != "Part::GeomLineSegment":
                 return None, None
             return geo1.StartPoint, geo1.EndPoint
+        geo2 = None if second == ROOT_GEO else geo_of(sk, second)
+        if (pos1 and not pos2 and geo2 is not None
+                and geo2.TypeId == "Part::GeomLineSegment"):
+            # Point → ligne (lignes parallèles aussi) : le point et son
+            # pied sur la ligne ; la cote se décale le long de la ligne.
+            a = self._point_of(geo1, pos1)
+            p, d = geo2.StartPoint, geo2.EndPoint - geo2.StartPoint
+            if d.Length < 1e-12:
+                return None, None
+            u = (a - p).dot(d) / (d.Length ** 2)
+            return a, p + d * u
         if not pos1 or not pos2:
             return None, None
-        geo2 = None if second == ROOT_GEO else geo_of(sk, second)
         return self._point_of(geo1, pos1), self._point_of(geo2, pos2)
 
     def sketch_dim(self, sketch, geo, value=None,
@@ -1838,6 +1879,8 @@ class SketchMixin:
                 index = sk.addConstraint(self._dim_two(
                     sk, gid, g2, point, point2, value,
                     axis=str(axis).lower() if axis else None))
+                if point is None and point2 is None:  # deux entités
+                    self._keep_parallel(sk, sk.Constraints[index])
                 self._place_dim(sk, index, at)
                 return self.sketch_state(sketch)
             target = geo_of(sk, gid)

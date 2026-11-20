@@ -1448,6 +1448,60 @@ def p156_esquisse_rouverte_sous_contrainte(self, mark, report, etat):
     run("sketch_cancel", sketch=name)
 
 
+def p158_cote_entre_paralleles(self, mark, report, etat):
+    mark("p158: une cote entre deux lignes parallèles les garde parallèles")
+    # Comme dans les modeleurs courants : coter deux lignes parallèles
+    # puis changer la valeur les écarte sans faire tourner la seconde.
+    import math
+    from engine.kernel import dispatch
+
+    def run(op, **params):
+        out = dispatch(self, op, params)
+        if not out["ok"]:
+            raise KernelError(out["error"])
+        return out["result"]
+
+    def direction(state, gid):
+        e = next(e for e in state["entities"] if e["id"] == gid)
+        return math.atan2(e["p2"][1] - e["p1"][1], e["p2"][0] - e["p1"][0])
+
+    self.new_part("Pièce cote parallèles")
+    name = run("sketch_start")["sketch"]
+    run("sketch_add_line", sketch=name, x1=0, y1=0, x2=40, y2=20)
+    run("sketch_add_line", sketch=name, x1=30, y1=-10, x2=70, y2=10)
+    state = run("sketch_dim", sketch=name, geo=0, geo2=1)
+    dim = max(d["id"] for d in state["dims"])
+    state = run("sketch_set_dim", sketch=name, dim=dim, value=8)
+    sk = self._get_sketch(name)
+    line1 = sk.Geometry[1]
+    gap = sk.Geometry[0].StartPoint
+    d = line1.EndPoint - line1.StartPoint
+    off = abs((gap.x - line1.StartPoint.x) * d.y
+              - (gap.y - line1.StartPoint.y) * d.x) / d.Length
+    report["p158_cote_garde_les_lignes_paralleles"] = (
+        abs(direction(state, 0) - direction(state, 1)) < 1e-6
+        and abs(off - 8) < 1e-6)
+    run("sketch_cancel", sketch=name)
+    # Deux horizontales (relation automatique au tracé) : la parallèle
+    # serait de trop, rien ne s'ajoute.
+    name = run("sketch_start")["sketch"]
+    run("sketch_add_line", sketch=name, x1=0, y1=0, x2=40, y2=0)
+    run("sketch_add_line", sketch=name, x1=0, y1=10, x2=40, y2=10)
+    sk = self._get_sketch(name)
+    horizontals = sum(c.Type == "Horizontal" for c in sk.Constraints)
+    run("sketch_dim", sketch=name, geo=0, geo2=1)
+    sk.solve()
+    # Une extrémité cotée à une ligne : pas de parallèle non plus.
+    run("sketch_add_line", sketch=name, x1=50, y1=0, x2=70, y2=30)
+    run("sketch_dim", sketch=name, geo=2, point=1, geo2=1)
+    report["p158_pas_de_relation_de_trop"] = (
+        horizontals == 2
+        and not any(c.Type == "Parallel" for c in sk.Constraints)
+        and not list(sk.RedundantConstraints)
+        and not list(sk.ConflictingConstraints))
+    run("sketch_cancel", sketch=name)
+
+
 def p159_decaler_ligne_et_chaine_ouverte(self, mark, report, etat):
     mark("p159: décaler une ligne seule, une chaîne ouverte, un rectangle")
     # Comme dans les modeleurs courants : une ligne seule se décale (elle
