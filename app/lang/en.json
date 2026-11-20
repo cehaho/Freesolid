@@ -227,7 +227,7 @@
  "Le pas est piloté par des lignes de construction — cotables ensuite.": "The spacing is driven by construction lines — dimension them afterwards.",
  "Le profil (dernière esquisse) tourne autour de l'axe vertical de son esquisse — dessinez-le décalé de l'axe.": "The profile (last sketch) revolves around its sketch's vertical axis — draw it away from the axis.",
  "Le solveur natif repositionne les composants — le premier inséré est fixé.": "The native solver repositions the components — the first inserted one is fixed.",
- "Les copies restent libres — le décalage paramétrique viendra plus tard.": "The copies stay free — parametric offset will come later.",
+ "La copie reste liée : sa cote de décalage la pilote.": "The copy stays linked: its offset dimension drives it.",
  "Les fonctions s'appliquent aux pièces — ouvrez ou créez une pièce (un assemblage est en cours)": "Features apply to parts — open or create a part (an assembly is open)",
  "Liaisons": "Constraints",
  "Ligne (L)": "Line (L)",

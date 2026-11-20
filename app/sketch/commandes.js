@@ -438,8 +438,7 @@ export function installCommandes(sk) {
             label: t("Originaux en construction"), value: projected },
         ],
       }],
-      note: t("Les copies restent libres — le décalage paramétrique " +
-            "viendra plus tard."),
+      note: t("La copie reste liée : sa cote de décalage la pilote."),
       // Aperçu : la copie se dessine avant de valider — on voit le côté.
       onChange: (v) => previewOffset(geos, v),
       onCancel: () => { if (sk.previewLine) sk.previewLine.visible = false; },

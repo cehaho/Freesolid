@@ -359,8 +359,11 @@ class SketchMixin:
                 exprs[int(by_index.group(1))] = expr
             elif by_name and by_name.group(1) in names:
                 exprs[names[by_name.group(1)]] = expr
+        from engine import sketchoffset
         dims = []
         for cid, constraint in enumerate(sk.Constraints):
+            if sketchoffset.is_hidden(sk, cid):
+                continue  # suiveuse d'un décalage : sa pilote la montre
             if constraint.Type in ("Distance", "DistanceX", "DistanceY",
                                    "Radius", "Diameter", "Angle"):
                 value = float(constraint.Value)
@@ -389,7 +392,8 @@ class SketchMixin:
                                                      True)),
                              "offset": entry_offset,
                              "value": value,
-                             "name": constraint.Name or "",
+                             "name": "" if sketchoffset.is_internal_name(
+                                 constraint.Name) else constraint.Name or "",
                              "expr": exprs.get(cid, ""),
                              "geo": constraint.First})
         constraints = []
@@ -1009,10 +1013,9 @@ class SketchMixin:
 
     def sketch_offset(self, sketch, geos, distance, reversed=False,
                       construction=False):
-        """Décalage d'entités : offset 2D non contraint (makeOffset2D).
-
-        Le décalage paramétrique des modeleurs courants (contraintes d'égalité
-        de distance) viendra plus tard — les copies restent libres.
+        """Décalage d'entités, paramétrique comme dans les modeleurs
+        courants : la copie (makeOffset2D) reste liée à ses originaux par
+        une seule cote, la distance de décalage (``engine/sketchoffset``).
         ``construction`` : les originaux passent en construction — le profil
         ne garde que la copie (arêtes projetées puis décalées).
         """
@@ -1044,8 +1047,20 @@ class SketchMixin:
         # Tout ou rien : convertir d'abord, n'injecter qu'ensuite.
         geoms = [self._geom_from_offset_edge(edge, Part, App)
                  for edge in offset_edges]
+        first_copy = len(sk.Geometry)
         for geom in geoms:
             sk.addGeometry(geom, False)
+        from engine import sketchoffset
+        driver = sketchoffset.link_offset(
+            sk, ids, list(range(first_copy, len(sk.Geometry))),
+            float(distance))
+        if driver is not None:
+            # Comme dans les modeleurs courants : la cote se pose au
+            # milieu de la copie, pas dans un coin.
+            copy = geo_of(sk, sk.Constraints[driver].First)
+            if copy.TypeId == "Part::GeomLineSegment":
+                mid = (copy.StartPoint + copy.EndPoint) * 0.5
+                self._place_dim(sk, driver, (mid.x, mid.y))
         if construction:
             for gid in ids:
                 if not self._is_construction(sk, gid, sk.Geometry[gid]):
@@ -1976,36 +1991,57 @@ class SketchMixin:
             KernelError,
             _explain,
         )
+        from engine import sketchoffset
         sk = self._get_sketch(sketch)
         idx = int(dim)
         if idx < 0 or idx >= len(sk.Constraints):
             raise KernelError("cote inconnue : {}".format(dim))
         try:
+            old_name = sk.Constraints[idx].Name or ""
             if name is not None:
                 name = str(name).strip()
                 if name and not self._valid_identifier(name):
                     raise KernelError(
                         "nom invalide « {} » — lettres, chiffres et _ "
                         "seulement".format(name))
-                sk.renameConstraint(idx, name)
+                if not name and sketchoffset.followers(sk, old_name):
+                    # Le nom interne d'une cote de décalage tient le lien
+                    # avec ses suiveuses : effacé à l'écran, il reste.
+                    name = old_name
+                if name != old_name:
+                    sk.renameConstraint(idx, name)
+                    sketchoffset.rename_followers(sk, old_name, name)
             if driving is not None and bool(driving) != bool(
                     getattr(sk.Constraints[idx], "Driving", True)):
                 # Cote de référence : elle mesure, elle ne pilote plus.
                 sk.setDriving(idx, bool(driving))
-            path = "Constraints[{}]".format(idx)
-            if expr is not None and str(expr).strip():
-                sk.setExpression(path, self._user_expression(expr))
-            elif value is not None:
-                try:
-                    sk.setExpression(path, None)
-                except Exception:
-                    pass
-                target = float(value)
-                if (sk.Constraints[idx].Type in ("DistanceX", "DistanceY")
-                        and sk.Constraints[idx].Value < 0):
-                    # Cote affichée sans signe : le sens reste celui tracé.
-                    target = -abs(target)
-                sk.setDatum(idx, target)
+            with sketchoffset.pinned(sk, idx):
+                path = "Constraints[{}]".format(idx)
+                if expr is not None and str(expr).strip():
+                    sk.setExpression(path, self._user_expression(expr))
+                elif value is not None:
+                    try:
+                        sk.setExpression(path, None)
+                    except Exception:
+                        pass
+                    target = float(value)
+                    if (sk.Constraints[idx].Type in ("DistanceX",
+                                                     "DistanceY")
+                            and sk.Constraints[idx].Value < 0):
+                        # Cote affichée sans signe : le sens reste celui
+                        # tracé.
+                        target = -abs(target)
+                    sk.setDatum(idx, target)
+                typed = expr is not None and str(expr).strip()
+                if value is not None or typed:
+                    sketchoffset.sync_followers(
+                        sk, idx, self._user_expression(expr)
+                        if typed else None)
+                    if typed and sketchoffset.followers(
+                            sk, sk.Constraints[idx].Name):
+                        # L'expression s'évalue au recompute : avant de
+                        # débloquer les originaux.
+                        self._require_doc().recompute()
         except KernelError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -2035,6 +2071,9 @@ class SketchMixin:
                     if g is not None and g != undefined]
             if geo is not None and int(geo) not in geos:
                 continue
+            from engine import sketchoffset
+            if sketchoffset.is_hidden(sk, cid):
+                continue  # suiveuse d'un décalage : rien à y faire
             # [entité, point] de chaque appui (point 0 : l'entité entière)
             # — pour ne lister, au panneau d'une sélection de points, que
             # les relations de ces points-là.
@@ -2050,7 +2089,8 @@ class SketchMixin:
                     constraint.Type, constraint.Type),
                 "geos": geos,
                 "refs": refs,
-                "name": constraint.Name or "",
+                "name": "" if sketchoffset.is_internal_name(
+                    constraint.Name) else constraint.Name or "",
             }
             if constraint.Type in ("Distance", "DistanceX", "DistanceY",
                                    "Radius", "Diameter", "Angle"):
@@ -2067,8 +2107,14 @@ class SketchMixin:
         idx = int(constraint)
         if idx < 0 or idx >= len(sk.Constraints):
             raise KernelError("relation inconnue : {}".format(constraint))
+        from engine import sketchoffset
         try:
-            sk.delConstraint(idx)
+            # Une cote de décalage emporte ses suiveuses : la copie
+            # redevient libre, comme une copie non liée.
+            doomed = [idx] + sketchoffset.followers(
+                sk, sk.Constraints[idx].Name)
+            for index in sorted(set(doomed), reverse=True):
+                sk.delConstraint(index)
         except Exception as exc:  # noqa: BLE001
             raise KernelError(_explain(exc))
         return self.sketch_state(sketch)
@@ -2112,6 +2158,8 @@ class SketchMixin:
                 self._require_doc().recompute()
                 return self.sketch_state(sketch)
             sk.delGeometry(int(geo))
+            from engine import sketchoffset
+            sketchoffset.heal(sk)
         except Exception as exc:  # noqa: BLE001
             raise KernelError(_explain(exc))
         return self.sketch_state(sketch)
