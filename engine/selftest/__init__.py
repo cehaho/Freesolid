@@ -272,6 +272,7 @@ def _etapes():
         fonctions.p153_face_rognee_reste_a_sa_creatrice,
         esquisse.p156_esquisse_rouverte_sous_contrainte,
         fonctions.p157_coque_sur_piece_chanfreinee,
+        esquisse.p158_cote_entre_paralleles,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,
