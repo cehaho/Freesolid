@@ -160,6 +160,7 @@ export function createSketchMode(deps) {
     pendingFillet: null,  // { geo, x, y } — première ligne cliquée
     pendingDim: null,     // { geo, point? } — première entité cotée
     pendingDimPair: null, // deux points choisis, la cote attend sa place
+    pendingDimPlace: null, // { params, a?, b? } — deux entités, idem
     dimDrag: null,        // cote saisie par son étiquette, en déplacement
     filletRadius: 3,      // rayon du congé d'esquisse (panneau de l'outil)
     polygonSides: 6,      // côtés du polygone (panneau de l'outil)
@@ -911,6 +912,7 @@ export function createSketchMode(deps) {
       (s) => ids.has(s.geo) || s.geo === ORIGIN_GEO);
     mode.pendingDim = null;
     mode.pendingDimPair = null;
+    mode.pendingDimPlace = null;
     mode.pendingFillet = null;
     mode.matrix.set(...state.placement);
     mode.inverse.copy(mode.matrix).invert();
@@ -1387,6 +1389,14 @@ export function createSketchMode(deps) {
           { sketch: name, geo: target }));
       }
     } else if (mode.tool === "dim") {
+      if (mode.pendingDimPlace) {
+        // 3e clic : la cote entre deux entités se pose là.
+        const { params } = mode.pendingDimPlace;
+        mode.pendingDimPlace = null;
+        if (previewLine) previewLine.visible = false;
+        await addDim(params, event);
+        return;
+      }
       if (mode.pendingDimPair) {
         // 3e clic : l'endroit choisi décide horizontale, verticale ou alignée.
         const { first, second, a, b } = mode.pendingDimPair;
@@ -1455,6 +1465,11 @@ export function createSketchMode(deps) {
           params = { sketch: name, geo: first.geo, geo2: target.geo };
           if (first.point != null) params.point = first.point;
           if (target.point != null) params.point2 = target.point;
+          // Point et ligne, deux lignes, cercle et ligne : comme dans les
+          // modeleurs courants, un 3e clic pose la cote là où on veut.
+          mode.pendingDimPlace = { params, ...placeEnds(pair) };
+          say(t("Cotation : cliquez où poser la cote"));
+          return;
         }
         await addDim(params, event);
       }
@@ -1493,6 +1508,41 @@ export function createSketchMode(deps) {
   }
 
   /** Coordonnées locales d'un point choisi (extrémité, centre, origine). */
+  /** Les deux bouts de la cote à venir entre deux entités (un point et
+   *  son pied sur la ligne ; deux lignes parallèles : le début de la
+   *  1re et son pied sur la 2e), pour l'aperçu de la pose. Rien pour un
+   *  angle. */
+  function placeEnds(pair) {
+    const lineOf = (pick) => {
+      const e = pick.point == null
+        && mode.state?.entities.find((x) => x.id === pick.geo);
+      return e?.type === "line" ? e : null;
+    };
+    const foot = (p, line) => {
+      const ax = line.p1[0], ay = line.p1[1];
+      const vx = line.p2[0] - ax, vy = line.p2[1] - ay;
+      const len2 = vx * vx + vy * vy;
+      if (len2 < 1e-18) return null;
+      const u = ((p.x - ax) * vx + (p.y - ay) * vy) / len2;
+      return { x: ax + u * vx, y: ay + u * vy };
+    };
+    const [l1, l2] = pair.map(lineOf);
+    const [q1, q2] = pair.map(pickPoint);
+    let a = null, line = null;
+    if (q1 && l2) [a, line] = [q1, l2];
+    else if (q2 && l1) [a, line] = [q2, l1];
+    else if (l1 && l2) {
+      const d1 = [l1.p2[0] - l1.p1[0], l1.p2[1] - l1.p1[1]];
+      const d2 = [l2.p2[0] - l2.p1[0], l2.p2[1] - l2.p1[1]];
+      const cross = d1[0] * d2[1] - d1[1] * d2[0];
+      if (Math.abs(cross) <= 1e-7 * Math.hypot(...d1) * Math.hypot(...d2)) {
+        [a, line] = [{ x: l1.p1[0], y: l1.p1[1] }, l2];
+      }
+    }
+    const b = a && foot(a, line);
+    return a && b ? { a, b } : {};
+  }
+
   function pickPoint(pick) {
     if (pick.geo === ORIGIN_GEO) return { x: 0, y: 0 };
     const entity = mode.state?.entities.find((e) => e.id === pick.geo);
@@ -1884,6 +1934,14 @@ export function createSketchMode(deps) {
       previewLine.geometry.setFromPoints(
         pts.map((q) => new THREE.Vector3(q.x, q.y, 0)));
       previewLine.visible = true;
+    } else if (mode.tool === "dim" && mode.pendingDimPlace?.a && previewLine) {
+      const local = toLocal(event);
+      if (!local) return;
+      const { a, b } = mode.pendingDimPlace;
+      const path = pointPairDimPath(a, b, "Distance", local);
+      previewLine.geometry.setFromPoints(
+        path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
+      previewLine.visible = true;
     } else if (mode.tool === "dim" && mode.pendingDimPair && previewLine) {
       const local = toLocal(event);
       if (!local) return;
@@ -2200,6 +2258,7 @@ export function createSketchMode(deps) {
     mode.pendingFillet = null;
     mode.pendingDim = null;
     mode.pendingDimPair = null;
+    mode.pendingDimPlace = null;
     mode.pendingSpline = null;
     mode.pendingClicks = null;
     mode.ordinateBase = null;

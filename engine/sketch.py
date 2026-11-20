@@ -1721,9 +1721,19 @@ class SketchMixin:
             if geo1 is None or geo1.TypeId != "Part::GeomLineSegment":
                 return None, None
             return geo1.StartPoint, geo1.EndPoint
+        geo2 = None if second == ROOT_GEO else geo_of(sk, second)
+        if (pos1 and not pos2 and geo2 is not None
+                and geo2.TypeId == "Part::GeomLineSegment"):
+            # Point → ligne (lignes parallèles aussi) : le point et son
+            # pied sur la ligne ; la cote se décale le long de la ligne.
+            a = self._point_of(geo1, pos1)
+            p, d = geo2.StartPoint, geo2.EndPoint - geo2.StartPoint
+            if d.Length < 1e-12:
+                return None, None
+            u = (a - p).dot(d) / (d.Length ** 2)
+            return a, p + d * u
         if not pos1 or not pos2:
             return None, None
-        geo2 = None if second == ROOT_GEO else geo_of(sk, second)
         return self._point_of(geo1, pos1), self._point_of(geo2, pos2)
 
     def sketch_dim(self, sketch, geo, value=None,
