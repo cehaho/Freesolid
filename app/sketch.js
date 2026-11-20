@@ -2301,10 +2301,10 @@ export function createSketchMode(deps) {
     ["dblclick", onDoubleClick],
   ];
 
-  /** Entre dans l'esquisse. `tool` : l'outil de départ — la ligne pour
-   *  une esquisse neuve ; une esquisse rééditée s'ouvre sans outil
-   *  (sélection), comme dans les modeleurs courants. */
-  async function enter(statePromise, { tool = "line" } = {}) {
+  /** Entre dans l'esquisse, sans outil actif (sélection), comme dans
+   *  les modeleurs courants — neuve ou rééditée. Seul un outil du ruban
+   *  cliqué hors esquisse (`pendingTool`) l'ouvre avec cet outil. */
+  async function enter(statePromise) {
     try {
       const state = await statePromise;
       mode.active = true;
@@ -2354,7 +2354,7 @@ export function createSketchMode(deps) {
       document.addEventListener("keyup", onModifierKey);
       // Le ruban bascule sur l'onglet Esquisse (main.js écoute).
       document.dispatchEvent(new Event("freesolid:sketch-enter"));
-      setTool(pendingTool ?? tool);
+      setTool(pendingTool ?? "select");
       pendingTool = null;
       call("sketch_picture", { sketch: state.sketch }).then(({ picture }) => {
         if (picture?.data && mode.active && mode.state?.sketch === state.sketch) {

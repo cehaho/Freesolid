@@ -3197,8 +3197,7 @@ export function installTree(ctx) {
     graph: (feature) => enterGraphFeature(feature),
     sketch: (feature) => {
       closeGraph();
-      ctx.sketchMode.enter(call("sketch_edit", { feature: feature.name }),
-        { tool: "select" });
+      ctx.sketchMode.enter(call("sketch_edit", { feature: feature.name }));
     },
     vertex_chamfer: editVertexChamfer,
     reference: (feature) => editReference(feature),
