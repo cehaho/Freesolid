@@ -91,8 +91,8 @@ describe("extrudeBuild", () => {
     assert.equal(extrudeInvalid({ cond: "borgne" }), "Profondeur invalide");
   });
 
-  it("l'enlèvement commence par « à travers tout », le bossage par « borgne »", () => {
-    assert.equal(extrudeGroups("pocket")[0].rows[0].value, "travers");
+  it("l'enlèvement et le bossage commencent par « borgne »", () => {
+    assert.equal(extrudeGroups("pocket")[0].rows[0].value, "borgne");
     assert.equal(extrudeGroups("pad")[0].rows[0].value, "borgne");
   });
 });
