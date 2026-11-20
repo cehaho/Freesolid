@@ -202,7 +202,7 @@ def p17_spline_ellipse_decalage(self, mark, report, etat):
     radius = lambda pts: max(math.hypot(x - 80, y)  # noqa: E731
                              for x, y in pts)
     # L'aperçu suit la courbe à 0,05 mm près, sans semer de points sur
-    # les droites : 4 côtés et 4 coins arrondis, pas 8 × 48 points.
+    # les droites : 4 côtés à coins vifs, pas 8 × 48 points.
     sag = max(12 - math.hypot((a[0] + b[0]) / 2 - 80, (a[1] + b[1]) / 2)
               for a, b in zip(outer["points"], outer["points"][1:]))
     rect = self.sketch_offset_preview(offset_sk, [0, 1, 2, 3], 2.0)
@@ -1445,4 +1445,64 @@ def p156_esquisse_rouverte_sous_contrainte(self, mark, report, etat):
         state["definition"] == "under" and state["dof"] == 3
         and [e["status"] for e in state["entities"]] == ["under"]
         and "Touched" not in sk.State)
+    run("sketch_cancel", sketch=name)
+
+
+def p159_decaler_ligne_et_chaine_ouverte(self, mark, report, etat):
+    mark("p159: décaler une ligne seule, une chaîne ouverte, un rectangle")
+    # Comme dans les modeleurs courants : une ligne seule se décale (elle
+    # échouait : pas de plan) ; une chaîne ouverte donne une copie d'un
+    # seul côté, coin vif ; un rectangle, un rectangle.
+    from engine.kernel import dispatch
+
+    def run(op, **params):
+        out = dispatch(self, op, params)
+        if not out["ok"]:
+            raise KernelError(out["error"])
+        return out["result"]
+
+    def lines(state, before):
+        return [e for e in state["entities"][before:] if e["type"] == "line"]
+
+    self.new_part("Pièce décaler")
+    name = run("sketch_start")["sketch"]
+    state = run("sketch_add_line", sketch=name, x1=0, y1=0, x2=30, y2=40)
+    before = len(state["entities"])
+    state = run("sketch_offset", sketch=name, geos=[0], distance=5)
+    new = state["entities"][before:]
+    gap = None
+    if len(new) == 1 and new[0]["type"] == "line":
+        (x1, y1), (x2, y2) = new[0]["p1"], new[0]["p2"]
+        # Distance des deux bouts à la ligne d'origine (3, 4)/5.
+        gap = [abs(x * 4 - y * 3) / 5 for x, y in ((x1, y1), (x2, y2))]
+    report["p159_ligne_seule_decalee"] = (
+        gap is not None and all(abs(g - 5) < 1e-6 for g in gap))
+    run("sketch_cancel", sketch=name)
+
+    name = run("sketch_start")["sketch"]
+    run("sketch_add_line", sketch=name, x1=0, y1=0, x2=40, y2=0)
+    state = run("sketch_add_line", sketch=name, x1=40, y1=0, x2=40, y2=30)
+    before = len(state["entities"])
+    state = run("sketch_offset", sketch=name, geos=[0, 1], distance=5)
+    new = state["entities"][before:]
+    ends = sorted(tuple(round(c, 6) for c in p)
+                  for e in new for p in (e["p1"], e["p2"]))
+    # À droite du parcours : y = -5 de 0 à 45, x = 45 de -5 à 30 ; le
+    # coin vif (45, -5) est commun aux deux.
+    report["p159_chaine_ouverte_un_cote_coin_vif"] = (
+        len(new) == 2 and all(e["type"] == "line" for e in new)
+        and ends == [(0, -5), (45, -5), (45, -5), (45, 30)])
+    run("sketch_cancel", sketch=name)
+
+    name = run("sketch_start")["sketch"]
+    state = run("sketch_add_rectangle", sketch=name, x1=0, y1=0, x2=40, y2=30)
+    before = len(state["entities"])
+    state = run("sketch_offset", sketch=name,
+                geos=[e["id"] for e in state["entities"]], distance=5)
+    new = state["entities"][before:]
+    xs = sorted({round(c, 6) for e in new for c in (e["p1"][0], e["p2"][0])})
+    ys = sorted({round(c, 6) for e in new for c in (e["p1"][1], e["p2"][1])})
+    report["p159_rectangle_coins_vifs"] = (
+        len(new) == 4 and all(e["type"] == "line" for e in new)
+        and xs == [-5, 45] and ys == [-5, 35])
     run("sketch_cancel", sketch=name)
