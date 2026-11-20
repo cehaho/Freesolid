@@ -2,7 +2,7 @@
 // face picking by construction (each engine face is an index group).
 
 import * as THREE from "three";
-import { createSketchMode, createDimSprite } from "./sketch.js";
+import { createSketchMode, createDimSprite, keepScreenSize } from "./sketch.js";
 import {
   filletRadiusLabel,
 } from "./dims.js";
@@ -925,7 +925,8 @@ function updateFilletRadiusBubble(values) {
   if (towardCamera.lengthSq() > 1e-8) {
     anchor.add(towardCamera.normalize().multiplyScalar(8));
   }
-  filletRadiusSprite = createDimSprite(text, anchor.x, anchor.y, anchor.z);
+  filletRadiusSprite = keepScreenSize(
+    createDimSprite(text, anchor.x, anchor.y, anchor.z));
   filletRadiusSprite.renderOrder = 24;
   filletBubbleGroup.add(filletRadiusSprite);
 }
@@ -1023,7 +1024,9 @@ expose("othersEdges", () => othersEdges);
 Object.assign(ctx, {
   THREE, scene, camera, renderer, controls, container, viewSize, ORTHO_HEIGHT,
   say, call, panel, pickEl, measureEl, coordsEl, refresh, selectComponent,
-  boxOverlay, featureDimsGroup, createDimSprite,
+  boxOverlay, featureDimsGroup,
+  // Cotes posées sur la pièce : taille d'écran constante.
+  createDimSprite: (...args) => keepScreenSize(createDimSprite(...args)),
   surfaceHoverMaterial, surfaceSelectedMaterial,
   repaintBoundaries, setSelectedBoundaries,
   focusPanelField, pickFilletRadiusBubble,
