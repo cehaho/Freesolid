@@ -31,7 +31,7 @@ import {
   SNAP_KINDS, SNAP_PX, SNAP_TOL, activeSnaps, arcSnaps, circleSnaps,
   engineSnaps, lineSnaps, modelEdgeOf, modelEdgeSnaps, normalizeSnapSettings,
   onCircle, readSnapSettings, rectSnaps, sketchEndpoints, sketchSnapPoints,
-  snapSketchPoint, snapTarget, writeSnapSettings,
+  snapSketchPoint, snapTarget, trimPiece, writeSnapSettings,
 } from "./sketchsnap.js";
 import {
   normalizeSketchPrefs, readSketchPrefs, writeSketchPrefs,
@@ -139,6 +139,9 @@ export function createSketchMode(deps) {
     { color: sceneTheme.ghost, ...ON_TOP });
   const hoverPointMaterial = new THREE.PointsMaterial({
     color: sceneTheme.ghost, size: 11, sizeAttenuation: false, ...ON_TOP });
+  // Sous le curseur d'Ajuster : le tronçon que le clic supprimera.
+  const trimMaterial = new THREE.LineBasicMaterial(
+    { color: sceneTheme.danger, linewidth: 2, ...ON_TOP });
   group.renderOrder = 20;
 
   const mode = {
@@ -662,6 +665,31 @@ export function createSketchMode(deps) {
     group.add(hoverObject);
   }
 
+  let trimObject = null;
+
+  /** Ajuster : le tronçon que le clic supprimera, en évidence sous le
+   *  curseur, comme dans les modeleurs courants. */
+  function drawTrim() {
+    if (trimObject) {
+      group.remove(trimObject);
+      trimObject.geometry.dispose();
+      trimObject = null;
+    }
+    const at = mode.tool === "trim" && mode.state && mode.lastMouse
+      ? toLocal(mode.lastMouse) : null;
+    const geo = at ? nearestEntity(mode.lastMouse) : null;
+    const entity = geo !== null
+      && mode.state.entities.find((e) => e.id === geo);
+    if (!entity) return;
+    const pts = trimPiece(entity, mode.state.entities, at)
+      ?? entityPolyline(entity);
+    if (pts.length < 2) return;
+    trimObject = new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+      pts.map((q) => new THREE.Vector3(q[0], q[1], 0))), trimMaterial);
+    trimObject.renderOrder = 23;
+    group.add(trimObject);
+  }
+
   /** Le survol de l'outil Sélectionner change : redessiné s'il le faut. */
   function setHover(pick) {
     const same = pick && mode.hover ? samePick(pick, mode.hover)
@@ -882,6 +910,8 @@ export function createSketchMode(deps) {
     splineEdit.draw(group);
     hoverObject = null; // group.clear() l'a retiré
     drawHover();
+    trimObject = null;
+    drawTrim();
 
     const dof = mode.state.dof;
     const definition = mode.state.definition
@@ -1829,6 +1859,7 @@ export function createSketchMode(deps) {
       if (inferLines || snapPoint || !readoutEl?.hidden) clearInference();
       emitPointer(toLocal(event));
     }
+    if (mode.tool === "trim" || trimObject) drawTrim();
     if (mode.box) {
       const here = { x: event.clientX, y: event.clientY };
       if (isDrag(mode.box, here)) boxOverlay?.show(mode.box, here);
