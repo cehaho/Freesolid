@@ -380,6 +380,18 @@ export function samePick(a, b) {
   return a.geo === b.geo && (a.point ?? null) === (b.point ?? null);
 }
 
+/** La relation ``c`` (``refs`` : ``[entité, point]``, point 0 =
+ *  l'entité entière) ne s'appuie-t-elle que sur la sélection ? Une
+ *  entité choisie couvre ses propres points ; un point choisi, lui seul
+ *  — deux extrémités choisies ne montrent donc pas la perpendicularité
+ *  de leurs lignes. */
+export function touchesOnly(c, selection) {
+  const refs = c.refs ?? (c.geos ?? []).map((g) => [g, 0]);
+  return refs.length > 0 && refs.every(([geo, point]) => selection.some(
+    (pick) => pick.geo === geo
+      && (pick.point == null || pick.point === point)));
+}
+
 /**
  * La sélection après un clic sur ``pick`` : lui seul, ou — Ctrl ou Maj
  * (``additive``) — ajouté, retiré s'il y était déjà. ``pick`` null : un
