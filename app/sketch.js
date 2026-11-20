@@ -38,6 +38,7 @@ import {
 } from "./sketchprefs.js";
 import {
   DIM_LABEL_RATIO, DIM_TEXT_PX, createDimSprite, createGlyphSprite,
+  keepScreenSize,
 } from "./sketch/dimsprite.js";
 import { installCommandes } from "./sketch/commandes.js";
 import { installRelations } from "./sketch/relations.js";
@@ -47,7 +48,7 @@ import { installPanneauOutil } from "./sketch/panneauoutil.js";
 import { installSaisie } from "./sketch/saisie.js";
 import { installBoiteCote } from "./sketch/boitecote.js";
 
-export { DIM_TEXT_PX, createDimSprite };
+export { DIM_TEXT_PX, createDimSprite, keepScreenSize };
 
 export function createSketchMode(deps) {
   const { scene, camera, renderer, controls, call: engineCall, say, refresh,

@@ -47,6 +47,35 @@ export function createDimSprite(text, x, y, z = 0.01, color = cssHex(sceneTheme.
   return sprite;
 }
 
+/** Taille d'un pixel CSS, en unités du modèle, à `position` vue par
+ *  `camera` dans une vue de `height` pixels — orthographique ou
+ *  perspective. */
+export function worldPerPixelAt(position, camera, height) {
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+  const a = position.clone().project(camera);
+  const b = position.clone().add(up).project(camera);
+  const pixels = Math.abs(b.y - a.y) * height / 2;
+  return pixels > 1e-9 ? 1 / pixels : 0;
+}
+
+const viewSize = new THREE.Vector2();
+
+/** Comme dans les modeleurs courants : une cote posée sur la pièce garde
+ *  la même taille à l'écran quel que soit le zoom (celle des cotes
+ *  d'esquisse). Recalculée juste avant chaque rendu, pour chaque vue. */
+export function keepScreenSize(sprite) {
+  sprite.onBeforeRender = (renderer, scene, camera) => {
+    renderer.getSize(viewSize);
+    const wpp = worldPerPixelAt(sprite.getWorldPosition(new THREE.Vector3()),
+                                camera, viewSize.y);
+    if (!wpp) return;
+    const h = DIM_TEXT_PX * DIM_LABEL_RATIO * wpp;
+    sprite.scale.set(h * (sprite.userData.aspect ?? 1), h, 1);
+    sprite.updateMatrixWorld();
+  };
+  return sprite;
+}
+
 /** Petit symbole de relation (H, V, ∥…) : pastille ronde lisible. */
 export function createGlyphSprite(text) {
   const canvas = document.createElement("canvas");
