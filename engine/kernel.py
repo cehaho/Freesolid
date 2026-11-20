@@ -897,6 +897,9 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
             "freecadcmd": sys.executable or "",
             "freesolid": freesolid_version(),
             "platform": sys.platform,
+            # L'esquisse ouverte, s'il y en a une : la page rechargée y
+            # retourne au lieu de la laisser ouverte sans le montrer.
+            "sketch": (self._sketch_session or {}).get("sketch", ""),
         }
 
     def list_plugins(self):
