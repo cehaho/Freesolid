@@ -215,6 +215,7 @@
  "Interférences": "Interferences",
  "Intersection": "Common",
  "Inverser la direction": "Reverse direction",
+ "Inverser le décalage": "Reverse offset",
  "Inverser le côté": "Flip side",
  "L'autorisation vaut pour ce document et cette session. Elle n'est\n        jamais enregistrée dans le fichier.": "The permission is valid for this document and this session. It is never saved in the file.",
  "L'historique est linéaire — la fonction se pose à la barre de reprise.": "History is linear — the feature is inserted at the rollback bar.",

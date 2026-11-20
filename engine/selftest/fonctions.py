@@ -7552,3 +7552,76 @@ def p157_coque_sur_piece_chanfreinee(self, mark, report, etat):
     report["p157_coque_sur_piece_chanfreinee"] = (
         shell.TypeId == "PartDesign::Thickness" and shell.Shape.isValid()
         and 20000 < float(body.Shape.Volume) < before / 2)
+
+
+def p161_decalage_de_la_face_d_arrivee(self, mark, report, etat):
+    mark("p161: jusqu'à la face, décalage avant la face ou au-delà")
+    # Comme dans les modeleurs courants : un décalage positif arrête la
+    # fonction avant la face, « Inverser le décalage » (négatif) la mène
+    # au-delà — en extrusion comme en enlèvement, quel que soit le côté
+    # d'où la face est abordée.
+    from engine.kernel import dispatch
+    self.new_part("Décalage d'arrivée")
+
+    def sketch(x1, y1, x2, y2, **where):
+        name = self.sketch_start(**where)["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return name
+
+    sketch(0, 0, 10, 10, plane="XY")
+    self.add_pad(30)                          # bloc 10 × 10 × 30
+    body = self._require_body()
+
+    def face_at(z):
+        return next(i for i, f in enumerate(body.Shape.Faces)
+                    if abs(f.CenterOfMass.z - z) < 1e-6)
+
+    top, bottom = face_at(30), face_at(0)
+
+    def volume(op, offset, **where):
+        sketch(*where.pop("rect"), **where)
+        answer = dispatch(self, op, {"cond": "face", "offset": offset,
+                                     "face": where.pop("face", top)})
+        value = float(self._require_body().Shape.Volume)
+        if answer.get("ok"):
+            dispatch(self, "undo", {})
+        dispatch(self, "undo", {})
+        return value
+
+    def near(a, b):
+        return abs(a - b) < 1e-6
+
+    # Extrusion à côté du bloc, jusqu'au plan de sa face du dessus.
+    beside = dict(rect=(20, 0, 30, 10), plane="XY")
+    pad_short = volume("add_pad", 5, **dict(beside))
+    pad_beyond = volume("add_pad", -5, **dict(beside))
+    # Enlèvement depuis le dessus jusqu'à la face du dessous.
+    sketch(2, 2, 8, 8, face=top)
+    out = dispatch(self, "add_pocket", {"cond": "face", "face": bottom,
+                                        "offset": 5})
+    pocket_short = float(body.Shape.Volume) if out.get("ok") else None
+    dispatch(self, "undo", {})
+    dispatch(self, "undo", {})
+    sketch(2, 2, 8, 8, face=top)
+    out = dispatch(self, "add_pocket", {"cond": "face", "face": bottom,
+                                        "offset": -5})
+    pocket_beyond = float(body.Shape.Volume) if out.get("ok") else None
+    dispatch(self, "undo", {})
+    dispatch(self, "undo", {})
+    report["p161_avant_la_face_ou_au_dela"] = (
+        near(pad_short, 3000 + 2500) and near(pad_beyond, 3000 + 3500)
+        and pocket_short is not None and near(pocket_short, 3000 - 36 * 25)
+        and pocket_beyond is not None and near(pocket_beyond, 3000 - 36 * 30))
+
+    # Réédition : le décalage relu garde son sens, l'inverser le retourne.
+    sketch(20, 0, 30, 10, plane="XY")
+    dispatch(self, "add_pad", {"cond": "face", "face": top, "offset": 5})
+    pad = body.Tip
+    read = self._extrude_state(pad)["offset"]
+    edit = dispatch(self, "set_params", {"feature": pad.Name,
+                                         "values": {"offset": -5}})
+    report["p161_reedition_du_decalage"] = (
+        near(read, 5) and edit.get("ok") is True
+        and near(self._extrude_state(pad)["offset"], -5)
+        and near(float(body.Shape.Volume), 3000 + 3500))

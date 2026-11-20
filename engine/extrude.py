@@ -6,6 +6,13 @@ plan milieu, deuxième direction, dépouille. Ce module les traduit en
 propriétés de ``PartDesign::Pad`` / ``PartDesign::Pocket`` (FreeCAD ≥ 1.1 :
 ``SideType`` et un jeu de propriétés par côté). Il ne touche pas FreeCAD :
 les faces restent des numéros, kernel.py les résout en références.
+
+Le décalage d'une face d'arrivée se compte comme dans les modeleurs
+courants : positif, la fonction s'arrête avant la face ; négatif
+(« Inverser le décalage »), elle va au-delà. FreeCAD, lui, décale la
+face le long de sa normale, dans un sens qui change entre extrusion et
+enlèvement : ``Offset`` reçoit ce décalage multiplié par le facteur que
+le noyau tire de la géométrie (``offset_factor``).
 """
 
 #: Condition client → valeur de ``Type`` selon la fonction.
@@ -134,6 +141,23 @@ def extrude_options(kind, cond="borgne", midplane=False, reversed=False,
         props["Type2"] = types[cond2]
         props["TaperAngle2"] = -float(taper2 or 0.0)
     return props
+
+
+def offset_factor(kind, facing):
+    """Facteur ±1 entre le décalage client (positif : avant la face) et
+    ``Offset`` de FreeCAD. ``facing`` : produit scalaire de la normale de
+    la face d'arrivée et du sens où l'extrusion va vers elle.
+
+    Relevé sur FreeCAD 1.1 : une extrusion recule la face de
+    ``-Offset × normale``, un enlèvement l'avance de ``+Offset ×
+    normale``. S'arrêter avant la face, c'est la reculer contre le sens
+    de l'extrusion."""
+    if kind not in _TYPES:
+        raise ExtrudeError("fonction inconnue : {}".format(kind))
+    along = facing >= 0
+    if kind == "pad":
+        return 1.0 if along else -1.0
+    return -1.0 if along else 1.0
 
 
 def check_new_body(cond="borgne", cond2=None):

@@ -275,6 +275,7 @@ def _etapes():
         esquisse.p158_cote_entre_paralleles,
         esquisse.p159_decaler_ligne_et_chaine_ouverte,
         esquisse.p160_decalage_parametrique,
+        fonctions.p161_decalage_de_la_face_d_arrivee,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,
