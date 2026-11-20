@@ -908,6 +908,29 @@ class SolidsMixin:
                         "jusqu'à la face : la pièce n'a pas encore de face")
                 value = (tip, ["Face{}".format(int(value) + 1)])
             setattr(obj, name, value)
+        if props.get("Offset"):
+            obj.Offset = props["Offset"] * self._offset_factor(obj)
+
+    def _offset_factor(self, obj):
+        """Facteur ±1 entre le décalage client et ``Offset`` de ``obj``
+        (``engine.extrude.offset_factor``) : d'après la normale de la face
+        d'arrivée et le côté de l'esquisse où elle se trouve."""
+        from engine.extrude import offset_factor
+        kind = self._EXTRUDE_KINDS.get(getattr(obj, "TypeId", ""))
+        try:
+            base, subs = obj.UpToFace
+            face = base.Shape.getElement(subs[0])
+            u0, u1, v0, v1 = face.ParameterRange
+            normal = face.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
+            profile = obj.Profile[0].Shape
+            plane = profile.findPlane()
+            axis = plane.Axis
+            toward = face.CenterOfMass - profile.BoundBox.Center
+            if toward.dot(axis) < 0:
+                axis = axis * -1
+            return offset_factor(kind, normal.dot(axis))
+        except Exception:  # noqa: BLE001
+            return 1.0
 
     #: Conditions d'une extrusion que ``set_params`` réédite : propriété
     #: (``Type`` et ``Type2`` reçoivent la condition de la création) ->
@@ -938,6 +961,8 @@ class SolidsMixin:
                                  else "One side")
         state = extrude_state(kind, props)
         if state is not None:
+            if state["offset"]:
+                state["offset"] *= self._offset_factor(obj)
             state["face"] = self._arrival_face(obj)
             # Premier volume de son corps : aucun « jusqu'à » ne l'arrête.
             state["alone"] = getattr(obj, "BaseFeature", None) is None
@@ -1023,6 +1048,11 @@ class SolidsMixin:
                 "deuxième direction : FreeCAD {} requis".format("1.1"))
         else:
             props["Midplane"] = side == "Symmetric"
+        # Le décalage se pose une fois la face d'arrivée en place : son
+        # signe FreeCAD en dépend (``_offset_factor``).
+        offset = props.pop("Offset", None)
+        if offset is not None:
+            props["Offset"] = offset
         for prop, value in props.items():
             previous.append((prop, exprs_before.get(prop),
                              getattr(obj, prop, None)))
@@ -1030,6 +1060,8 @@ class SolidsMixin:
                 obj.setExpression(prop, None)
             except Exception:  # noqa: BLE001
                 pass
+            if prop == "Offset" and value:
+                value = value * self._offset_factor(obj)
             try:
                 setattr(obj, prop, value)
             except Exception as exc:  # noqa: BLE001

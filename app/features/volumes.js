@@ -323,6 +323,12 @@ const EXTRUDE_CONDITIONS = {
 
 const usesLength = (cond) => cond === "borgne" || cond === "milieu";
 
+/** Décalage moteur : positif avant la face, négatif au-delà. */
+const signedOffset = (v) => {
+  const size = Math.abs(num(v.offset) ?? 0);
+  return v.offsetReversed ? -size : size;
+};
+
 /** Groupes du panneau extrusion / enlèvement. `edit` : les valeurs de la
  *  fonction qu'on réédite (`extrudeEditInitial`). La face d'arrivée se
  *  re-choisit sur la pièce à son rang ; la paroi mince revient entière :
@@ -354,8 +360,13 @@ export function extrudeGroups(kind, edit = null) {
             ? { value: { kind: "face", face: edit.face } } : {}),
           showIf: (v) => v.cond === "face" },
         { type: "number", key: "offset", label: "Décalage",
-          value: edit?.offset ?? 0, unit: "mm",
+          value: Math.abs(edit?.offset ?? 0), unit: "mm", min: 0,
           showIf: (v) => v.cond === "face" },
+        // Décalage positif : la fonction s'arrête avant la face ;
+        // inversé, elle va au-delà — comme dans les modeleurs courants.
+        { type: "check", key: "offsetReversed", label: "Inverser le décalage",
+          value: (edit?.offset ?? 0) < 0,
+          showIf: (v) => v.cond === "face" && (num(v.offset) ?? 0) !== 0 },
         { type: "check", key: "reversed", label: "Inverser la direction",
           value: edit?.reversed ?? false, showIf: (v) => v.cond !== "milieu" },
         ...(tapered ? [
@@ -479,7 +490,7 @@ export function extrudeEditValues(v, feature) {
     const face = v.face?.face;
     if (!Number.isInteger(face)) return null;
     if (face !== state.face) values.face = face;
-    const offset = num(v.offset) ?? 0;
+    const offset = signedOffset(v);
     if (!near(offset, state.offset)) values.offset = offset;
   }
   const bounds = { min: 0, max: Infinity };
@@ -629,7 +640,7 @@ export function extrudeBuild(op, v) {
   if (v.cond === "face") {
     if (v.face?.face == null) return null;
     params.face = v.face.face;
-    params.offset = num(v.offset) ?? 0;
+    params.offset = signedOffset(v);
   }
   const taper = Math.abs(num(v.taper) ?? 0);
   if (taper) params.taper = v.taperOut ? -taper : taper;

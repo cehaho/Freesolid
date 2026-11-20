@@ -31,6 +31,16 @@ describe("extrudeBuild", () => {
     assert.equal(b.params.length, undefined);
   });
 
+  it("jusqu'à la face : le décalage inversé va au-delà", () => {
+    const at = { cond: "face", face: { kind: "face", face: 3 }, offset: "2" };
+    assert.equal(extrudeBuild("add_pad", at).params.offset, 2);
+    assert.equal(extrudeBuild("add_pad", { ...at, offsetReversed: true })
+      .params.offset, -2);
+    // La case ne change pas le signe d'un décalage saisi négatif.
+    assert.equal(extrudeBuild("add_pad", { ...at, offset: "-2" })
+      .params.offset, 2);
+  });
+
   it("paroi mince : un côté, plan milieu, deux côtés", () => {
     const base = { cond: "borgne", length: 10, thin: true, thinT: "2" };
     assert.deepEqual(extrudeBuild("add_pad", base).params.thin,
@@ -190,6 +200,14 @@ describe("réédition de l'extrusion", () => {
       { ...opened(toFace), offset: "2" }, toFace), { offset: 2 });
     assert.deepEqual(extrudeEditValues(
       { ...opened(toFace), face: face(7) }, toFace), { face: 7 });
+    // Décalage inversé : la cote reste positive, la case cochée.
+    const beyond = feature({ cond: "face", offset: -1.5, face: 4 });
+    assert.equal(rows(beyond).find((r) => r.key === "offset").value, 1.5);
+    assert.equal(rows(beyond).find((r) => r.key === "offsetReversed").value,
+                 true);
+    assert.deepEqual(extrudeEditValues(opened(beyond), beyond), {});
+    assert.deepEqual(extrudeEditValues(
+      { ...opened(beyond), offsetReversed: false }, beyond), { offset: 1.5 });
     // Une borgne passe à « jusqu'à la face » : la face cliquée part avec.
     const f = feature();
     assert.ok(conds(f).includes("face"));

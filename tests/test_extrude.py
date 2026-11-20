@@ -4,8 +4,8 @@ import pytest
 
 from engine.extrude import (ExtrudeError, cavity_plan, check_cavity,
                             check_new_body, extrude_options, extrude_settings,
-                            extrude_state, thin_cap_offsets, thin_offsets,
-                            thin_settings)
+                            extrude_state, offset_factor, thin_cap_offsets,
+                            thin_offsets, thin_settings)
 
 
 def test_borgne_par_defaut():
@@ -20,6 +20,17 @@ def test_jusqu_a_la_face_avec_decalage():
     assert props["UpToFace"] == 4
     assert props["Offset"] == 2.0
     assert "Length" not in props
+
+
+def test_facteur_du_decalage():
+    # Positif = avant la face ; FreeCAD compte le long de la normale, dans
+    # un sens qui change entre extrusion et enlèvement.
+    assert offset_factor("pad", 1.0) == 1.0
+    assert offset_factor("pad", -1.0) == -1.0
+    assert offset_factor("pocket", 1.0) == -1.0
+    assert offset_factor("pocket", -1.0) == 1.0
+    with pytest.raises(ExtrudeError):
+        offset_factor("congé", 1.0)
 
 
 def test_jusqu_a_la_face_sans_face():
