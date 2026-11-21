@@ -1559,6 +1559,13 @@ class SolidsMixin:
             return (profile, [self._SKETCH_AXES[token]])
         if token.upper() in self._AXIS_ROLES:
             return (self._origin_axis(token, body), [""])
+        if token.startswith("edge:"):
+            # Une arête droite de la pièce, comptée à partir de 0 sur la
+            # pièce au rang de la fonction — comme dans les modeleurs
+            # courants, où l'on clique l'arête qui sert d'axe.
+            base = (getattr(feature, "BaseFeature", None)
+                    if feature is not None else getattr(body, "Tip", None))
+            return self._revolution_edge_link(base, token.split(":", 1)[1])
         if token.startswith("line:"):
             try:
                 gid = int(token.split(":", 1)[1])
@@ -1585,6 +1592,26 @@ class SolidsMixin:
             raise KernelError("l'axe de révolution doit être une ligne")
         raise KernelError(
             "axe de révolution inconnu « {} »".format(token))
+
+    @staticmethod
+    def _revolution_edge_link(base, rank):
+        """Lien ``(base, ["EdgeN"])`` vers l'arête droite ``rank`` (base 0)
+        de la pièce ``base``."""
+        from engine.kernel import KernelError
+        shape = getattr(base, "Shape", None)
+        edges = list(getattr(shape, "Edges", []) or []) if shape else []
+        if not edges:
+            raise KernelError("aucune arête : la pièce est vide")
+        try:
+            index = int(rank)
+        except (TypeError, ValueError):
+            index = -1
+        if index < 0 or index >= len(edges):
+            raise KernelError("arête inconnue : {}".format(rank))
+        curve = getattr(edges[index], "Curve", None)
+        if "Line" not in type(curve).__name__:
+            raise KernelError("l'axe de révolution doit être une arête droite")
+        return (base, ["Edge{}".format(index + 1)])
 
     def _sketch_axis_line(self, body, profile, token, feature=None,
                           made=None):
@@ -1719,6 +1746,12 @@ class SolidsMixin:
             return "line:{}".format(int(getattr(target, "AxisGeo", -1)))
         if getattr(target, "FreeSolidSketchAxis", ""):
             return str(target.FreeSolidSketchAxis)
+        if (sub.startswith("Edge") and target_name != profile_name
+                and target.isDerivedFrom("PartDesign::Feature")):
+            # Une arête de la pièce : son numéro au rang de la fonction.
+            rank = self._element_at_rank(
+                getattr(obj, "BaseFeature", None), target, sub)
+            return "edge:{}".format(rank) if rank is not None else "vertical"
         if target_name and target_name == profile_name:
             if sub == "H_Axis":
                 return "horizontal"
@@ -1748,6 +1781,10 @@ class SolidsMixin:
             "angle": self._prop_float(obj, "Angle"),
             "reversed": bool(getattr(obj, "Reversed", False)),
             "midplane": bool(getattr(obj, "Midplane", False)),
+            # Deux directions : l'angle de la seconde, sinon None.
+            "angle2": (self._prop_float(obj, "Angle2")
+                       if str(getattr(obj, "Type", "")) == "TwoAngles"
+                       else None),
             "profile": getattr(profile, "Name", "") or "",
         }
 
@@ -1773,7 +1810,7 @@ class SolidsMixin:
 
     def _revolved(self, type_id, angle, sketch, axis=None,
                   reversed=False, midplane=False, merge=True, body=None,
-                  bodies=None):
+                  bodies=None, angle2=None):
         """Révolution ou gorge : même axe, ajout ou enlèvement.
 
         Sans axe, l'axe vertical de l'esquisse — le profil se dessine à
@@ -1782,18 +1819,13 @@ class SolidsMixin:
         ``merge``, ``body``, ``bodies`` : comme l'extrusion
         (``_result_body``) ; une gorge creuse le corps actif, et ``bodies``
         ou, sans liste, les corps qu'elle traverse (``_cut_others``).
+        ``angle2`` : deux directions, l'angle de la seconde (la somme ne
+        dépasse pas un tour). ``axis`` peut aussi être ``edge:<n>``, une
+        arête droite de la pièce.
         """
-        from engine.kernel import (
-            KernelError,
-            label_for_type,
-        )
+        from engine.kernel import label_for_type
         active = self._require_body()
-        try:
-            degrees = float(angle)
-        except (TypeError, ValueError):
-            raise KernelError("angle de révolution invalide")
-        if not (degrees > 0 and degrees <= 360):
-            raise KernelError("angle de révolution invalide")
+        degrees, second = self._revolution_angles(angle, angle2, midplane)
         profile = (self._get_sketch(sketch) if sketch is not None
                    else self._latest_sketch())
         if type_id == "PartDesign::Revolution":
@@ -1813,6 +1845,9 @@ class SolidsMixin:
             feature.Profile = copy or profile
             feature.ReferenceAxis = reference
             feature.Angle = degrees
+            if second is not None:
+                feature.Type = "TwoAngles"
+                feature.Angle2 = second
             if reversed:
                 feature.Reversed = True
             if midplane:
@@ -1834,23 +1869,52 @@ class SolidsMixin:
         self._body = body
         return self.get_tree()
 
+    @staticmethod
+    def _revolution_angles(angle, angle2=None, midplane=False):
+        """``(angle, angle2 ou None)`` vérifiés : chacun dans ]0, 360], la
+        somme dans un tour, pas de plan milieu avec deux directions."""
+        from engine.kernel import KernelError
+
+        def degrees(value):
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                raise KernelError("angle de révolution invalide")
+            if not (number > 0 and number <= 360):
+                raise KernelError("angle de révolution invalide")
+            return number
+
+        first = degrees(angle)
+        if angle2 is None:
+            return first, None
+        second = degrees(angle2)
+        if midplane:
+            raise KernelError(
+                "révolution : plan milieu et deux directions s'excluent")
+        if first + second > 360 + 1e-9:
+            raise KernelError(
+                "révolution : les deux angles dépassent un tour")
+        return first, second
+
     def add_revolution(self, angle=360.0, sketch=None, axis=None,
                        reversed=False, midplane=False, merge=True,
-                       body=None, bodies=None):
+                       body=None, bodies=None, angle2=None):
         """Révolution. ``merge`` faux : un nouveau corps ; ``body`` : le
-        corps où fusionner ; ``bodies`` : d'autres corps qui s'y fondent."""
+        corps où fusionner ; ``bodies`` : d'autres corps qui s'y fondent ;
+        ``angle2`` : deux directions."""
         return self._revolved(
             "PartDesign::Revolution", angle, sketch, axis=axis,
             reversed=reversed, midplane=midplane, merge=merge, body=body,
-            bodies=bodies)
+            bodies=bodies, angle2=angle2)
 
     def add_groove(self, angle=360.0, sketch=None, axis=None,
-                   reversed=False, midplane=False, bodies=None):
+                   reversed=False, midplane=False, bodies=None, angle2=None):
         """Enlèvement par révolution. ``bodies`` : les autres corps qu'il
         creuse, sans liste ceux qu'il traverse (``_cut_others``)."""
         return self._revolved(
             "PartDesign::Groove", angle, sketch, axis=axis,
-            reversed=reversed, midplane=midplane, bodies=bodies)
+            reversed=reversed, midplane=midplane, bodies=bodies,
+            angle2=angle2)
 
     def _last_solid_feature(self):
         """The feature a pattern/mirror duplicates: the latest add/sub one.

@@ -471,6 +471,7 @@ def _capture_feature(kernel, obj):
         feat["flip"] = bool(getattr(obj, "FlipDirection", False))
     if obj.TypeId in ("PartDesign::Revolution", "PartDesign::Groove"):
         feat["axis"] = kernel._revolution_axis_token(obj)
+        feat["angle2"] = kernel._revolution_state(obj)["angle2"]
     if obj.TypeId == "PartDesign::Draft":
         feat["neutral"] = kernel._draft_neutral_token(obj)
     if obj.TypeId in INDEXED_TYPES:

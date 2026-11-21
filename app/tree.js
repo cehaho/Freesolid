@@ -2429,6 +2429,7 @@ export function installTree(ctx) {
         axis: spec.axis,
         reversed: spec.reversed,
         midplane: spec.midplane,
+        angle2: spec.angle2,
       }), ...contourGroups(feature), ...bodyChoiceGroups(feature, tree)],
       onChange: (v) => {
         const values = build(v);
@@ -2448,7 +2449,7 @@ export function installTree(ctx) {
       onApply: (v) => {
         const values = build(v);
         if (values === null) {
-          say(revolutionProblem(), true);
+          say(revolutionProblem(v), true);
           return;
         }
         applyEdit(feature, v, values);

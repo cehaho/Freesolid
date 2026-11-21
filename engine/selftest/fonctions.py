@@ -7683,3 +7683,81 @@ def p162_symetrie_par_une_face(self, mark, report, etat):
     report["p162_face_inconnue_refusee"] = (
         bad.get("ok") is False and near(float(body.Shape.Volume), 1200)
         and self._pattern_state(mirror).get("face") == side)
+
+
+def p163_revolution_deux_directions_et_arete(self, mark, report, etat):
+    mark("p163: révolution en deux directions, autour d'une arête cliquée")
+    # Comme dans les modeleurs courants : l'axe peut être une arête droite
+    # de la pièce, et la révolution peut tourner des deux côtés du profil
+    # (deux angles, un tour au plus).
+    import math
+    from engine.kernel import dispatch
+    self.new_part("Révolution deux directions")
+
+    def sketch(x1, y1, x2, y2, **where):
+        name = self.sketch_start(**where)["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return name
+
+    sketch(0, 0, 10, 10, plane="XY")
+    self.add_pad(10)                          # cube 10³
+    body = self._require_body()
+    edge = next(i for i, e in enumerate(body.Shape.Edges)
+                if all(abs(v.X - 10) < 1e-6 and abs(v.Y) < 1e-6
+                       for v in e.Vertexes))
+
+    def near(a, b):
+        return abs(a - b) < 1e-6
+
+    # Profil 4 × 4 contre l'arête verticale (x = 10, y = 0), en haut :
+    # un tour complet creuse un quart de cylindre r = 4, h = 4 dans le cube.
+    quarter = 16 * math.pi
+    sketch(6, 6, 10, 10, plane="XZ")
+    out = dispatch(self, "add_groove", {"angle": 30, "angle2": 60,
+                                        "axis": "edge:{}".format(edge)})
+    groove = body.Tip
+    state = self._revolution_state(groove) if out.get("ok") else {}
+    first = float(body.Shape.Volume)
+    flip = dispatch(self, "set_params", {"feature": groove.Name,
+                                         "values": {"reversed": True}})
+    second = float(body.Shape.Volume)
+    report["p163_deux_angles_autour_de_l_arete"] = (
+        out.get("ok") is True and flip.get("ok") is True
+        and state.get("axis") == "edge:{}".format(edge)
+        and near(state.get("angle2") or 0, 60)
+        and sorted([round(first, 6), round(second, 6)]) == sorted(
+            [round(1000 - quarter / 3, 6), round(1000 - quarter * 2 / 3, 6)]))
+
+    # Réédition : la seconde direction change, puis se ferme.
+    same = dispatch(self, "set_params", {"feature": groove.Name,
+                                         "values": {"angle2": 30}})
+    both30 = float(body.Shape.Volume)
+    closed = dispatch(self, "set_params", {"feature": groove.Name,
+                                           "values": {"angle2": 0,
+                                                      "angle": 360}})
+    report["p163_reedition_de_la_seconde_direction"] = (
+        same.get("ok") is True and near(both30, 1000 - quarter / 3)
+        and closed.get("ok") is True
+        and self._revolution_state(groove)["angle2"] is None
+        and near(float(body.Shape.Volume), 1000 - quarter))
+
+    # Refus : plus d'un tour, plan milieu avec deux directions, arête
+    # inconnue — la pièce ne bouge pas.
+    before = float(body.Shape.Volume)
+    count = len(body.Group)
+    refused = [
+        dispatch(self, "set_params", {"feature": groove.Name,
+                                      "values": {"angle": 200,
+                                                 "angle2": 200}}),
+    ]
+    sketch(6, 0, 10, 4, plane="XZ")
+    refused += [
+        dispatch(self, "add_groove", {"angle": 30, "angle2": 30,
+                                      "midplane": True}),
+        dispatch(self, "add_groove", {"angle": 30, "axis": "edge:999"}),
+    ]
+    report["p163_refus"] = (
+        all(r.get("ok") is False for r in refused)
+        and near(float(body.Shape.Volume), before)
+        and len(body.Group) == count + 1)     # la seule esquisse ajoutée

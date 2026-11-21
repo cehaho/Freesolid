@@ -219,6 +219,7 @@ export function revolutionAxisOptions(sketch, current = "vertical") {
     ["X", "Axe X de l'origine"],
     ["Y", "Axe Y de l'origine"],
     ["Z", "Axe Z de l'origine"],
+    ["edge", "Arête de la pièce"],
   );
   if (current && !options.some(([value]) => value === current)) {
     const id = Number(String(current).replace(/^line:/, ""));
@@ -238,39 +239,91 @@ export function defaultRevolutionAxis(sketch) {
   return axes.length === 1 ? "line:" + axes[0].id : "vertical";
 }
 
-/** Groupes du panneau révolution / gorge, à la création comme à la réédition. */
+/** Rang de l'arête d'un jeton `edge:<n>`, sinon null. */
+function edgeOfAxis(axis) {
+  const found = /^edge:(\d+)$/.exec(String(axis ?? ""));
+  return found ? Number(found[1]) : null;
+}
+
+/** Jeton d'axe des valeurs du panneau : `edge:<n>` pour l'arête cliquée,
+ *  null si « Arête de la pièce » n'a pas encore d'arête. */
+function axisToken(v) {
+  if (v.axis !== "edge") return v.axis || "vertical";
+  const edge = v.axisEdge?.edges?.[0];
+  return Number.isInteger(edge) ? "edge:" + edge : null;
+}
+
+/** Groupes du panneau révolution / gorge, à la création comme à la
+ *  réédition. Comme dans les modeleurs courants : une direction, plan
+ *  milieu ou deux directions (`angle2`) ; l'axe peut être une arête
+ *  droite de la pièce, cliquée dans la vue. */
 export function revolutionGroups(sketch, {
   angle = 360, axis = "vertical", reversed = false, midplane = false,
+  angle2 = null,
 } = {}) {
+  const twoWay = angle2 != null && !midplane;
+  const edge = edgeOfAxis(axis);
+  const choice = edge != null ? "edge" : axis;
   return [
     { label: "Direction 1", rows: [
-      { type: "select", key: "cond", value: midplane ? "milieu" : "one",
-        options: [["one", "Une direction"], ["milieu", "Plan milieu"]] },
+      { type: "select", key: "cond",
+        value: midplane ? "milieu" : twoWay ? "deux" : "one",
+        options: [["one", "Une direction"], ["milieu", "Plan milieu"],
+                  ["deux", "Deux directions"]] },
       measureRow("angle", "Angle", angle, "°"),
       { type: "check", key: "reversed", label: "Inverser la direction",
         value: !!reversed && !midplane,
         showIf: (v) => v.cond !== "milieu" },
     ] },
+    // Comme dans les modeleurs courants : le groupe ne paraît qu'avec
+    // « Deux directions ».
+    { label: "Direction 2", showIf: (v) => v.cond === "deux", rows: [
+      measureRow("angle2", "Angle", twoWay ? angle2 : 30, "°",
+        (v) => v.cond === "deux"),
+    ] },
     { label: "Axe", rows: [
-      { type: "select", key: "axis", label: "Axe", value: axis,
-        options: revolutionAxisOptions(sketch, axis) },
+      { type: "select", key: "axis", label: "Axe", value: choice,
+        options: revolutionAxisOptions(sketch, choice) },
+      // Comme dans les modeleurs courants : cliquer une arête droite de
+      // la pièce la prend pour axe, même si la liste est ailleurs.
+      { type: "selection", key: "axisEdge", accepts: ["edges"],
+        hint: "Cliquez une arête droite",
+        reveal: { key: "axis", value: "edge" },
+        ...(edge != null ? { value: { kind: "edges", edges: [edge] } } : {}),
+        showIf: (v) => v.axis === "edge" },
     ] },
   ];
 }
 
-/** Params `add_revolution` / `add_groove`, ou null si l'angle est invalide. */
+/** Params `add_revolution` / `add_groove`, ou null si une valeur manque
+ *  ou ne va pas (`revolutionProblem` dit laquelle). */
 export function revolutionCreationParams(v, op) {
   const angle = plainNumber(v.angle);
   if (!(angle > 0) || angle > 360) return null;
   const params = { angle };
-  const axis = v.axis || "vertical";
+  const axis = axisToken(v);
+  if (axis == null) return null;
   if (axis !== "vertical") params.axis = axis;
+  if (v.cond === "deux") {
+    const angle2 = plainNumber(v.angle2);
+    if (!(angle2 > 0) || angle + angle2 > 360) return null;
+    params.angle2 = angle2;
+  }
   if (v.cond === "milieu") params.midplane = true;
   else if (v.reversed) params.reversed = true;
   return { op, params };
 }
 
-export function revolutionProblem() {
+/** Pourquoi le panneau refuse ses valeurs. */
+export function revolutionProblem(v = {}) {
+  if (v.axis === "edge" && axisToken(v) == null) {
+    return "Cliquez une arête droite pour l'axe";
+  }
+  const angle = plainNumber(v.angle);
+  const angle2 = plainNumber(v.angle2);
+  if (v.cond === "deux" && angle > 0 && angle2 > 0 && angle + angle2 > 360) {
+    return "Les deux angles dépassent un tour";
+  }
   return "Angle de révolution invalide";
 }
 
@@ -282,12 +335,25 @@ export function revolutionEditValues(v, revolution, params) {
   const stored = storedMeasure(params, "angle", revolution.angle);
   const angle = readMeasure(v.angle, stored, { min: 0, max: 360.0001 });
   if (angle == null) return null;
-  const axis = v.axis || "vertical";
+  const axis = axisToken(v);
+  if (axis == null) return null;
   const midplane = v.cond === "milieu";
   const reversed = midplane ? false : !!v.reversed;
   const values = {};
   if (!sameMeasure(angle, stored)) values.angle = angle;
   if (axis !== (revolution.axis || "vertical")) values.axis = axis;
+  // Deux directions : l'angle de la seconde ; 0 la ferme.
+  const before = revolution.angle2 ?? null;
+  if (v.cond === "deux") {
+    const angle2 = plainNumber(v.angle2);
+    if (!(angle2 > 0)) return null;
+    if (typeof angle === "number" && angle + angle2 > 360) return null;
+    if (before == null || Math.abs(angle2 - before) > 1e-9) {
+      values.angle2 = angle2;
+    }
+  } else if (before != null) {
+    values.angle2 = 0;
+  }
   if (reversed !== !!revolution.reversed || midplane !== !!revolution.midplane) {
     values.reversed = reversed;
     values.midplane = midplane;
@@ -315,7 +381,7 @@ function revolved({ button, op, icon, title, merge = false }) {
         ? mergeParams(v, bodies) : cutParams(v, bodies)) };
       return built;
     },
-    invalid: () => revolutionProblem(),
+    invalid: (v) => revolutionProblem(v),
     refresh: "part",
   });
 }
