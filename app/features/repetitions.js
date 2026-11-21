@@ -133,8 +133,11 @@ export function patternDirectionRows(defaultAxis) {
     { type: "select", key: "axis", value: defaultAxis,
       options: [["X", "Axe X"], ["Y", "Axe Y"], ["Z", "Axe Z"]],
       showIf: (v) => v.dirKind !== "edge" },
+    // Comme dans les modeleurs courants, cliquer une arête donne la
+    // direction, même quand la liste est sur un axe d'origine.
     { type: "selection", key: "edge", accepts: ["edges"],
       hint: "Cliquez une arête droite",
+      reveal: { key: "dirKind", value: "edge" },
       showIf: (v) => v.dirKind === "edge" },
     { type: "check", key: "reversed", label: "Inverser la direction",
       value: false },
