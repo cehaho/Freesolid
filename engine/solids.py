@@ -1565,7 +1565,11 @@ class SolidsMixin:
             # courants, où l'on clique l'arête qui sert d'axe.
             base = (getattr(feature, "BaseFeature", None)
                     if feature is not None else getattr(body, "Tip", None))
-            return self._revolution_edge_link(base, token.split(":", 1)[1])
+            rank = self._revolution_edge_rank(base, token.split(":", 1)[1])
+            # Une ligne cachée calée sur l'arête la porte : le lien direct
+            # à une arête née de l'extrusion se perd quand sa cote change
+            # (FreeCAD 1.1 n'en retrouve plus le nom).
+            return (self._edge_axis_datum(base, rank, body), [""])
         if token.startswith("line:"):
             try:
                 gid = int(token.split(":", 1)[1])
@@ -1594,9 +1598,8 @@ class SolidsMixin:
             "axe de révolution inconnu « {} »".format(token))
 
     @staticmethod
-    def _revolution_edge_link(base, rank):
-        """Lien ``(base, ["EdgeN"])`` vers l'arête droite ``rank`` (base 0)
-        de la pièce ``base``."""
+    def _revolution_edge(base, rank):
+        """L'arête droite ``rank`` (base 0) de la pièce ``base``."""
         from engine.kernel import KernelError
         shape = getattr(base, "Shape", None)
         edges = list(getattr(shape, "Edges", []) or []) if shape else []
@@ -1608,10 +1611,80 @@ class SolidsMixin:
             index = -1
         if index < 0 or index >= len(edges):
             raise KernelError("arête inconnue : {}".format(rank))
-        curve = getattr(edges[index], "Curve", None)
+        edge = edges[index]
+        curve = getattr(edge, "Curve", None)
         if "Line" not in type(curve).__name__:
             raise KernelError("l'axe de révolution doit être une arête droite")
-        return (base, ["Edge{}".format(index + 1)])
+        return edge
+
+    def _revolution_edge_rank(self, base, rank):
+        """``rank`` vérifié : une arête droite de ``base``."""
+        self._revolution_edge(base, rank)
+        return int(rank)
+
+    def _edge_axis_datum(self, base, rank, body=None):
+        """Ligne de référence cachée, calée sur l'arête ``rank`` de
+        ``base`` ; ``_refresh_edge_axes`` la recale après chaque
+        reconstruction de la pièce."""
+        body = body or self._require_body()
+        for obj in body.Group:
+            if (getattr(obj, "FreeSolidAxisTool", False)
+                    and "AxisEdge" in obj.PropertiesList
+                    and getattr(obj, "AxisBase", None) == base
+                    and int(obj.AxisEdge) == int(rank)):
+                self._place_edge_axis_datum(obj)
+                return obj
+        tip = getattr(body, "Tip", None)
+        datum = body.newObject("PartDesign::Line", "AxisLine")
+        datum.addProperty("App::PropertyBool", "FreeSolidAxisTool",
+                          "FreeSolid", "Axe interne d'une révolution")
+        datum.addProperty("App::PropertyLink", "AxisBase",
+                          "FreeSolid", "Pièce dont l'arête sert d'axe")
+        datum.addProperty("App::PropertyInteger", "AxisEdge",
+                          "FreeSolid", "Arête d'axe, à son rang")
+        datum.FreeSolidAxisTool = True
+        datum.AxisBase = base
+        datum.AxisEdge = int(rank)
+        datum.MapMode = "Deactivated"
+        try:
+            datum.Visibility = False
+        except Exception:
+            pass
+        self._place_edge_axis_datum(datum)
+        if tip is not None and getattr(body, "Tip", None) is not tip:
+            body.Tip = tip
+        return datum
+
+    def _place_edge_axis_datum(self, datum):
+        """Cale la ligne sur son arête ; vrai si elle a bougé."""
+        edge = self._revolution_edge(datum.AxisBase, int(datum.AxisEdge))
+        p1 = edge.Vertexes[0].Point
+        direction = edge.Vertexes[-1].Point.sub(p1)
+        app = self._app()
+        placement = app.Placement(
+            p1, app.Rotation(app.Vector(0, 0, 1), direction))
+        if datum.Placement.isSame(placement, 1e-9):
+            return False
+        datum.MapMode = "Deactivated"
+        datum.Placement = placement
+        return True
+
+    def _refresh_edge_axes(self):
+        """Après une reconstruction : les axes portés par une arête
+        suivent la pièce (sa cote a pu changer). Vrai si l'un a bougé."""
+        doc = getattr(self, "_doc", None)
+        if doc is None:
+            return False
+        moved = False
+        for obj in list(doc.Objects):
+            if not (getattr(obj, "FreeSolidAxisTool", False)
+                    and "AxisEdge" in obj.PropertiesList):
+                continue
+            try:
+                moved = self._place_edge_axis_datum(obj) or moved
+            except Exception:  # noqa: BLE001 — l'arête a disparu : la
+                pass           # fonction le dira à la reconstruction
+        return moved
 
     def _sketch_axis_line(self, body, profile, token, feature=None,
                           made=None):
@@ -1742,6 +1815,9 @@ class SolidsMixin:
             sub = ""
         profile_name = getattr(profile, "Name", "") or ""
         target_name = getattr(target, "Name", "") or ""
+        if (getattr(target, "FreeSolidAxisTool", False)
+                and "AxisEdge" in target.PropertiesList):
+            return "edge:{}".format(int(target.AxisEdge))
         if getattr(target, "FreeSolidAxisTool", False):
             return "line:{}".format(int(getattr(target, "AxisGeo", -1)))
         if getattr(target, "FreeSolidSketchAxis", ""):
