@@ -144,6 +144,34 @@ export function patternDirectionRows(defaultAxis) {
   ];
 }
 
+/** Plan d'une symétrie : un plan d'origine, ou — comme dans les
+ *  modeleurs courants — une face plane cliquée dans la vue (la liste
+ *  passe alors sur « Face plane »). */
+export function mirrorPlaneRows(plane = "YZ", face = null,
+                                { faces = true } = {}) {
+  const origin = [["YZ", "Plan de droite"], ["XZ", "Plan de face"],
+                  ["XY", "Plan de dessus"]];
+  if (!faces) {
+    return [{ type: "select", key: "plane", value: plane, options: origin }];
+  }
+  return [
+    { type: "select", key: "plane", value: plane,
+      options: [...origin, ["face", "Face plane"]] },
+    { type: "selection", key: "planeFace", accepts: ["face"],
+      value: Number.isInteger(face) ? { kind: "face", face } : null,
+      hint: "Cliquez une face plane",
+      reveal: { key: "plane", value: "face" },
+      showIf: (v) => v.plane === "face" },
+  ];
+}
+
+/** Params moteur du plan d'une symétrie ; null : face à cliquer. */
+export function mirrorPlaneParams(v) {
+  if (v.plane !== "face") return { plane: v.plane || "YZ" };
+  const face = v.planeFace?.face;
+  return Number.isInteger(face) ? { face } : null;
+}
+
 /** Deuxième direction d'un réseau linéaire → params, null si invalide. */
 export function linearSecondDirection(v) {
   const length2 = num(v.length2);
@@ -252,16 +280,27 @@ export const REPETITIONS = [
     groups: (ctx) => patternGroups(ctx, [
       {
         label: "Plan de symétrie",
-        rows: [
-          { type: "select", key: "plane", value: "YZ",
-            options: [["YZ", "Plan de droite"], ["XZ", "Plan de face"],
-                      ["XY", "Plan de dessus"]] },
-        ],
+        rows: mirrorPlaneRows(),
       },
     ]),
-    build: (v, ctx) => patternBuild(v, ctx, "add_mirror", "mirror",
-                                    { plane: v.plane }),
-    invalid: patternInvalid,
+    build: (v, ctx) => {
+      // Un corps se symétrise par rapport à un plan d'origine seulement.
+      if (repeatsBodies(v)) {
+        return v.plane === "face" ? null
+          : patternBuild(v, ctx, "add_mirror", "mirror", { plane: v.plane });
+      }
+      const plane = mirrorPlaneParams(v);
+      return plane ? patternBuild(v, ctx, "add_mirror", "mirror", plane) : null;
+    },
+    invalid: (v) => {
+      if (v.plane === "face" && repeatsBodies(v)) {
+        return "Un corps se symétrise par rapport à un plan d'origine";
+      }
+      if (v.plane === "face" && !Number.isInteger(v.planeFace?.face)) {
+        return "Cliquez une face plane";
+      }
+      return patternInvalid(v);
+    },
     refresh: "part",
   },
 ];
@@ -354,13 +393,16 @@ function directionEditRows(pattern) {
 /** Groupes d'une répétition rééditée, autour de ses cotes (`dims`, les
  *  rangées de get_params) : direction et sens, plan d'une symétrie ;
  *  pas ou longueur totale et deuxième direction d'un réseau linéaire. */
-export function patternEditGroups(pattern, typeKey, dims = []) {
+export function patternEditGroups(pattern, typeKey, dims = [],
+                                  { bodies = false } = {}) {
   if (typeKey === "mirror") {
-    return [{ label: "Plan de symétrie", rows: [
-      { type: "select", key: "plane", value: pattern?.plane ?? "YZ",
-        options: [["YZ", "Plan de droite"], ["XZ", "Plan de face"],
-                  ["XY", "Plan de dessus"]] },
-    ] }, ...(dims.length ? [{ label: "Paramètres", rows: dims }] : [])];
+    // Une face qui n'est plus sur la pièce : « Face plane », zone vide.
+    // Un corps se symétrise par rapport à un plan d'origine seulement.
+    const onFace = !bodies && !pattern?.plane;
+    return [{ label: "Plan de symétrie", rows: mirrorPlaneRows(
+      onFace ? "face" : pattern?.plane ?? "YZ", pattern?.face ?? null,
+      { faces: !bodies }) },
+    ...(dims.length ? [{ label: "Paramètres", rows: dims }] : [])];
   }
   const polar = typeKey === "polar_pattern";
   const linear = typeKey === "linear_pattern";
@@ -394,7 +436,13 @@ export function patternEditGroups(pattern, typeKey, dims = []) {
  *  direction est incomplète. */
 export function patternEditValues(v, pattern, typeKey) {
   if (typeKey === "mirror") {
-    return v.plane && v.plane !== (pattern?.plane ?? "YZ")
+    if (v.plane === "face") {
+      const face = v.planeFace?.face;
+      if (!Number.isInteger(face)) return pattern?.plane ? null : {};
+      return face !== pattern?.face || pattern?.plane
+        ? { mirror_face: face } : {};
+    }
+    return v.plane && (v.plane !== pattern?.plane)
       ? { plane: v.plane } : {};
   }
   const values = {};

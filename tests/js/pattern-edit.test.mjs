@@ -145,6 +145,34 @@ describe("symétrie rééditée", () => {
     assert.deepEqual(patternEditValues({ plane: "XY" }, pattern, "mirror"),
                      { plane: "XY" });
   });
+
+  it("revient sur sa face plane, et passe d'un plan à une face", () => {
+    const onFace = { features: ["Pocket"], plane: null, face: 4 };
+    const v = initial(patternEditGroups(onFace, "mirror"));
+    assert.equal(v.plane, "face");
+    assert.deepEqual(v.planeFace, { kind: "face", face: 4 });
+    assert.deepEqual(patternEditValues(v, onFace, "mirror"), {});
+    assert.deepEqual(patternEditValues(
+      { ...v, planeFace: { kind: "face", face: 2 } }, onFace, "mirror"),
+      { mirror_face: 2 });
+    assert.deepEqual(patternEditValues({ plane: "YZ" }, onFace, "mirror"),
+                     { plane: "YZ" });
+    const onPlane = { features: ["Pocket"], plane: "XZ", face: null };
+    assert.deepEqual(patternEditValues(
+      { plane: "face", planeFace: { kind: "face", face: 2 } }, onPlane,
+      "mirror"), { mirror_face: 2 });
+    // « Face plane » sans face : rien à appliquer.
+    assert.equal(patternEditValues({ plane: "face", planeFace: null },
+                                   onPlane, "mirror"), null);
+  });
+
+  it("une symétrie de corps ne propose que les plans d'origine", () => {
+    const groups = patternEditGroups({ plane: "XY" }, "mirror", [],
+                                     { bodies: true });
+    const rows = groups[0].rows;
+    assert.equal(rows.length, 1);
+    assert.ok(!rows[0].options.some(([value]) => value === "face"));
+  });
 });
 
 describe("répétition de corps rééditée", () => {
