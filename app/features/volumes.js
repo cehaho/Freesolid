@@ -275,7 +275,9 @@ export function revolutionGroups(sketch, {
         value: !!reversed && !midplane,
         showIf: (v) => v.cond !== "milieu" },
     ] },
-    { label: "Direction 2", rows: [
+    // Comme dans les modeleurs courants : le groupe ne paraît qu'avec
+    // « Deux directions ».
+    { label: "Direction 2", showIf: (v) => v.cond === "deux", rows: [
       measureRow("angle2", "Angle", twoWay ? angle2 : 30, "°",
         (v) => v.cond === "deux"),
     ] },

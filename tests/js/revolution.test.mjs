@@ -131,6 +131,13 @@ describe("révolution : deux directions et arête pour axe", () => {
     assert.ok(!zone.edgeSet);
   });
 
+  it("le groupe Direction 2 ne paraît qu'avec deux directions", () => {
+    const group = revolutionGroups(sketch)
+      .find((g) => g.label === "Direction 2");
+    assert.equal(group.showIf({ cond: "one" }), false);
+    assert.equal(group.showIf({ cond: "deux" }), true);
+  });
+
   it("la réédition rouvre sur l'arête et les deux directions", () => {
     const rows = revolutionGroups(sketch,
       { axis: "edge:4", angle: 30, angle2: 60 }).flatMap((g) => g.rows);
