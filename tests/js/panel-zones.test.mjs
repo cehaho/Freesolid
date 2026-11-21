@@ -31,6 +31,16 @@ describe("zones de sélection", () => {
                            { mode: "selected" }), true);
   });
 
+  it("une zone masquée qui se dévoile prend quand même ses clics", () => {
+    const edge = { type: "selection", key: "edge", accepts: ["edges"],
+                   reveal: { key: "dirKind", value: "edge" },
+                   showIf: (v) => v.dirKind === "edge" };
+    assert.equal(zoneTakes(edge, "edges", { kind: "edges", edges: [3] },
+                           { dirKind: "axis" }), true);
+    assert.equal(zoneTakes({ ...edge, reveal: undefined }, "edges", null,
+                           { dirKind: "axis" }), false);
+  });
+
   it("la vue vise des corps quand la zone active en prend", () => {
     const edge = { type: "selection", key: "edge", accepts: ["edges"] };
     const features = { type: "selection", key: "features",

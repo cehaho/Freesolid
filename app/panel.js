@@ -31,6 +31,9 @@
 //       { type: "check",  key, label, value }
 //       { type: "selection", key, label?, hint?, value?, accepts?, multiple?,
 //         allows?(pick) — faux : la zone n'absorbe pas ce choix ;
+//         reveal?: { key, value } — zone masquée (showIf) qui prend
+//         quand même ses clics : elle pose values[key] = value et
+//         paraît (« Arête » choisie dès qu'on clique une arête) ;
 //         edgeSet? — zone de plusieurs arêtes (congé…) : un clic simple
 //         dans la vue ajoute l'arête, un second la retire ;
 //         solids? — une zone de corps qui vise aussi un solide d'un corps }
@@ -189,9 +192,11 @@ export function zoneAdd(row, kind, items, values) {
 
 /** La zone ``row`` absorbe-t-elle ce choix de genre ``kind`` ? */
 export function zoneTakes(row, kind, pick, values) {
+  const seen = row.reveal
+    ? { ...values, [row.reveal.key]: row.reveal.value } : values;
   return row.type === "selection"
     && (row.accepts ?? ["face"]).includes(kind)
-    && (!row.showIf || row.showIf(values))
+    && (!row.showIf || row.showIf(seen))
     && (!pick || !row.allows || row.allows(pick) !== false);
 }
 
@@ -349,6 +354,13 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
       return true;
     }
     if (!rows.length) return false;
+    // Une zone visible passe avant une zone masquée qui se dévoile.
+    const shown = rows.filter((r) => !r.showIf || r.showIf(active.values));
+    if (shown.length) rows.splice(0, rows.length, ...shown);
+    else if (rows[0].reveal) {
+      active.values[rows[0].reveal.key] = rows[0].reveal.value;
+      rows.splice(1);
+    }
     // La zone active d'abord, si elle prend ce choix.
     const multiRow = rows.find((r) => r.multiple && r.key === active.focus)
       ?? rows.find((r) => r.multiple);
