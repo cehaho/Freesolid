@@ -13,6 +13,13 @@ describe("Entrée dans le panneau", () => {
     assert.equal(enterAction({ tag: "BUTTON", edited: false }), "apply");
   });
 
+  it("boîte de cote : Entrée applique et ferme d'un coup", () => {
+    assert.equal(enterAction({ tag: "INPUT", edited: true,
+      enterApplies: true }), "apply");
+    assert.equal(enterAction({ tag: "INPUT", edited: true,
+      enterApplies: true, noApply: true }), "commit");
+  });
+
   it("liste déroulante et panneau sans validation : rien", () => {
     assert.equal(enterAction({ tag: "SELECT", edited: true }), "none");
     assert.equal(enterAction({ tag: "INPUT", edited: false, noApply: true }),

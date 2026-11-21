@@ -3,7 +3,7 @@
 // au moment du geste.
 
 import { t } from "./i18n.js";
-import { eventToNdc, ndcToScreen } from "./screen.js";
+import { eventToNdc, ndcToScreen, onLabel } from "./screen.js";
 import { snapFacePoint } from "./pointsnap.js";
 import { coordsText, measureText } from "./statusbar.js";
 import {
@@ -662,6 +662,9 @@ export function installPicking(ctx) {
 
   /** Le clic (sans glisser) : il prend ce que le survol vise. */
   function clickAt(event) {
+    // Un clic sur une cote affichée ne prend pas la face derrière : le
+    // double-clic qui suit l'ouvre (comme dans les modeleurs courants).
+    if (!ctx.assemblyState && featureDimAt(event)) return;
     if (ctx.assemblyState) {
       raycaster.setFromCamera(pointer, camera);
       const hit = ctx.asmGroup
@@ -1028,20 +1031,35 @@ export function installPicking(ctx) {
       { f: feature.label, n: ctx.featureDimSprites.length }));
   }
 
-  function pickFeatureDim(event) {
-    if (!ctx.featureDimSprites.length) return false;
+  /** La cote de fonction sous le pointeur : tout son texte se clique
+   *  (les étiquettes gardent leur taille à l'écran). La plus proche si
+   *  deux se chevauchent ; null sinon. */
+  function featureDimAt(event) {
+    if (!ctx.featureDimSprites.length) return null;
     const rect = renderer.domElement.getBoundingClientRect();
+    let best = null;
+    let bestDistance = Infinity;
     for (const sprite of ctx.featureDimSprites) {
       const projected = sprite.position.clone().project(camera);
       const screen = ndcToScreen(projected.x, projected.y, rect);
-      const sx = screen.x;
-      const sy = screen.y;
-      if (Math.hypot(sx - event.clientX, sy - event.clientY) < 22) {
-        editFeatureDim(sprite.userData.dim);
-        return true;
+      const dx = event.clientX - screen.x;
+      const dy = event.clientY - screen.y;
+      if (!onLabel(dx, dy, sprite.userData.aspect,
+                   sprite.userData.labelPx ?? 16.8)) continue;
+      const distance = Math.hypot(dx, dy);
+      if (distance < bestDistance) {
+        best = sprite;
+        bestDistance = distance;
       }
     }
-    return false;
+    return best;
+  }
+
+  function pickFeatureDim(event) {
+    const sprite = featureDimAt(event);
+    if (!sprite) return false;
+    editFeatureDim(sprite.userData.dim);
+    return true;
   }
 
   function editFeatureDim(dim) {

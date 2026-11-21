@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { eventToNdc, nearCursor, ndcToScreen } from "../../app/screen.js";
+import { eventToNdc, nearCursor, ndcToScreen, onLabel } from "../../app/screen.js";
 
 const rect = { left: 10, top: 20, width: 200, height: 100 };
 
@@ -42,5 +42,22 @@ describe("barre près du curseur", () => {
   it("jamais hors du conteneur, même plus grande que la place", () => {
     const wide = { width: 500, height: 30 };
     assert.deepEqual(nearCursor(110, 340, host, wide), { left: 4, top: 246 });
+  });
+});
+
+describe("étiquette de cote cliquable", () => {
+  // « Profondeur = 10.00 » : 16,8 px de haut, environ six fois plus large.
+  const height = 16.8;
+  const aspect = 6;
+
+  it("tout le texte se clique, pas seulement le milieu", () => {
+    assert.equal(onLabel(0, 0, aspect, height), true);
+    assert.equal(onLabel(45, 0, aspect, height), true);   // sur « 10.00 »
+    assert.equal(onLabel(-48, 5, aspect, height), true);
+  });
+
+  it("à côté du texte, la face derrière reste cliquable", () => {
+    assert.equal(onLabel(60, 0, aspect, height), false);
+    assert.equal(onLabel(0, 14, aspect, height), false);
   });
 });
