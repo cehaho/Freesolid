@@ -31,6 +31,8 @@
 //       { type: "check",  key, label, value }
 //       { type: "selection", key, label?, hint?, value?, accepts?, multiple?,
 //         allows?(pick) — faux : la zone n'absorbe pas ce choix ;
+//         edgeSet? — zone de plusieurs arêtes (congé…) : un clic simple
+//         dans la vue ajoute l'arête, un second la retire ;
 //         solids? — une zone de corps qui vise aussi un solide d'un corps }
 //         Une zone multiple de corps (ou de surfaces) liste un objet par
 //         ligne, chacun retirable (✕). La zone active — la dernière
@@ -941,6 +943,10 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
     accepts: (kind) => active !== null
       && (selectionRows(kind).length > 0
           || (kind === "point3d" && findPointsRow() !== null)),
+    /** Une zone de plusieurs arêtes (`edgeSet`) prend les clics : le
+     *  clic simple ajoute ou retire l'arête. */
+    collectsEdges: () => active !== null
+      && selectionRows("edges").some((row) => row.edgeSet),
     /** La vue vise des corps entiers (`bodyPicking`). */
     pickingBodies: () => active !== null
       && bodyPicking(shownZones(), active.focus),

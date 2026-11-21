@@ -323,7 +323,7 @@ export const HABILLAGE = [
     icon: "fillet", title: "Congé",
     selectionLabel: "Éléments à arrondir",
     accepts: ["edges", "face"],
-    hint: "Cliquez des arêtes (Ctrl = ajouter) ou une face",
+    hint: "Cliquez des arêtes (un second clic retire) ou une face",
     group: "Paramètres du congé",
     rows: [{ type: "number", key: "radius", label: "Rayon", value: 3,
              unit: "mm", min: 0.01 }],
@@ -341,7 +341,7 @@ export const HABILLAGE = [
     icon: "chamfer", title: "Chanfrein",
     selectionLabel: "Éléments à chanfreiner",
     accepts: ["edges", "face"],
-    hint: "Cliquez des arêtes (Ctrl = ajouter) ou une face",
+    hint: "Cliquez des arêtes (un second clic retire) ou une face",
     group: "Paramètres du chanfrein",
     rows: chamferRows(),
     build: (v) => {
