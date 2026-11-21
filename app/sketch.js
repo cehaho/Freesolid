@@ -2489,12 +2489,14 @@ export function createSketchMode(deps) {
     }
     controls.enableRotate = true;
 
+    let kept = false;
     if (keep && mode.state) {
       mode.lastFinished = mode.state.sketch;
       try {
         const tree = await call("sketch_finish",
           { sketch: mode.state.sketch });
         await refresh(Promise.resolve(tree));
+        kept = true;
         if (tree.open_profile) {
           say("Esquisse terminée — profil non fermé : il servira de "
               + "trajectoire ou de surface, pas de profil d'extrusion.");
@@ -2514,6 +2516,10 @@ export function createSketchMode(deps) {
       await refresh(call("get_tree"));
     }
     mode.state = null;
+    // Esquisse terminée (gardée ou non) : une fonction lancée sans
+    // esquisse libre attend ce signal pour s'ouvrir.
+    document.dispatchEvent(new CustomEvent("freesolid:sketch-done",
+      { detail: { kept } }));
   }
 
   // Preview line must survive redraws: patch redraw to re-add it.

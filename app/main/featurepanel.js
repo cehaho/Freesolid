@@ -4,7 +4,9 @@
 
 import { panelNotice } from "../panel.js";
 import { num, plainNumber } from "../num.js";
-import { holePositions, resolveProfileSketch } from "../features.js";
+import {
+  holePositions, resolveProfileSketch, NO_SKETCH_AVAILABLE,
+} from "../features.js";
 import { combineFinished } from "../combine.js";
 import { latestGraphOrRepeat } from "../graph.js";
 
@@ -12,7 +14,7 @@ export function installFeaturePanel(ctx) {
   const {
     panel, confirm, call, say, refresh, updateFilletRadiusBubble,
     schedulePreview, findFeatureInTree, refreshAny, enterGraphFeature,
-    featureCommand,
+    featureCommand, sketchThenFeature,
   } = ctx;
 
   // Dans openFeaturePanel, `ctx` est le contexte des fonctions (FEATURES) :
@@ -63,6 +65,14 @@ export function installFeaturePanel(ctx) {
       get: () => app.lastFaceHit,
     });
     const blocked = entry.guard?.(ctx);
+    // Pas d'esquisse libre : comme dans les modeleurs courants, la
+    // fonction fait choisir un plan (ou prend la face sélectionnée),
+    // ouvre l'esquisse et reprend à sa sortie.
+    if (blocked === NO_SKETCH_AVAILABLE && entry.sketchProfile
+        && sketchThenFeature) {
+      sketchThenFeature(entry);
+      return;
+    }
     if (blocked) { say(blocked, true); return; }
     const spline = app.selectedFaceId != null && app.meshGroups.some(
       (g) => g.faceId === app.selectedFaceId && g.spline);

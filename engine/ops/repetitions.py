@@ -8,7 +8,8 @@ from engine.ops._base import Op, Req
 
 
 OPS = (
-    Op("add_mirror", Req(optional={"features": list, "scope": list}),
+    Op("add_mirror", Req(optional={"features": list, "scope": list,
+                                   "face": int}),
        undo=True, preview=True,
        no_replay="Originals n'est pas une cote"),
                                        # optional: plane (XY|XZ|YZ), features

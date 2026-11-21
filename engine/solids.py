@@ -1996,25 +1996,48 @@ class SolidsMixin:
             raise
         return self.get_tree()
 
-    def add_mirror(self, plane="YZ", features=None, scope=None):
+    def add_mirror(self, plane="YZ", features=None, scope=None, face=None):
         """Symétrie d'une ou plusieurs fonctions par rapport à un plan
-        d'origine (XY/XZ/YZ = Dessus/Face/Droite).
+        d'origine (XY/XZ/YZ = Dessus/Face/Droite) ou, comme dans les
+        modeleurs courants, à une face plane de la pièce (``face`` :
+        numéro 0-based, prioritaire sur ``plane``).
 
         ``features`` : noms des fonctions à symétriser. Absent : la
         dernière fonction additive ou soustractive du corps actif.
         ``scope`` : corps concernés, voir ``_transform``.
         """
         from engine.kernel import KernelError
-        role = self._PLANE_ROLES.get(str(plane).upper())
-        if role is None:
-            raise KernelError(
-                "plan inconnu « {} » — attendu XY, XZ ou YZ".format(plane))
-        plane_obj = self._origin_feature(role)
+        if face is not None:
+            tip = self._require_body().Tip
+            if tip is None:
+                raise KernelError("aucune face : la pièce est vide")
+            link = self._mirror_face_link(tip, face)
+        else:
+            role = self._PLANE_ROLES.get(str(plane).upper())
+            if role is None:
+                raise KernelError(
+                    "plan inconnu « {} » — attendu XY, XZ ou YZ".format(plane))
+            link = (self._origin_feature(role), [""])
 
         def configure(feature):
-            feature.MirrorPlane = (plane_obj, [""])
+            feature.MirrorPlane = link
         return self._transform("PartDesign::Mirrored", configure,
                                features=features, scope=scope)
+
+    @staticmethod
+    def _mirror_face_link(base, face):
+        """Plan de symétrie pris sur une face plane de ``base``."""
+        from engine.kernel import KernelError
+        faces = base.Shape.Faces if base is not None else []
+        if type(face) is not int or not 0 <= face < len(faces):
+            raise KernelError("face inconnue : {}".format(face))
+        try:
+            planar = faces[face].findPlane() is not None
+        except Exception:  # noqa: BLE001
+            planar = False
+        if not planar:
+            raise KernelError("symétrie : choisissez une face plane")
+        return (base, ["Face{}".format(face + 1)])
 
     def _origin_axis(self, axis, body=None):
         from engine.kernel import KernelError
@@ -2121,6 +2144,7 @@ class SolidsMixin:
     #: Clés de ``set_params`` qu'une répétition re-choisit (``count2``,
     #: soit ``Occurrences2``, en plus, à l'activation de la direction 2).
     _PATTERN_PICKS = ("features", "axis", "edge", "reversed", "plane",
+                      "mirror_face",
                       "mode", "dir2", "axis2", "edge2", "reversed2",
                       "length2")
 
@@ -2188,8 +2212,15 @@ class SolidsMixin:
         state = {"features": [o.Name for o in obj.Originals or ()]}
         if obj.TypeId == "PartDesign::Mirrored":
             planes = {role: plane for plane, role in self._PLANE_ROLES.items()}
-            target = (obj.MirrorPlane or (None,))[0]
+            link = obj.MirrorPlane or (None, [])
+            target = link[0]
             state["plane"] = planes.get(getattr(target, "Role", ""))
+            state["face"] = None
+            if state["plane"] is None and target is not None:
+                subs = link[1] if len(link) > 1 else []
+                subs = list(subs) if isinstance(subs, (list, tuple)) else [subs]
+                state["face"] = self._element_at_rank(
+                    base, target, subs[0] if subs else "")
             return state
         linear = obj.TypeId == "PartDesign::LinearPattern"
         state.update(self._pattern_link_state(
@@ -2260,7 +2291,14 @@ class SolidsMixin:
                                   "YZ".format(picks["plane"]))
             put("MirrorPlane", (self._origin_feature(
                 role, obj.getParentGeoFeatureGroup()), [""]))
-        rest = [key for key in picks if key not in ("features", "plane")]
+        if "mirror_face" in picks:
+            if not mirror:
+                raise KernelError(
+                    "propriété non éditable : {}".format("mirror_face"))
+            put("MirrorPlane", self._mirror_face_link(
+                getattr(obj, "BaseFeature", None), picks["mirror_face"]))
+        rest = [key for key in picks
+                if key not in ("features", "plane", "mirror_face")]
         if mirror and rest:
             raise KernelError("propriété non éditable : {}".format(rest[0]))
         linear = obj.TypeId == "PartDesign::LinearPattern"

@@ -116,13 +116,25 @@ const {
 // panel (OK or cancel) always clears the yellow ghost preview.
 const panel = createPropertyPanel({
   say,
-  onClose: () => {
+  onClose: ({ apply = false, silent = false } = {}) => {
     clearGhost();
     clearFilletRadiusBubble();
     sketchInfoOpen = false;
     // La fonction cliquée (ou rééditée) dans l'arbre a servi : comme dans
     // les modeleurs courants, rien ne reste sélectionné après la commande.
-    if (selectedFeatureName) {
+    // Une commande annulée lâche aussi ce qu'on a cliqué dans la vue pour
+    // elle (faces, arêtes, esquisses) ; validée, la reconstruction le fait.
+    const dropView = !apply && !silent
+      && (selectedFaceId !== null || selectedEdges.size > 0);
+    if (dropView) {
+      selectedFaceId = null;
+      selectedEdges = new Set();
+      ctx.clearSketchSelection?.({ quiet: true });
+      ctx.clearSurfaceSelection?.({ quiet: true });
+      repaintGroups();
+      repaintEdges();
+    }
+    if (selectedFeatureName || dropView) {
       selectedFeatureName = null;
       if (lastTree) ctx.renderTree(lastTree);
     }
@@ -804,6 +816,11 @@ function clearGhost() {
   previewFloor = previewGen;
   previewNext = null;
   hideGhost();
+  // L'échec d'un aperçu ne survit pas à sa commande.
+  if (previewFailed) {
+    previewFailed = false;
+    say("");
+  }
 }
 
 // Aperçu d'un plan de référence : un carré translucide là où le moteur
@@ -1227,6 +1244,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     refreshAny(call(event.key === "z" ? "undo" : "redo"));
   } else if (event.key === "Escape" && planePicking) {
+    pendingFeature = null;
     cancelPlanePick();
   } else if (event.key === "Escape" && measuring) {
     cancelMeasure();
@@ -1605,9 +1623,31 @@ async function featureCommand(openPanel) {
     say("Fermez d'abord la fonction graphe (Échap ou Fermer)", true);
     return;
   }
+  // Une fonction choisie pendant le dessin prend la main : celle qui
+  // attendait la sortie de l'esquisse ne s'ouvre plus.
+  pendingFeature = null;
   if (sketchMode.active) await sketchMode.finish();
   openPanel();
 }
+
+/** Fonction à profil lancée sans esquisse libre : bouton du ruban à
+ *  recliquer quand l'esquisse ouverte pour elle sera terminée. */
+let pendingFeature = null;
+
+function sketchThenFeature(entry) {
+  document.getElementById("btn-sketch")?.click();
+  // Le clic ouvre l'esquisse (face ou plan déjà choisi) ou le choix
+  // d'un plan ; la fonction attend sa sortie.
+  pendingFeature = entry.button;
+  say(t("{f} : cliquez un plan ou une face plane pour esquisser le profil "
+        + "(Échap pour annuler)", { f: t(entry.title) }));
+}
+
+document.addEventListener("freesolid:sketch-done", (event) => {
+  const button = pendingFeature;
+  pendingFeature = null;
+  if (button && event.detail?.kept) document.getElementById(button)?.click();
+});
 
 // ---------- plan de coupe visuel ----------
 
@@ -1725,7 +1765,7 @@ document.getElementById("btn-clip").addEventListener("click", () => {
 Object.assign(ctx, {
   panel, confirm, call, say, refresh, updateFilletRadiusBubble,
   schedulePreview, findFeatureInTree, refreshAny, enterGraphFeature,
-  featureCommand,
+  featureCommand, sketchThenFeature,
 });
 const {
   currentSelection, openFeaturePanel, bindFeature, editDepthHandle,

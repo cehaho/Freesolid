@@ -231,6 +231,14 @@ export function revolutionAxisOptions(sketch, current = "vertical") {
   return options;
 }
 
+/** Axe proposé à la création : la ligne de construction de l'esquisse
+ *  quand elle est seule — comme dans les modeleurs courants, qui prennent
+ *  d'office l'unique axe de l'esquisse —, sinon l'axe vertical. */
+export function defaultRevolutionAxis(sketch) {
+  const axes = (sketch?.lines ?? []).filter((line) => line.construction);
+  return axes.length === 1 ? "line:" + axes[0].id : "vertical";
+}
+
 /** Rang de l'arête d'un jeton `edge:<n>`, sinon null. */
 function edgeOfAxis(axis) {
   const found = /^edge:(\d+)$/.exec(String(axis ?? ""));
@@ -354,9 +362,15 @@ export function revolutionEditValues(v, revolution, params) {
 function revolved({ button, op, icon, title, merge = false }) {
   return withSketchProfile({
     button, op, icon, title,
-    groups: (ctx) => [...revolutionGroups(resolveProfileSketch(ctx)),
-                      ...(merge ? mergeGroups(ctx?.lastTree?.bodies)
-                        : cutGroups(ctx?.lastTree?.bodies))],
+    groups: (ctx) => {
+      // L'entrée de l'arbre porte les lignes ; une esquisse cliquée
+      // dans l'arbre n'a parfois que son nom.
+      const sketch = profileSketchEntry(ctx) ?? resolveProfileSketch(ctx);
+      return [...revolutionGroups(sketch,
+        { axis: defaultRevolutionAxis(sketch) }),
+        ...(merge ? mergeGroups(ctx?.lastTree?.bodies)
+          : cutGroups(ctx?.lastTree?.bodies))];
+    },
     build: (v, ctx) => {
       const built = revolutionCreationParams(v, op);
       if (!built) return built;

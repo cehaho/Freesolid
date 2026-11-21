@@ -50,6 +50,8 @@
  "aucune face latérale": "no side face",
  "aucune face orientée vers le haut": "no upward-facing face",
  "aucune face à coudre": "no face to knit",
+ "aucune face : la pièce est vide": "no face: the part is empty",
+ "symétrie : choisissez une face plane": "mirror: pick a planar face",
  "aucune fonction dans la pièce": "no feature in the part",
  "aucune fonction à répéter — créez d'abord un bossage ou un enlèvement de matière": "no feature to pattern — create a boss or a cut first",
  "aucune fonction à répéter — la liste features est vide": "no feature to pattern — the features list is empty",

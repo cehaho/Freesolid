@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   revolutionAxisOptions, revolutionCreationParams, revolutionEditValues,
   revolutionGroups, revolutionProblem,
+  defaultRevolutionAxis, FEATURES,
 } from "../../app/features.js";
 
 const sketch = {
@@ -16,6 +17,29 @@ const sketch = {
 };
 
 describe("création de la révolution", () => {
+  it("prend d'office l'unique ligne de construction comme axe", () => {
+    assert.equal(defaultRevolutionAxis(sketch), "line:3");
+    assert.equal(defaultRevolutionAxis({ lines: [sketch.lines[0]] }),
+      "vertical");
+    const two = { lines: [...sketch.lines,
+      { id: 4, construction: true, x1: 0, y1: 5, x2: 10, y2: 5 }] };
+    assert.equal(defaultRevolutionAxis(two), "vertical");
+    assert.equal(defaultRevolutionAxis(null), "vertical");
+  });
+
+  it("le panneau part sur cet axe, même si l'esquisse est cliquée dans l'arbre", () => {
+    const lastTree = { features: [
+      { name: "Sketch", label: "Esquisse1", type_key: "sketch", ...sketch }] };
+    for (const button of ["btn-revolution", "btn-groove"]) {
+      const spec = FEATURES.find((f) => f.button === button);
+      const groups = spec.groups({ lastTree, selection: () => null,
+        selectedSketch: { name: "Sketch", label: "Esquisse1" } });
+      const row = groups.flatMap((g) => g.rows ?? [])
+        .find((r) => r.key === "axis");
+      assert.equal(row.value, "line:3", button);
+    }
+  });
+
   it("place les lignes de construction avant les lignes réelles", () => {
     const values = revolutionAxisOptions(sketch).map(([value]) => value);
     assert.deepEqual(values.slice(0, 4),
