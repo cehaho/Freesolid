@@ -294,7 +294,8 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
     aside.classList.remove("panel-open");
     document.removeEventListener("keydown", onKey, true);
     panelEl.innerHTML = "";
-    onClose?.(); // efface l'aperçu avant d'appliquer ou d'abandonner
+    // efface l'aperçu avant d'appliquer ou d'abandonner
+    onClose?.({ apply, silent });
     onPicks?.([]);
     spec.onClose?.(); // l'outil range ses écouteurs, quoi qu'il arrive
     onToggle?.();
