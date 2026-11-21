@@ -7625,3 +7625,61 @@ def p161_decalage_de_la_face_d_arrivee(self, mark, report, etat):
         near(read, 5) and edit.get("ok") is True
         and near(self._extrude_state(pad)["offset"], -5)
         and near(float(body.Shape.Volume), 3000 + 3500))
+
+
+def p162_symetrie_par_une_face(self, mark, report, etat):
+    mark("p162: symétrie par rapport à une face plane de la pièce")
+    # Comme dans les modeleurs courants : le plan de symétrie peut être
+    # une face plane cliquée, pas seulement un plan d'origine.
+    from engine.kernel import dispatch
+    self.new_part("Symétrie par une face")
+
+    def block(x1, y1, x2, y2, height):
+        name = self.sketch_start(plane="XY")["sketch"]
+        self.sketch_add_rectangle(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        self.add_pad(height)
+
+    block(0, 0, 10, 10, 10)                     # cube 1000
+    block(10, 3, 15, 7, 10)                     # bossage 200, x 10 → 15
+    body = self._require_body()
+    boss = body.Tip
+
+    def face_at_x(x):
+        return next(i for i, f in enumerate(body.Shape.Faces)
+                    if abs(f.CenterOfMass.x - x) < 1e-6
+                    and abs(f.normalAt(0, 0).x) > 0.99)
+
+    def near(a, b):
+        return abs(a - b) < 1e-6
+
+    out = dispatch(self, "add_mirror", {"features": [boss.Name],
+                                        "face": face_at_x(15)})
+    mirror = body.Tip
+    box = body.Shape.BoundBox
+    state = self._pattern_state(mirror)
+    report["p162_symetrie_par_une_face"] = (
+        out.get("ok") is True and near(float(body.Shape.Volume), 1400)
+        and near(box.XMax, 20) and state.get("plane") is None
+        and isinstance(state.get("face"), int))
+
+    # Réédition : la face droite du cube (x = 10) — la copie rentre dans
+    # le cube, seul le bossage d'origine dépasse.
+    base = mirror.BaseFeature
+    side = next(i for i, f in enumerate(base.Shape.Faces)
+                if abs(f.CenterOfMass.x - 10) < 1e-6
+                and f.normalAt(0, 0).x > 0.99)
+    edit = dispatch(self, "set_params", {"feature": mirror.Name,
+                                         "values": {"mirror_face": side}})
+    box = body.Shape.BoundBox
+    report["p162_reedition_de_la_face"] = (
+        edit.get("ok") is True and near(float(body.Shape.Volume), 1200)
+        and near(box.XMin, 0) and near(box.XMax, 15)
+        and self._pattern_state(mirror).get("face") == side)
+
+    # Une face qui n'existe pas est refusée, la pièce ne bouge pas.
+    bad = dispatch(self, "set_params", {"feature": mirror.Name,
+                                        "values": {"mirror_face": 999}})
+    report["p162_face_inconnue_refusee"] = (
+        bad.get("ok") is False and near(float(body.Shape.Volume), 1200)
+        and self._pattern_state(mirror).get("face") == side)

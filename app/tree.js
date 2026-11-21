@@ -3122,7 +3122,8 @@ export function installTree(ctx) {
       icon: (kind ? BODY_PATTERN_ICONS[kind] : TREE_ICONS[feature.type_key])
         ?? "body",
       zone,
-      groups: [...patternEditGroups(pattern, typeKey, dims),
+      groups: [...patternEditGroups(pattern, typeKey, dims,
+                                    { bodies: !!kind }),
                ...bodyChoiceGroups(feature, tree)],
       values: (v) => {
         const own = patternEditValues(v, pattern, typeKey);

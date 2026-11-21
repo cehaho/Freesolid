@@ -49,6 +49,20 @@ describe("répéter des corps", () => {
       params: { kind: "mirror", bodies: ["Body001"], plane: "XY" } });
   });
 
+  it("symétrie de fonctions par rapport à une face plane cliquée", () => {
+    const mirror = entry("btn-mirror");
+    const v = { target: "features", plane: "face",
+                planeFace: { kind: "face", face: 5 } };
+    assert.deepEqual(mirror.build(v, CTX),
+                     { op: "add_mirror", params: { face: 5 } });
+    assert.equal(mirror.build({ ...v, planeFace: null }, CTX), null);
+    assert.equal(mirror.invalid({ ...v, planeFace: null }),
+                 "Cliquez une face plane");
+    // Un corps : plan d'origine seulement.
+    assert.equal(mirror.build({ ...v, target: "bodies",
+                                sources: zone("Body001") }, CTX), null);
+  });
+
   it("zone vide : pas d'op, le panneau dit pourquoi", () => {
     const mirror = entry("btn-mirror");
     const v = { target: "bodies", plane: "YZ", sources: zone() };
