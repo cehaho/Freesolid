@@ -55,6 +55,7 @@ export {
   mergeParams,
   mergeProblem,
   revolutionAxisOptions,
+  defaultRevolutionAxis,
   revolutionCreationParams,
   revolutionEditValues,
   revolutionGroups,
