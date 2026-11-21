@@ -38,6 +38,7 @@ def _rejouer_revolution(kernel, feat, sketch, cote):
         axis=feat.get("axis") or "vertical",
         reversed=bool(feat.get("reversed")),
         midplane=bool(feat.get("midplane")),
+        angle2=feat.get("angle2"),
         bodies=[])
 
 
@@ -48,6 +49,7 @@ def _rejouer_enlevement_revolution(kernel, feat, sketch, cote):
         axis=feat.get("axis") or "vertical",
         reversed=bool(feat.get("reversed")),
         midplane=bool(feat.get("midplane")),
+        angle2=feat.get("angle2"),
         bodies=[])
 
 
@@ -115,8 +117,10 @@ OPS = (
     Op("add_revolution", Req(optional={
         "angle": float,          # degrés, défaut 360
         "axis": str,             # vertical | horizontal | line:<id> | X | Y | Z
+                                 # | edge:<n> (arête droite de la pièce)
         "reversed": bool,
         "midplane": bool,
+        "angle2": float,         # deux directions : angle de la seconde
         "contours": list,        # index des contours de l'esquisse pris
         "merge": bool,           # faux : un nouveau corps
         "body": str,             # le corps où fusionner (défaut : l'actif)
@@ -130,6 +134,7 @@ OPS = (
         "axis": str,
         "reversed": bool,
         "midplane": bool,
+        "angle2": float,
         "contours": list,
         "bodies": list,          # corps creusés (absent : ceux traversés)
     }),

@@ -146,6 +146,11 @@ class EquationsMixin:
         # de la pièce à son rang, posée avec les conditions de fin.
         arrival = (values.pop("face", None)
                    if obj.TypeId in self._EXTRUDE_KINDS else None)
+        # Deux directions d'une révolution : l'angle de la seconde, ou
+        # 0 / None pour revenir à une direction. Posé avant les cotes.
+        two_way = ("angle2" in values and obj.TypeId in (
+            "PartDesign::Revolution", "PartDesign::Groove"))
+        angle2 = values.pop("angle2", None) if two_way else None
         picks = {key: values.pop(key) for key in ("edges", "face", "faces")
                  if key in values}
         targets = self._picked_subs(obj, picks) if picks else None
@@ -248,6 +253,12 @@ class EquationsMixin:
             editable = editable + ("Size2", "ChamferType", "FlipDirection")
         if revolved:
             editable = editable + ("Reversed", "Midplane", "axis")
+        if two_way:
+            try:
+                self._set_revolution_two_way(obj, angle2, values, previous)
+            except KernelError:
+                self._restore_props(obj, previous)
+                raise
         shelled = obj.TypeId == "PartDesign::Thickness"
         if shelled:
             editable = editable + ("Reversed",)
@@ -548,6 +559,35 @@ class EquationsMixin:
             props[prop] = value
             asked[prop] = str(key)
         return props, asked
+
+    def _set_revolution_two_way(self, obj, angle2, values, previous):
+        """Ouvre (``angle2`` > 0) ou ferme (0, None) la seconde direction
+        d'une révolution ; ``values`` : les cotes rééditées en même temps
+        (angle, plan milieu), vérifiées avec elle."""
+        from engine.kernel import KernelError, _explain, parse_user_number
+        if isinstance(angle2, str):
+            angle2 = parse_user_number(angle2)
+        if angle2 is not None and (isinstance(angle2, bool) or not isinstance(
+                angle2, (int, float))):
+            raise KernelError("angle de révolution invalide")
+        second = float(angle2) if angle2 else None
+        angle = values.get("Angle", self._prop_float(obj, "Angle"))
+        if isinstance(angle, str):
+            angle = parse_user_number(angle)
+        midplane = bool(values.get("Midplane",
+                                   getattr(obj, "Midplane", False)))
+        if second is not None:
+            self._revolution_angles(angle, second, midplane)
+        for prop in ("Type", "Angle2"):
+            previous.append((prop, None, getattr(obj, prop, None)))
+        try:
+            if second is None:
+                obj.Type = "Angle"
+            else:
+                obj.Type = "TwoAngles"
+                obj.Angle2 = second
+        except Exception as exc:  # noqa: BLE001
+            raise KernelError(_explain(exc))
 
     @staticmethod
     def _restore_props(obj, previous):

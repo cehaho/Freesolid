@@ -1577,5 +1577,9 @@
  "Les corps ôtés reviennent quand on recule la barre au-dessus de la fonction, ou qu'on la supprime.": "Removed bodies come back when you roll the bar back above the feature, or delete it.",
  "Choisissez au moins un corps": "Choose at least one body",
  "Corps supprimés : {b}": "Bodies deleted: {b}",
- "Corps gardés : {b}": "Bodies kept: {b}"
+ "Corps gardés : {b}": "Bodies kept: {b}",
+ "Arête de la pièce": "Edge of the part",
+ "Deux directions": "Two directions",
+ "Cliquez une arête droite pour l'axe": "Click a straight edge for the axis",
+ "Les deux angles dépassent un tour": "The two angles exceed one turn"
 }

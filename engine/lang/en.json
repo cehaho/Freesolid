@@ -749,5 +749,8 @@
  "corps concernés : la répétition n'a pas d'autre occurrence": "affected bodies: the pattern has no other instance",
  "{} est répété par {} — supprimez d'abord ce réseau de corps": "{} is patterned by {} — delete that body pattern first",
  "paroi mince : elle prend toute l'esquisse — choisissez tous ses contours d'abord": "thin wall: it takes the whole sketch — choose all its contours first",
- "la paroi mince ne se construit pas sur ce profil": "the thin wall cannot be built on this profile"
+ "la paroi mince ne se construit pas sur ce profil": "the thin wall cannot be built on this profile",
+ "l'axe de révolution doit être une arête droite": "the revolution axis must be a straight edge",
+ "révolution : plan milieu et deux directions s'excluent": "revolution: mid-plane and two directions are exclusive",
+ "révolution : les deux angles dépassent un tour": "revolution: the two angles exceed one turn"
 }
