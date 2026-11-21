@@ -162,6 +162,8 @@ const PARAM_LABELS_BY_KIND = {
   body_pattern: { length: ["Distance", "mm"],
                   length2: ["Distance (direction 2)", "mm"],
                   angle: ["Angle total", "°"] },
+  revolution: { angle2: ["Angle (direction 2)", "°"] },
+  groove: { angle2: ["Angle (direction 2)", "°"] },
 };
 
 /** Libellés des cotes d'un genre (`type_key`), clé neutre -> [libellé, unité]. */

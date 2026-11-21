@@ -623,6 +623,13 @@ class EquationsMixin:
                     + (("HoleCutDepth",) if cut == "Counterbore" else ())
                     + (("HoleCutCountersinkAngle",) if cut == "Countersink"
                        else ()))
+        if getattr(obj, "TypeId", "") in ("PartDesign::Revolution",
+                                          "PartDesign::Groove"):
+            # Révolution : l'angle de la seconde direction quand elle existe
+            # (sa cote se change comme la première ; ``set_params`` la
+            # reçoit sous ``angle2``).
+            two = str(getattr(obj, "Type", "")) == "TwoAngles"
+            return self._EDITABLE_PROPS + (("Angle2",) if two else ())
         if getattr(obj, "TypeId", "") in self._EXTRUDE_KINDS:
             # Extrusion : la profondeur du côté 2 quand il existe.
             two = str(getattr(obj, "SideType", "")) == "Two sides"
