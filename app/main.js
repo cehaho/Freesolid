@@ -1244,6 +1244,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     refreshAny(call(event.key === "z" ? "undo" : "redo"));
   } else if (event.key === "Escape" && planePicking) {
+    pendingFeature = null;
     cancelPlanePick();
   } else if (event.key === "Escape" && measuring) {
     cancelMeasure();
@@ -1622,9 +1623,31 @@ async function featureCommand(openPanel) {
     say("Fermez d'abord la fonction graphe (Échap ou Fermer)", true);
     return;
   }
+  // Une fonction choisie pendant le dessin prend la main : celle qui
+  // attendait la sortie de l'esquisse ne s'ouvre plus.
+  pendingFeature = null;
   if (sketchMode.active) await sketchMode.finish();
   openPanel();
 }
+
+/** Fonction à profil lancée sans esquisse libre : bouton du ruban à
+ *  recliquer quand l'esquisse ouverte pour elle sera terminée. */
+let pendingFeature = null;
+
+function sketchThenFeature(entry) {
+  document.getElementById("btn-sketch")?.click();
+  // Le clic ouvre l'esquisse (face ou plan déjà choisi) ou le choix
+  // d'un plan ; la fonction attend sa sortie.
+  pendingFeature = entry.button;
+  say(t("{f} : cliquez un plan ou une face plane pour esquisser le profil "
+        + "(Échap pour annuler)", { f: t(entry.title) }));
+}
+
+document.addEventListener("freesolid:sketch-done", (event) => {
+  const button = pendingFeature;
+  pendingFeature = null;
+  if (button && event.detail?.kept) document.getElementById(button)?.click();
+});
 
 // ---------- plan de coupe visuel ----------
 
@@ -1742,7 +1765,7 @@ document.getElementById("btn-clip").addEventListener("click", () => {
 Object.assign(ctx, {
   panel, confirm, call, say, refresh, updateFilletRadiusBubble,
   schedulePreview, findFeatureInTree, refreshAny, enterGraphFeature,
-  featureCommand,
+  featureCommand, sketchThenFeature,
 });
 const {
   currentSelection, openFeaturePanel, bindFeature, editDepthHandle,

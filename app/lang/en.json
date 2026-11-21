@@ -564,6 +564,7 @@
  "Ouvert — {n} corps dans le fichier.": "Opened — {n} bodies in the file.",
  "Ouvert.": "Opened.",
  "{f} : cliquez d'abord dans la zone graphique": "{f}: click in the graphics area first",
+ "{f} : cliquez un plan ou une face plane pour esquisser le profil (Échap pour annuler)": "{f}: click a plane or a planar face to sketch the profile (Esc to cancel)",
  "Profil : {p}": "Profile: {p}",
  "{n} profils : ": "{n} profiles: ",
  "{n} arêtes": "{n} edges",
