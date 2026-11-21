@@ -2729,6 +2729,7 @@ export function installTree(ctx) {
     return {
       label,
       row: { type: "selection", key: "sel", accepts: ["edges", "face"],
+             edgeSet: true,
              hint: "Cliquez des arêtes (un second clic retire) ou une face", value },
       changed: (v) => dressupPickValues(v.sel, feature.dressup),
       missing: "Cliquez des arêtes (un second clic retire) ou une face",

@@ -50,6 +50,7 @@ export function dressup({ button, op, icon, title, selectionLabel, group, rows,
     groups: (ctx) => [
       { label: selectionLabel,
         rows: [{ type: "selection", key: "sel", accepts, hint,
+                 edgeSet: accepts.includes("edges"),
                  value: ctx.selection(accepts) }] },
       { label: group, rows },
     ],
