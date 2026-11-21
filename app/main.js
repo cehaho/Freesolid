@@ -120,6 +120,12 @@ const panel = createPropertyPanel({
     clearGhost();
     clearFilletRadiusBubble();
     sketchInfoOpen = false;
+    // La fonction cliquée (ou rééditée) dans l'arbre a servi : comme dans
+    // les modeleurs courants, rien ne reste sélectionné après la commande.
+    if (selectedFeatureName) {
+      selectedFeatureName = null;
+      if (lastTree) ctx.renderTree(lastTree);
+    }
     if (ctx.hoveredBody) {
       // Le corps survolé pour le panneau ne reste pas teinté.
       ctx.hoveredBody = null;
