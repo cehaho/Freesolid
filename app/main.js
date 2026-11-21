@@ -116,13 +116,25 @@ const {
 // panel (OK or cancel) always clears the yellow ghost preview.
 const panel = createPropertyPanel({
   say,
-  onClose: () => {
+  onClose: ({ apply = false, silent = false } = {}) => {
     clearGhost();
     clearFilletRadiusBubble();
     sketchInfoOpen = false;
     // La fonction cliquée (ou rééditée) dans l'arbre a servi : comme dans
     // les modeleurs courants, rien ne reste sélectionné après la commande.
-    if (selectedFeatureName) {
+    // Une commande annulée lâche aussi ce qu'on a cliqué dans la vue pour
+    // elle (faces, arêtes, esquisses) ; validée, la reconstruction le fait.
+    const dropView = !apply && !silent
+      && (selectedFaceId !== null || selectedEdges.size > 0);
+    if (dropView) {
+      selectedFaceId = null;
+      selectedEdges = new Set();
+      ctx.clearSketchSelection?.({ quiet: true });
+      ctx.clearSurfaceSelection?.({ quiet: true });
+      repaintGroups();
+      repaintEdges();
+    }
+    if (selectedFeatureName || dropView) {
       selectedFeatureName = null;
       if (lastTree) ctx.renderTree(lastTree);
     }
@@ -804,6 +816,11 @@ function clearGhost() {
   previewFloor = previewGen;
   previewNext = null;
   hideGhost();
+  // L'échec d'un aperçu ne survit pas à sa commande.
+  if (previewFailed) {
+    previewFailed = false;
+    say("");
+  }
 }
 
 // Aperçu d'un plan de référence : un carré translucide là où le moteur
