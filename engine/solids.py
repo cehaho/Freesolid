@@ -2590,6 +2590,66 @@ class SolidsMixin:
             tip, plane, exclude_face=face) or origin
 
     @staticmethod
+    def _face_subs_on(base, faces):
+        """Ids de faces de ``base`` -> ``FaceN`` (sans doublon)."""
+        from engine.kernel import KernelError
+        shape = getattr(base, "Shape", None)
+        subs = []
+        for face in faces:
+            if (type(face) is not int or shape is None
+                    or not 0 <= face < len(shape.Faces)):
+                raise KernelError("face inconnue : {}".format(face))
+            name = "Face{}".format(face + 1)
+            if name not in subs:
+                subs.append(name)
+        return subs
+
+    @staticmethod
+    def _draft_neutral_face_ref(base, face, drafted):
+        """Plan neutre pris sur une face plane de ``base``, qui n'est pas
+        une de celles qu'on dépouille (``drafted`` : leurs ``FaceN``)."""
+        from engine.kernel import KernelError
+        faces = getattr(getattr(base, "Shape", None), "Faces", [])
+        if type(face) is not int or not 0 <= face < len(faces):
+            raise KernelError("face inconnue : {}".format(face))
+        name = "Face{}".format(face + 1)
+        if name in drafted:
+            raise KernelError(
+                "le plan neutre ne peut pas être une face dépouillée")
+        try:
+            planar = faces[face].findPlane() is not None
+        except Exception:  # noqa: BLE001
+            planar = False
+        if not planar:
+            raise KernelError("plan neutre : choisissez une face plane")
+        return (base, [name])
+
+    @staticmethod
+    def _mark_draft_neutral_face(obj, on, force=False):
+        """Retient que le plan neutre est une face choisie, pas la face
+        parallèle qu'``add_draft`` prend pour un plan d'origine : la
+        réédition la relit telle quelle. ``force`` : crée la marque même
+        éteinte."""
+        if "FreeSolidNeutralFace" not in obj.PropertiesList:
+            if not (on or force):
+                return
+            obj.addProperty("App::PropertyBool", "FreeSolidNeutralFace",
+                            "FreeSolid")
+            obj.setEditorMode("FreeSolidNeutralFace", 2)
+        obj.FreeSolidNeutralFace = bool(on)
+
+    def _draft_neutral_face_id(self, obj):
+        """Face choisie comme plan neutre (id sur la base), sinon None."""
+        if not getattr(obj, "FreeSolidNeutralFace", False):
+            return None
+        try:
+            subs = list(obj.NeutralPlane[1])
+            name = str(subs[0]).rsplit(".", 1)[-1]
+            return int(name[4:]) - 1 if name.startswith("Face") else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    @staticmethod
     def _draft_without_effect(obj):
         """La dépouille ne change rien à la pièce : sa face ne se dépouille
         pas par rapport à ce plan neutre."""
@@ -2605,8 +2665,14 @@ class SolidsMixin:
         "cette face ne peut pas être dépouillée par rapport à ce "
         "plan neutre — choisissez un autre plan neutre ou une autre face")
 
-    def add_draft(self, face, angle, neutral="XY"):
-        """Dépouille de la face cliquée ; plan neutre XY/XZ/YZ."""
+    def add_draft(self, face=None, angle=None, neutral="XY", faces=None,
+                  neutral_face=None, reversed=False):
+        """Dépouille d'une ou plusieurs faces (``face`` ou ``faces``).
+
+        Comme dans les modeleurs courants, le plan neutre est une face
+        plane de la pièce (``neutral_face``, prioritaire) ou un plan
+        d'origine (``neutral`` : XY/XZ/YZ). ``reversed`` inverse le sens.
+        """
         from engine.kernel import (
             KernelError,
             label_for_type,
@@ -2617,14 +2683,27 @@ class SolidsMixin:
         tip = getattr(body, "Tip", None)
         if tip is None:
             raise KernelError("pas de solide à dépouiller")
-        plane = parse_neutral_plane(neutral)
-        neutral_ref = self._draft_neutral_ref(tip, plane, face)
+        if angle is None:
+            raise KernelError("{} : paramètre(s) manquant(s) : {}".format(
+                "add_draft", "angle"))
+        picked = list(faces) if faces else ([] if face is None else [face])
+        if not picked:
+            raise KernelError("dépouille : cliquez au moins une face")
+        subs = self._face_subs_on(tip, picked)
+        if neutral_face is not None:
+            neutral_ref = self._draft_neutral_face_ref(tip, neutral_face,
+                                                       subs)
+        else:
+            plane = parse_neutral_plane(neutral)
+            neutral_ref = self._draft_neutral_ref(tip, plane, picked[0])
         volume_before = float(body.Shape.Volume)
         previous_tip = tip
         feature = body.newObject("PartDesign::Draft", "Draft")
-        feature.Base = (tip, ["Face{}".format(int(face) + 1)])
+        feature.Base = (tip, subs)
         feature.Angle = float(angle)
         feature.NeutralPlane = neutral_ref
+        feature.Reversed = bool(reversed)
+        self._mark_draft_neutral_face(feature, neutral_face is not None)
         feature.Label = label_for_type("PartDesign::Draft", self.lang)
         try:
             self._recompute()
@@ -2807,7 +2886,7 @@ class SolidsMixin:
         "PartDesign::Fillet": ("edges", "face"),
         "PartDesign::Chamfer": ("edges", "face"),
         "PartDesign::Thickness": ("faces",),
-        "PartDesign::Draft": ("face",),
+        "PartDesign::Draft": ("face", "faces"),
     }
 
     @staticmethod
@@ -2843,8 +2922,10 @@ class SolidsMixin:
             return self._face_subs(obj, picks["faces"],
                                    "coque : cliquez au moins une face à ouvrir")
         if obj.TypeId == "PartDesign::Draft":
-            return self._face_subs(obj, [picks["face"]],
-                                   "face inconnue : {}".format(picks["face"]))
+            faces = picks.get("faces") or (
+                [picks["face"]] if "face" in picks else [])
+            return self._face_subs(obj, faces,
+                                   "dépouille : cliquez au moins une face")
         return self._dressup_subs(obj, picks.get("edges"), picks.get("face"))
 
     def _face_subs(self, obj, faces, empty):

@@ -130,30 +130,123 @@ export function shellFacesValues(zone, before) {
   return same ? {} : { faces: chosen };
 }
 
-const NEUTRAL_PLANES = [["XY", "Plan de dessus"], ["XZ", "Plan de face"],
+// Comme dans les modeleurs courants : le plan neutre est une face plane
+// de la pièce, ou un plan d'origine.
+const NEUTRAL_PLANES = [["face", "Face de la pièce"],
+                        ["XY", "Plan de dessus"], ["XZ", "Plan de face"],
                         ["YZ", "Plan de droite"]];
 
-/** Dépouille qu'on réédite : son angle et son plan neutre. */
-export function draftEditGroups(feature) {
-  return [{ label: "Angle de dépouille", rows: [
-    measureRow("angle", "Angle",
-               chamferFieldValue(feature.params, "angle", 3), "°"),
-    { type: "select", key: "neutral", label: "Plan neutre",
-      value: feature.draft?.neutral ?? "XY", options: NEUTRAL_PLANES },
-  ] }];
+/** Les faces d'une zone de plusieurs faces (sans doublon). */
+function zoneFaces(zone) {
+  return [...new Set((zone?.items ?? []).map((item) => item.face)
+    .filter((face) => Number.isInteger(face)))];
 }
 
-/** Valeurs `set_params` de l'angle et du plan neutre : `{}` si rien n'a
- *  changé, null si l'angle est invalide. */
+/** Zone du plan neutre : une face, montrée quand « Face » est choisi. */
+function neutralFaceRow(face) {
+  return { type: "selection", key: "nface", accepts: ["face"],
+           label: "Face neutre",
+           hint: "Cliquez la face plane qui garde sa taille",
+           showIf: (v) => v.neutral === "face",
+           value: Number.isInteger(face) ? { kind: "face", face } : null };
+}
+
+/** Groupes de la dépouille : faces à dépouiller, plan neutre, angle et
+ *  sens. `draft` : l'état d'une dépouille rééditée (sinon la création,
+ *  avec la face déjà cliquée). */
+export function draftGroups(draft, { first, angle = 3, faces = true } = {}) {
+  const items = draft?.faces?.length
+    ? draft.faces.map((face) => ({ kind: "face", face }))
+    : (first?.face != null ? [first] : []);
+  const neutral = draft
+    ? (Number.isInteger(draft.neutral_face) ? "face" : draft.neutral ?? "XY")
+    : "face";
+  const groups = [];
+  if (faces) {
+    groups.push({ label: "Faces à dépouiller", rows: [
+      { type: "selection", key: "faces", accepts: ["face"], multiple: true,
+        hint: "Cliquez les faces à dépouiller — un second clic retire",
+        value: { kind: "face", items } }] });
+  }
+  groups.push({ label: "Plan neutre", rows: [
+    { type: "select", key: "neutral", label: "Plan neutre", value: neutral,
+      options: NEUTRAL_PLANES },
+    neutralFaceRow(draft?.neutral_face),
+  ] });
+  groups.push({ label: "Angle de dépouille", rows: [
+    measureRow("angle", "Angle", angle, "°"),
+    { type: "check", key: "reversed", label: "Inverser la direction",
+      value: !!draft?.reversed },
+  ] });
+  return groups;
+}
+
+/** Paramètres `add_draft` du panneau, null s'il manque quelque chose. */
+export function draftBuild(v) {
+  const faces = zoneFaces(v.faces);
+  const angle = num(v.angle);
+  if (!faces.length || !(angle > 0)) return null;
+  const params = { angle };
+  if (faces.length === 1) params.face = faces[0];
+  else params.faces = faces;
+  if (v.neutral === "face") {
+    const face = v.nface?.face;
+    if (!Number.isInteger(face)) return null;
+    params.neutral_face = face;
+  } else {
+    params.neutral = v.neutral ?? "XY";
+  }
+  if (v.reversed) params.reversed = true;
+  return { op: "add_draft", params };
+}
+
+/** Ce qui manque à la dépouille, pour la barre du panneau. */
+export function draftProblem(v) {
+  if (!zoneFaces(v.faces).length) {
+    return { text: t("Dépouille : cliquez au moins une face"),
+             tone: "guide" };
+  }
+  if (v.neutral === "face" && !Number.isInteger(v.nface?.face)) {
+    return { text: t("Dépouille : cliquez la face neutre"), tone: "guide" };
+  }
+  return "Angle invalide";
+}
+
+/** Dépouille qu'on réédite : son plan neutre, son angle et son sens (les
+ *  faces passent par la zone de la réédition à son rang). */
+export function draftEditGroups(feature) {
+  return draftGroups(feature.draft ?? {}, {
+    angle: chamferFieldValue(feature.params, "angle", 3), faces: false });
+}
+
+/** Valeurs `set_params` du plan neutre, de l'angle et du sens : `{}` si
+ *  rien n'a changé, null si l'angle ou la face neutre manque. */
 export function draftEditValues(v, feature) {
+  const draft = feature.draft ?? {};
   const stored = storedMeasure(feature.params, "angle", 3);
   const angle = readMeasure(v.angle, stored, { min: 0, max: 90 });
   if (angle == null) return null;
   const values = {};
   if (!sameMeasure(angle, stored)) values.angle = angle;
-  const neutral = v.neutral ?? feature.draft?.neutral ?? "XY";
-  if (neutral !== (feature.draft?.neutral ?? "XY")) values.neutral = neutral;
+  const before = Number.isInteger(draft.neutral_face)
+    ? "face" : draft.neutral ?? "XY";
+  const neutral = v.neutral ?? before;
+  if (neutral === "face") {
+    const face = v.nface === undefined ? draft.neutral_face : v.nface?.face;
+    if (!Number.isInteger(face)) return null;
+    if (face !== draft.neutral_face) values.neutral_face = face;
+  } else if (neutral !== before) {
+    values.neutral = neutral;
+  }
+  const reversed = v.reversed ?? !!draft.reversed;
+  if (!!reversed !== !!draft.reversed) values.reversed = !!reversed;
   return values;
+}
+
+/** Valeurs `set_params` des faces à dépouiller : `{}` si elles n'ont pas
+ *  changé, `{ faces }` sinon, null si la zone est vide. */
+export function draftFacesValues(zone, before) {
+  return shellFacesValues(zone, before);
 }
 
 /** Congé qu'on réédite : son rayon. */
@@ -402,24 +495,14 @@ export const HABILLAGE = [
       : { text: t("Coque : cliquez au moins une face à ouvrir"), tone: "guide" }),
     refresh: "part",
   },
-  dressup({
+  {
     button: "btn-draft",
     op: "add_draft",
     icon: "draft", title: "Dépouille",
-    selectionLabel: "Face à dépouiller",
-    group: "Angle de dépouille",
-    rows: [
-      { type: "number", key: "angle", label: "Angle", value: 3,
-        unit: "°", min: 0.01 },
-      { type: "select", key: "neutral", value: "XY", label: "Plan neutre",
-        options: NEUTRAL_PLANES },
-    ],
-    build: (v) => {
-      const angle = num(v.angle);
-      return angle > 0
-        ? { op: "add_draft",
-            params: { face: v.sel.face, angle, neutral: v.neutral } }
-        : null;
-    },
-  }),
+    dressup: true,
+    groups: (ctx) => draftGroups(null, { first: ctx.selection(["face"]) }),
+    build: (v) => draftBuild(v),
+    invalid: (v) => draftProblem(v),
+    refresh: "part",
+  },
 ];

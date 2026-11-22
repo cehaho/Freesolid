@@ -14,7 +14,7 @@ import { featureDrop } from "./treedrop.js";
 import { renameClickAction } from "./rename.js";
 import {
   chamferRows, chamferFieldValue, chamferEditValues, chamferProblem,
-  draftEditGroups, draftEditValues, dressupPick, dressupPickValues,
+  draftEditGroups, draftEditValues, draftFacesValues, dressupPick, dressupPickValues,
   filletEditRows, filletEditValues, shellFacesPick, shellFacesValues,
   holePositionValues, holePositions, holePositionsPick,
   holePositionsRow, textEditValues, textRows,
@@ -2741,18 +2741,19 @@ export function installTree(ctx) {
     });
   }
 
-  /** Dépouille : sa face, son angle et son plan neutre. */
+  /** Dépouille : ses faces, son plan neutre, son angle et son sens. */
   function editDraft(feature) {
-    const face = feature.draft?.face;
+    const faces = feature.draft?.faces;
     return editAtRank(feature, {
       icon: "draft",
-      zone: Number.isInteger(face) ? {
-        label: "Face à dépouiller",
-        row: { type: "selection", key: "sel", accepts: ["face"],
-               value: { kind: "face", face } },
-        changed: (v) => dressupPickValues(v.sel, { face }),
-        missing: "Cliquez une face dans la zone graphique",
-        select: () => ctx.selectFaceId?.(face),
+      zone: faces?.length ? {
+        label: "Faces à dépouiller",
+        row: { type: "selection", key: "faces", accepts: ["face"],
+               multiple: true,
+               hint: "Cliquez les faces à dépouiller — un second clic retire",
+               value: shellFacesPick(faces) },
+        changed: (v) => draftFacesValues(v.faces, faces),
+        missing: "Dépouille : cliquez au moins une face",
       } : null,
       groups: draftEditGroups(feature),
       values: (v) => draftEditValues(v, feature),

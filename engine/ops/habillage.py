@@ -55,10 +55,18 @@ def _rejouer_depouille(kernel, feat, sketch, cote):
     if not feat["faces"]:
         raise KernelError(
             "dépouille sans face : {}".format(feat["name"]))
+    extra = {}
+    if feat.get("neutral_face") is not None:
+        extra["neutral_face"] = feat["neutral_face"]
+    if feat.get("reversed"):
+        extra["reversed"] = True
+    if len(feat["faces"]) > 1:
+        extra["faces"] = feat["faces"]
+    else:
+        extra["face"] = feat["faces"][0]
     kernel.add_draft(
-        face=feat["faces"][0],
         angle=cote("Angle"),
-        neutral=feat.get("neutral", "XY"))
+        neutral=feat.get("neutral", "XY"), **extra)
 
 
 OPS = (
@@ -79,10 +87,15 @@ OPS = (
                                       "outward": bool}),
        undo=True, preview=True, creates="PartDesign::Thickness", indexed=True,
        replay=_rejouer_coque),
-    Op("add_draft", Req(("face", int), ("angle", float)),
+    # face (une) ou faces (plusieurs) ; plan neutre : un plan d'origine
+    # (neutral : XY|XZ|YZ) ou une face plane (neutral_face) ; reversed :
+    # sens de la dépouille inversé.
+    Op("add_draft", Req(("angle", float),
+                        optional={"face": int, "faces": list,
+                                  "neutral": str, "neutral_face": int,
+                                  "reversed": bool}),
        undo=True, preview=True, creates="PartDesign::Draft", indexed=True,
        replay=_rejouer_depouille),
-                                       # optional: neutral (XY|XZ|YZ)
     Op("add_vertex_chamfer", Req(("distances", list), optional={
         "point": list, "vertex": int}), undo=True, preview=True,
        no_replay="forme figée (FrozenShape), pas get_params"),
