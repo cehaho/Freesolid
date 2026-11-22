@@ -150,6 +150,9 @@ export function installFeaturePanel(ctx) {
       spec.onChange = (v, how) => {
         schedulePreview(entry.build(v, ctx), how);
         if (entry.button === "btn-fillet") updateFilletRadiusBubble(v);
+        if (entry.button === "btn-chamfer") {
+          updateFilletRadiusBubble(v, { chamfer: true });
+        }
         depthHandle?.update(v);
       };
       // Œil de l'en-tête : couper l'aperçu (fonction lourde), le rallumer.

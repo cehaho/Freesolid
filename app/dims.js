@@ -42,6 +42,25 @@ export function filletRadiusLabel(raw) {
     : `R = ${numeric.toFixed(displayDecimals().length)}`;
 }
 
+/** Bulle du chanfrein en cours, comme dans les modeleurs courants :
+ *  « 2.00 × 45° » (distance égale), « 2.00 × 3.00 » (deux distances),
+ *  « 2.00 × 30.0° » (distance et angle). Une expression s'écrit telle
+ *  quelle. */
+export function chamferBubbleLabel(values) {
+  const { length, angle } = displayDecimals();
+  const show = (raw, digits, suffix = "") => {
+    const text = String(raw ?? "").trim();
+    if (!text) return null;
+    const numeric = simpleDecimal(text);
+    return numeric == null ? text : numeric.toFixed(digits) + suffix;
+  };
+  const size = show(values?.size, length);
+  if (!size) return null;
+  const second = values?.kind === "deux" ? show(values?.size2, length)
+    : values?.kind === "angle" ? show(values?.angle, angle, "°") : "45°";
+  return second ? `${size} × ${second}` : size;
+}
+
 // ---------- tracé d'une cote d'esquisse ----------
 // Coordonnées locales de l'esquisse. `size` est l'unité de tracé (écart
 // entre la pièce et la ligne de cote), choisie par l'appelant à l'échelle
