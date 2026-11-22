@@ -732,7 +732,7 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
           ? value.edges.map((e) => t("Arête {n}", { n: e })).join(", ")
           : t("{n} arêtes", { n: value.edges.length });
       } else if (value.kind === "sketch" || value.kind === "surface"
-                 || value.kind === "body") {
+                 || value.kind === "body" || value.kind === "datum") {
         box.textContent = value.label;
       } else if (value.kind === "asmface") {
         box.textContent = `${value.componentLabel} · `

@@ -19,6 +19,15 @@ describe("symétrie et présélection", () => {
     assert.deepEqual(face.value, { kind: "face", face: 1 });
   });
 
+  it("un plan de référence présélectionné devient le plan de symétrie", () => {
+    const datum = { kind: "datum", name: "DatumPlane", label: "Plan1" };
+    const ctx = { selection: (accepts) =>
+      accepts.includes("datum") ? datum : null };
+    const [plane, pick] = planeRows(ctx);
+    assert.equal(plane.value, "face");
+    assert.deepEqual(pick.value, datum);
+  });
+
   it("sans face présélectionnée : le plan de droite", () => {
     const [plane, face] = planeRows({ selection: () => null });
     assert.equal(plane.value, "YZ");

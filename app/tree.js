@@ -325,6 +325,9 @@ export function installTree(ctx) {
   /** Choisit un plan de référence (ligne de l'arbre, ou clic dans la
    *  vue avec `toggle: false` : un second clic le garde choisi). */
   function onDatumRow(feature, { toggle = true } = {}) {
+    // Un panneau qui attend un plan (celui d'une symétrie) le prend.
+    if (panel.notifyPick("datum",
+      { kind: "datum", name: feature.name, label: feature.label })) return;
     cancelPendingSurfaceClick();
     clearSketchSelection({ quiet: true });
     clearSurfaceSelection({ quiet: true });

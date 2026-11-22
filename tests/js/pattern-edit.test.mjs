@@ -166,6 +166,23 @@ describe("symétrie rééditée", () => {
                                    onPlane, "mirror"), null);
   });
 
+  it("revient sur son plan de référence, et en change", () => {
+    const onDatum = { features: ["Pocket"], plane: null, face: null,
+                      datum: "DatumPlane", datum_label: "Plan1" };
+    const v = initial(patternEditGroups(onDatum, "mirror"));
+    assert.equal(v.plane, "face");
+    assert.deepEqual(v.planeFace,
+                     { kind: "datum", name: "DatumPlane", label: "Plan1" });
+    assert.deepEqual(patternEditValues(v, onDatum, "mirror"), {});
+    assert.deepEqual(patternEditValues({ ...v, planeFace:
+      { kind: "datum", name: "DatumPlane001", label: "Plan2" } }, onDatum,
+      "mirror"), { mirror_datum: "DatumPlane001" });
+    // Du plan de référence à une face : la face part, même numéro ou non.
+    assert.deepEqual(patternEditValues(
+      { plane: "face", planeFace: { kind: "face", face: 0 } }, onDatum,
+      "mirror"), { mirror_face: 0 });
+  });
+
   it("une symétrie de corps ne propose que les plans d'origine", () => {
     const groups = patternEditGroups({ plane: "XY" }, "mirror", [],
                                      { bodies: true });

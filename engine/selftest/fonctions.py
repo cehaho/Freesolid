@@ -7691,6 +7691,29 @@ def p162_symetrie_par_une_face(self, mark, report, etat):
         bad.get("ok") is False and near(float(body.Shape.Volume), 1200)
         and self._pattern_state(mirror).get("face") == side)
 
+    # Un plan de référence sert aussi de plan de symétrie : décalé de
+    # 15 mm du plan de droite, il rejoue le bout du bossage (x = 15).
+    tree = self.add_datum_plane(base="YZ", offset=15)
+    datum = next(f["name"] for f in tree["features"]
+                 if f["type"] == "PartDesign::Plane")
+    edit = dispatch(self, "set_params", {"feature": mirror.Name,
+                                         "values": {"mirror_datum": datum}})
+    box = body.Shape.BoundBox
+    state = self._pattern_state(mirror)
+    report["p162_symetrie_par_un_plan_de_reference"] = (
+        edit.get("ok") is True and near(float(body.Shape.Volume), 1400)
+        and near(box.XMax, 20) and state.get("datum") == datum
+        and state.get("face") is None and state.get("plane") is None)
+    # Créée d'emblée sur ce plan ; un nom qui n'en est pas un est refusé.
+    out = dispatch(self, "add_mirror", {"features": [boss.Name],
+                                        "datum": datum})
+    bad = dispatch(self, "add_mirror", {"features": [boss.Name],
+                                        "datum": boss.Name})
+    report["p162_symetrie_creee_sur_un_plan"] = (
+        out.get("ok") is True
+        and self._pattern_state(body.Tip).get("datum") == datum
+        and bad.get("ok") is False)
+
 
 def p163_revolution_deux_directions_et_arete(self, mark, report, etat):
     mark("p163: révolution en deux directions, autour d'une arête cliquée")

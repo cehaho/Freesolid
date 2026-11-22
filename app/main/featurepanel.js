@@ -31,6 +31,12 @@ export function installFeaturePanel(ctx) {
     if (accepts.includes("face") && app.selectedFaceId !== null) {
       return { kind: "face", face: app.selectedFaceId };
     }
+    // Plan de référence choisi avant la commande (plan d'une symétrie).
+    if (accepts.includes("datum") && app.selectedDatumFeature) {
+      const name = app.selectedDatumFeature.name;
+      const datum = findFeatureInTree(app.lastTree, name);
+      return { kind: "datum", name, label: datum?.label ?? name };
+    }
     // Surface cliquée avant la commande (décaler, prolonger, ajuster).
     if (accepts.includes("surface") && app.selectedSurface) {
       return { kind: "surface", name: app.selectedSurface.name,
