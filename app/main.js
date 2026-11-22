@@ -1783,8 +1783,10 @@ Object.assign(ctx, {
 });
 const {
   currentSelection, openFeaturePanel, bindFeature, editDepthHandle,
+  patternDirectionHandle,
 } = installFeaturePanel(ctx);
 ctx.editDepthHandle = editDepthHandle;
+ctx.patternDirectionHandle = patternDirectionHandle;
 
 // ---------- vue en graphe ----------
 // Relais : ces noms sont appelés avant cette ligne (clavier, arbre, menu).

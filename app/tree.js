@@ -3201,10 +3201,16 @@ export function installTree(ctx) {
       changed: (v) => patternFeaturesValues(v.features, pattern),
       missing: "Cliquez les fonctions dans l'arbre",
     };
-    return editAtRank(feature, {
+    // Comme à la création : la flèche du sens des occurrences, sur la
+    // pièce à son rang.
+    const arrow = typeKey === "linear_pattern"
+      ? ctx.patternDirectionHandle?.() : null;
+    const opened = editAtRank(feature, {
       icon: (kind ? BODY_PATTERN_ICONS[kind] : TREE_ICONS[feature.type_key])
         ?? "body",
       zone,
+      onValues: (v) => arrow?.update(v),
+      onClosed: () => arrow?.close(),
       groups: [...patternEditGroups(pattern, typeKey, dims,
                                     { bodies: !!kind }),
                ...bodyChoiceGroups(feature, tree)],
@@ -3215,6 +3221,19 @@ export function installTree(ctx) {
       },
       problem: () => "Valeurs invalides",
     });
+    if (arrow) {
+      await opened;
+      const length = params.find((p) => p.key === "length");
+      arrow.update({
+        dirKind: Number.isInteger(pattern?.edge) ? "edge" : "axis",
+        axis: pattern?.axis ?? "X",
+        edge: Number.isInteger(pattern?.edge)
+          ? { kind: "edges", edges: [pattern.edge] } : null,
+        reversed: !!pattern?.reversed,
+        length: length ? String(length.expr ?? length.value) : null,
+      });
+    }
+    return opened;
   }
 
   /** Les cotes de get_params, avec l'aperçu jaune et la flèche ; les
