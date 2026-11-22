@@ -41,6 +41,8 @@ export function createDimSprite(text, x, y, z = 0.01, color = cssHex(sceneTheme.
   material.userData.own = true;
   const sprite = new THREE.Sprite(material);
   sprite.userData.aspect = canvas.width / canvas.height;
+  // Hauteur à l'écran (pixels CSS) quand `keepScreenSize` la tient.
+  sprite.userData.labelPx = DIM_TEXT_PX * DIM_LABEL_RATIO;
   sprite.position.set(x, y, z);
   // Cotes de fonction en 3D : hauteur en unités du modèle.
   sprite.scale.set(3.2 * sprite.userData.aspect, 3.2, 1);

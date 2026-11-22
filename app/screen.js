@@ -9,6 +9,16 @@ export function ndcToScreen(ndcX, ndcY, rect) {
   };
 }
 
+/** Le point (dx, dy), en pixels depuis le centre d'une étiquette de
+ *  `height` pixels de haut et de rapport largeur / hauteur `aspect`,
+ *  tombe-t-il dessus (marge comprise) ? Comme dans les modeleurs
+ *  courants, tout le texte d'une cote se clique, pas seulement son milieu. */
+export function onLabel(dx, dy, aspect, height, margin = 4) {
+  const halfH = height / 2 + margin;
+  const halfW = (height * (aspect || 1)) / 2 + margin;
+  return Math.abs(dx) <= halfW && Math.abs(dy) <= halfH;
+}
+
 /** Pixel de la page → NDC (-1..1, Y vers le haut). */
 export function eventToNdc(clientX, clientY, rect) {
   return {
