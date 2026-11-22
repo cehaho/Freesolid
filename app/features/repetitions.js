@@ -148,37 +148,44 @@ export function patternDirectionRows(defaultAxis, { circular = false } = {}) {
 }
 
 /** Plan d'une symétrie : un plan d'origine, ou — comme dans les
- *  modeleurs courants — une face plane cliquée dans la vue (la liste
- *  passe alors sur « Face plane »). */
-export function mirrorPlaneRows(plane = "YZ", face = null,
+ *  modeleurs courants — une face plane ou un plan de référence cliqué
+ *  dans la vue ou l'arbre (la liste passe alors sur « Face ou plan de
+ *  référence »). `pick` : la face (numéro) ou le plan
+ *  (`{ kind: "datum", name, label }`) déjà choisi. */
+export function mirrorPlaneRows(plane = "YZ", pick = null,
                                 { faces = true } = {}) {
   const origin = [["YZ", "Plan de droite"], ["XZ", "Plan de face"],
                   ["XY", "Plan de dessus"]];
   if (!faces) {
     return [{ type: "select", key: "plane", value: plane, options: origin }];
   }
+  const value = Number.isInteger(pick) ? { kind: "face", face: pick }
+    : pick?.kind === "datum" ? pick : null;
   return [
     { type: "select", key: "plane", value: plane,
-      options: [...origin, ["face", "Face plane"]] },
-    { type: "selection", key: "planeFace", accepts: ["face"],
-      value: Number.isInteger(face) ? { kind: "face", face } : null,
-      hint: "Cliquez une face plane",
+      options: [...origin, ["face", "Face ou plan de référence"]] },
+    { type: "selection", key: "planeFace", accepts: ["face", "datum"],
+      value,
+      hint: "Cliquez une face plane ou un plan de référence",
       reveal: { key: "plane", value: "face" },
       showIf: (v) => v.plane === "face" },
   ];
 }
 
-/** Plan d'une nouvelle symétrie : la face cliquée avant la commande,
- *  comme dans les modeleurs courants ; sinon le plan de droite. */
+/** Plan d'une nouvelle symétrie : la face ou le plan de référence choisi
+ *  avant la commande, comme dans les modeleurs courants ; sinon le plan
+ *  de droite. */
 export function mirrorPlaneFromSelection(ctx) {
-  const face = ctx?.selection?.(["face"])?.face;
-  return Number.isInteger(face) ? mirrorPlaneRows("face", face)
+  const pick = ctx?.selection?.(["face", "datum"]);
+  if (pick?.kind === "datum") return mirrorPlaneRows("face", pick);
+  return Number.isInteger(pick?.face) ? mirrorPlaneRows("face", pick.face)
     : mirrorPlaneRows();
 }
 
 /** Params moteur du plan d'une symétrie ; null : face à cliquer. */
 export function mirrorPlaneParams(v) {
   if (v.plane !== "face") return { plane: v.plane || "YZ" };
+  if (v.planeFace?.kind === "datum") return { datum: v.planeFace.name };
   const face = v.planeFace?.face;
   return Number.isInteger(face) ? { face } : null;
 }
@@ -307,8 +314,8 @@ export const REPETITIONS = [
       if (v.plane === "face" && repeatsBodies(v)) {
         return "Un corps se symétrise par rapport à un plan d'origine";
       }
-      if (v.plane === "face" && !Number.isInteger(v.planeFace?.face)) {
-        return "Cliquez une face plane";
+      if (v.plane === "face" && !mirrorPlaneParams(v)) {
+        return "Cliquez une face plane ou un plan de référence";
       }
       return patternInvalid(v);
     },
@@ -407,11 +414,16 @@ function directionEditRows(pattern, { circular = false } = {}) {
 export function patternEditGroups(pattern, typeKey, dims = [],
                                   { bodies = false } = {}) {
   if (typeKey === "mirror") {
-    // Une face qui n'est plus sur la pièce : « Face plane », zone vide.
-    // Un corps se symétrise par rapport à un plan d'origine seulement.
+    // Une face qui n'est plus sur la pièce : « Face ou plan de
+    // référence », zone vide. Un corps se symétrise par rapport à un plan
+    // d'origine seulement.
     const onFace = !bodies && !pattern?.plane;
+    const pick = pattern?.datum
+      ? { kind: "datum", name: pattern.datum,
+          label: pattern.datum_label ?? pattern.datum }
+      : pattern?.face ?? null;
     return [{ label: "Plan de symétrie", rows: mirrorPlaneRows(
-      onFace ? "face" : pattern?.plane ?? "YZ", pattern?.face ?? null,
+      onFace ? "face" : pattern?.plane ?? "YZ", pick,
       { faces: !bodies }) },
     ...(dims.length ? [{ label: "Paramètres", rows: dims }] : [])];
   }
@@ -448,9 +460,13 @@ export function patternEditGroups(pattern, typeKey, dims = [],
 export function patternEditValues(v, pattern, typeKey) {
   if (typeKey === "mirror") {
     if (v.plane === "face") {
+      if (v.planeFace?.kind === "datum") {
+        return v.planeFace.name !== pattern?.datum
+          ? { mirror_datum: v.planeFace.name } : {};
+      }
       const face = v.planeFace?.face;
       if (!Number.isInteger(face)) return pattern?.plane ? null : {};
-      return face !== pattern?.face || pattern?.plane
+      return face !== pattern?.face || pattern?.plane || pattern?.datum
         ? { mirror_face: face } : {};
     }
     return v.plane && (v.plane !== pattern?.plane)

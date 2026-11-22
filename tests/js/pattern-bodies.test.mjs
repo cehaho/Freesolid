@@ -57,7 +57,11 @@ describe("répéter des corps", () => {
                      { op: "add_mirror", params: { face: 5 } });
     assert.equal(mirror.build({ ...v, planeFace: null }, CTX), null);
     assert.equal(mirror.invalid({ ...v, planeFace: null }),
-                 "Cliquez une face plane");
+                 "Cliquez une face plane ou un plan de référence");
+    // Un plan de référence cliqué : son nom part au moteur.
+    assert.deepEqual(mirror.build({ ...v, planeFace:
+      { kind: "datum", name: "DatumPlane", label: "Plan de référence1" } }, CTX),
+                     { op: "add_mirror", params: { datum: "DatumPlane" } });
     // Un corps : plan d'origine seulement.
     assert.equal(mirror.build({ ...v, target: "bodies",
                                 sources: zone("Body001") }, CTX), null);
