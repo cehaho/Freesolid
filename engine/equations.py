@@ -73,6 +73,9 @@ class EquationsMixin:
                 and set(values) <= {"plane", "datum", "face"}):
             # Une esquisse : son plan, re-choisi à son rang.
             return self._set_sketch_plane_params(obj, dict(values))
+        if getattr(obj, "FreeSolidRibspec", ""):
+            # Une nervure : épaisseur, direction, côté.
+            return self._set_rib_params(obj, dict(values))
         if getattr(obj, "FreeSolidVchamferspec", ""):
             # Un chanfrein de sommet : ses distances, et son coin.
             return self._set_vertex_chamfer_params(obj, dict(values))

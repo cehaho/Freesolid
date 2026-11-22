@@ -57,6 +57,7 @@ from engine.sketchshare import SketchShareMixin
 from engine.sketchlayers import SketchLayersMixin
 from engine.docprops import DocPropsMixin
 from engine.vertexchamfer import VertexChamferMixin
+from engine.rib import RibMixin
 from engine.selectchain import SelectChainMixin
 from engine.materials import MaterialsMixin
 from engine.refgeom import REFERENCE_TYPES, RefGeomMixin
@@ -323,7 +324,7 @@ def _format_mm(value):
     return text.replace(".", ",") or "0"
 
 
-class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeMixin, BodyPatternMixin, BodySolidsMixin, RemoveBodiesMixin, SketchMixin, SketchDrawMixin, SketchEditMixin, SketchRefMixin, SketchMoreMixin, SketchLayersMixin, DocPropsMixin, VertexChamferMixin, SelectChainMixin, MaterialsMixin, RefGeomMixin, ClipboardMixin, TemplatesMixin, TreeOrgMixin, DirectEditMixin, ConfigsMixin, SplineEditMixin, Sketch3dMixin, EquationsMixin, FilesMixin, GraphMixin, SurfaceMixin, AssemblyMixin, TextMixin, DrawingMixin, SelftestMixin):
+class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeMixin, BodyPatternMixin, BodySolidsMixin, RemoveBodiesMixin, SketchMixin, SketchDrawMixin, SketchEditMixin, SketchRefMixin, SketchMoreMixin, SketchLayersMixin, DocPropsMixin, VertexChamferMixin, RibMixin, SelectChainMixin, MaterialsMixin, RefGeomMixin, ClipboardMixin, TemplatesMixin, TreeOrgMixin, DirectEditMixin, ConfigsMixin, SplineEditMixin, Sketch3dMixin, EquationsMixin, FilesMixin, GraphMixin, SurfaceMixin, AssemblyMixin, TextMixin, DrawingMixin, SelftestMixin):
     """Owns one FreeCAD document and executes protocol operations."""
 
     def __init__(self):

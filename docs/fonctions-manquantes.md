@@ -29,7 +29,7 @@ Périmètre complet et critère « fait » : [esquisse.md](esquisse.md).
 | Gravure / embossage de texte | ✅ **fait** | makeWireString + corps outil combiné dans l'historique ; police système auto-détectée |
 | Congé à rayon variable | ❌ | décision 2026-08 : refusé tant que PartDesign ne le porte pas nativement — la voie `Part::Fillet` (validée par sonde : paramétrique, rayons R1/R2, suit le corps) vivrait hors de la chaîne PartDesign (finition terminale, arêtes par indice) ; pas de fonction bricolée |
 | Congé de face, congé plein | ❌ | OCCT fragile là-dessus (cf. segfault déjà rencontré) |
-| Nervure | 🟧 | pas de PartDesign::Rib ; se construit en esquisse ouverte + pad — un assistant est codable |
+| Nervure | ✅ **fait** | esquisse ouverte (une ligne ou plusieurs bout à bout), épaisseur, parallèle ou normale à l'esquisse, côté ; la matière s'étend jusqu'à la pièce. Forme calculée (pas de PartDesign::Rib), recalculée à chaque reconstruction et quand l'esquisse change |
 | Échelle (scale) | 🟧 | matrice sur la forme, hors historique paramétrique |
 | Enroulement (wrap) | ❌ | pas d'équivalent |
 | Dôme, forme libre, flex | ❌ | pas d'équivalent |

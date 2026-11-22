@@ -7847,3 +7847,100 @@ def p163_revolution_deux_directions_et_arete(self, mark, report, etat):
         all(r.get("ok") is False for r in refused)
         and near(float(body.Shape.Volume), before)
         and len(body.Group) == count + 1)     # la seule esquisse ajoutée
+
+
+def p164_nervure(self, mark, report, etat):
+    mark("p164: nervure d'une équerre")
+    from engine.kernel import dispatch
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    # Équerre en L dans le plan de face, extrudée des deux côtés : le plan
+    # de face la coupe en son milieu.
+    self.new_part("Nervure")
+    sk = self.sketch_start(plane="XZ")["sketch"]
+    corners = [(0, 0), (40, 0), (40, 5), (5, 5), (5, 40), (0, 40)]
+    for (x1, y1), (x2, y2) in zip(corners, corners[1:] + corners[:1]):
+        self.sketch_add_line(sk, x1, y1, x2, y2)
+    self.sketch_finish(sk)
+    self.add_pad(length=30, midplane=True)
+    body = self._require_body()
+    before = float(body.Shape.Volume)
+    count = len(body.Group)
+
+    def rib_sketch(points):
+        name = self.sketch_start(plane="XZ")["sketch"]
+        for (x1, y1), (x2, y2) in zip(points, points[1:]):
+            self.sketch_add_line(name, x1, y1, x2, y2)
+        self.sketch_finish(name)
+        return name
+
+    # Gousset : la ligne d'une aile à l'autre, 3 mm d'épaisseur — le
+    # triangle de 25 × 25 mm.
+    gusset = rib_sketch([(5, 30), (30, 5)])
+    out = call("add_rib", thickness=3)
+    owner = body.Tip
+    tree = out.get("result") or {}
+    item = next((f for f in tree.get("features", ())
+                 if f["name"] == owner.Name), {})
+    added = float(body.Shape.Volume) - before
+    report["p164_gousset"] = (
+        out.get("ok") is True and abs(added - 937.5) < 0.5
+        and len(body.Shape.Solids) == 1
+        and item.get("rib") == {"sketch": gusset, "thickness": 3.0,
+                                "direction": "parallel", "flip": False}
+        and gusset not in [s.Name for s in self._free_sketches()])
+    edit = call("set_params", feature=owner.Name, values={"thickness": 4})
+    report["p164_epaisseur_reeditee"] = (
+        edit.get("ok") is True
+        and abs(float(body.Shape.Volume) - before - 1250) < 0.5)
+    # L'esquisse rééditée : la ligne part plus haut, la nervure suit.
+    sketch = self._get_sketch(gusset)
+    import FreeCAD
+    line = sketch.Geometry[0]
+    line.StartPoint = FreeCAD.Vector(5, 35, 0)
+    sketch.Geometry = [line]
+    self._recompute()
+    report["p164_suit_son_esquisse"] = (
+        float(body.Shape.Volume) - before > 1250 + 10)
+    call("undo")
+    call("undo")
+    report["p164_annulee"] = abs(float(body.Shape.Volume) - before) < 1e-6
+
+    # Ligne trop courte : ses bouts se prolongent jusqu'aux ailes.
+    rib_sketch([(10, 20), (20, 10)])
+    out = call("add_rib", thickness=3)
+    report["p164_prolongee"] = (
+        out.get("ok") is True
+        and abs(float(body.Shape.Volume) - before - 600) < 0.5)
+    call("undo")
+
+    # Normale à l'esquisse : une ligne au-dessus de la semelle descend
+    # jusqu'à elle — 35 × 15 mm sur 2 mm.
+    name = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_line(name, 5, 0, 40, 0)
+    self.sketch_finish(name)
+    sketch = self._get_sketch(name)
+    sketch.AttachmentOffset = FreeCAD.Placement(
+        FreeCAD.Vector(0, 0, 20), FreeCAD.Rotation())
+    self._recompute()
+    out = call("add_rib", thickness=2, direction="normal")
+    report["p164_normale"] = (
+        out.get("ok") is True
+        and abs(float(body.Shape.Volume) - before - 1050) < 0.5)
+    call("undo")
+
+    # Refus : un contour fermé, une ligne dans le vide.
+    closed = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_rectangle(closed, 10, 10, 20, 20)
+    self.sketch_finish(closed)
+    refused = [call("add_rib", thickness=3, sketch=closed)]
+    far = rib_sketch([(60, 60), (80, 70)])
+    refused.append(call("add_rib", thickness=3, sketch=far))
+    refused.append(call("add_rib", thickness=0, sketch=far))
+    report["p164_refus"] = (
+        all(r.get("ok") is False for r in refused)
+        and abs(float(body.Shape.Volume) - before) < 1e-6
+        and not any(getattr(o, "FreeSolidRibspec", "") for o in body.Group)
+        and len(body.Group) > count)

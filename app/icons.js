@@ -305,6 +305,7 @@ export const ICONS = {
   vb_visibility: "fs_vb_visibility.svg",
   vb_zoomsel: "fs_vb_zoomsel.svg",
   vertex_chamfer: "fs_vertex_chamfer.svg",
+  rib: "fs_rib.svg",
   "view-front": "view-front.svg",
   "view-isometric": "view-isometric.svg",
   "view-measurement": "view-measurement.svg",
