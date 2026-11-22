@@ -1135,8 +1135,9 @@ export function installPicking(ctx) {
       ctx.onSurfaceDblClick(ctx.hoveredSurface);
       return;
     }
-    if (pickFilletRadiusBubble(event)) {
-      focusPanelField("radius");
+    const bubbleField = pickFilletRadiusBubble(event);
+    if (bubbleField) {
+      focusPanelField(bubbleField);
       return;
     }
     if (pickFeatureDim(event)) return;

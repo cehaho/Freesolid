@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  dimEditPayload, dimGeometry, dimLabel, featureDimLabel, filletRadiusLabel,
+  chamferBubbleLabel, dimEditPayload, dimGeometry, dimLabel, featureDimLabel,
+  filletRadiusLabel,
   sketchDimAnchor,
 } from "../../app/dims.js";
 import { setDisplayDecimals } from "../../app/num.js";
@@ -128,5 +129,19 @@ describe("cotes de fonction dans la vue", () => {
     assert.equal(featureDimLabel({ key: "count", value: 4, unit: "" }), "4");
     assert.equal(featureDimLabel(
       { key: "size", value: 2, unit: "mm", expr: "a*2" }), "Σ 2.00");
+  });
+});
+
+describe("bulle du chanfrein", () => {
+  it("distance égale, deux distances, distance et angle", () => {
+    setDisplayDecimals({ length: 2, angle: 1 });
+    assert.equal(chamferBubbleLabel({ kind: "egale", size: "2" }), "2.00 × 45°");
+    assert.equal(chamferBubbleLabel({ kind: "deux", size: 2, size2: "3" }),
+                 "2.00 × 3.00");
+    assert.equal(chamferBubbleLabel({ kind: "angle", size: 2, angle: 30 }),
+                 "2.00 × 30.0°");
+    assert.equal(chamferBubbleLabel({ kind: "egale", size: "a*2" }),
+                 "a*2 × 45°");
+    assert.equal(chamferBubbleLabel({ kind: "egale", size: "" }), null);
   });
 });

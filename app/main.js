@@ -4,6 +4,7 @@
 import * as THREE from "three";
 import { createSketchMode, createDimSprite, keepScreenSize } from "./sketch.js";
 import {
+  chamferBubbleLabel,
   filletRadiusLabel,
 } from "./dims.js";
 import { createPropertyPanel } from "./panel.js";
@@ -900,11 +901,13 @@ function showGhost(mesh) {
   hoverMaterial.opacity = selectedMaterial.opacity = 0.3;
 }
 
-// Bulle « R = … » pendant le congé, près de l'arête choisie.
+// Bulle « R = … » pendant le congé, « 2.00 × 45° » pendant le chanfrein,
+// près de l'arête choisie ; un double-clic dessus va au champ qu'elle montre.
 const filletBubbleGroup = new THREE.Group();
 filletBubbleGroup.renderOrder = 24;
 scene.add(filletBubbleGroup);
 let filletRadiusSprite = null;
+let bubbleField = "radius";
 
 function clearFilletRadiusBubble() {
   if (!filletRadiusSprite) return;
@@ -944,9 +947,11 @@ function filletBubbleAnchor(sel) {
   return null;
 }
 
-function updateFilletRadiusBubble(values) {
+function updateFilletRadiusBubble(values, { chamfer = false } = {}) {
   clearFilletRadiusBubble();
-  const text = filletRadiusLabel(values?.radius);
+  bubbleField = chamfer ? "size" : "radius";
+  const text = chamfer ? chamferBubbleLabel(values)
+    : filletRadiusLabel(values?.radius);
   const anchor = filletBubbleAnchor(values?.sel);
   if (!text || !anchor) return;
   const towardCamera = camera.position.clone().sub(controls.target);
@@ -974,7 +979,8 @@ function pickFilletRadiusBubble(event) {
   const screen = ndcToScreen(projected.x, projected.y, rect);
   const sx = screen.x;
   const sy = screen.y;
-  return Math.hypot(sx - event.clientX, sy - event.clientY) < 28;
+  return Math.hypot(sx - event.clientX, sy - event.clientY) < 28
+    ? bubbleField : false;
 }
 
 // Chaque frappe dans le panneau relance l'aperçu, débouncé — le serveur
