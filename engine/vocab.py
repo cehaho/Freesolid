@@ -223,7 +223,7 @@ _EXTRUDE_PARAM_KEYS = {
 }
 _REVOLVED_PARAM_KEYS = {
     "Angle": "angle", "Reversed": "reversed", "Midplane": "midplane",
-    "axis": "axis",
+    "axis": "axis", "Angle2": "angle2",
     "Thickness": "thinT", "Thickness2": "thinT2", "CapThickness": "thinCapT",
 }
 _HELIX_PARAM_KEYS = {"Pitch": "pitch", "Height": "height", "Angle": "angle"}

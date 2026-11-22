@@ -936,7 +936,9 @@ export function installPicking(ctx) {
     return new THREE.Vector3(x, y, 0).applyMatrix4(matrix);
   }
 
-  function featureParamWorldPos(param, feature, hit, sketchState) {
+  /** Où poser la cote `param` ; `rank` : son rang parmi celles posées
+   *  près du clic, empilées pour ne pas se chevaucher. */
+  function featureParamWorldPos(param, feature, hit, sketchState, rank = 0) {
     if (sketchState?.placement
         && (param.key === "length" || param.key === "lengthFwd")) {
       const matrix = new THREE.Matrix4().set(...sketchState.placement);
@@ -944,8 +946,12 @@ export function installPicking(ctx) {
       const normal = new THREE.Vector3(0, 0, 1).transformDirection(matrix);
       return origin.add(normal.normalize().multiplyScalar(param.value / 2));
     }
-    if (hit) return hit.clone().add(new THREE.Vector3(0, 0, 3));
-    return new THREE.Vector3(0, 0, 8);
+    // Une ligne d'étiquette (avec un peu d'air) par cote, à l'écran.
+    const step = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion)
+      .multiplyScalar(-24 * rank * ORTHO_HEIGHT
+        / (camera.zoom * Math.max(viewSize().height, 1)));
+    if (hit) return hit.clone().add(new THREE.Vector3(0, 0, 3)).add(step);
+    return new THREE.Vector3(0, 0, 8).add(step);
   }
 
   async function showFeatureDims(featureName, hit) {
@@ -998,6 +1004,7 @@ export function installPicking(ctx) {
         ctx.featureDimSprites.push(sprite);
       }
     }
+    let nearClick = 0;
     for (const param of params) {
       const [label, unit] = paramLabel(feature.type_key, param.key);
       const dim = {
@@ -1010,8 +1017,11 @@ export function installPicking(ctx) {
         key: param.key,
         type: param.key === "angle" ? "Angle" : "Distance",
       };
+      const placedOnSketch = firstSketchState?.placement
+        && (param.key === "length" || param.key === "lengthFwd");
       const world = featureParamWorldPos(
-        param, feature, hit, firstSketchState);
+        param, feature, hit, firstSketchState,
+        placedOnSketch ? 0 : nearClick++);
       const sprite = createDimSprite(dimLabel({
         ...dim,
         type: dim.unit === "°" ? "Angle" : dim.type,

@@ -7722,6 +7722,9 @@ def p163_revolution_deux_directions_et_arete(self, mark, report, etat):
     flip = dispatch(self, "set_params", {"feature": groove.Name,
                                          "values": {"reversed": True}})
     second = float(body.Shape.Volume)
+    # L'angle de la seconde direction est une cote, comme le premier.
+    keys = [p["key"] for p in self.get_params(groove.Name)["params"]]
+    report["p163_angle2_est_une_cote"] = keys.count("angle2") == 1
     report["p163_deux_angles_autour_de_l_arete"] = (
         out.get("ok") is True and flip.get("ok") is True
         and state.get("axis") == "edge:{}".format(edge)
