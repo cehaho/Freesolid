@@ -20,6 +20,19 @@ export function dimLabel(dim) {
   return dim.driving === false ? `(${text})` : text;
 }
 
+/** Texte d'une cote de fonction montrée dans la vue (double-clic sur
+ *  une face) : la valeur seule, comme dans les modeleurs courants, avec
+ *  Ø pour un diamètre et R pour un rayon ; un nombre d'occurrences, sans
+ *  décimales. Son nom reste dans le panneau qui la modifie. */
+export function featureDimLabel({ key = "", value, unit = "mm", expr = "" }) {
+  if (unit === "") return (expr ? "Σ " : "") + String(value);
+  const type = unit === "°" ? "Angle"
+    : /diameter$/i.test(key) ? "Diameter"
+      : key === "radius" ? "Radius" : "Distance";
+  return dimLabel({ type, expr,
+    value: type === "Angle" ? value * Math.PI / 180 : value });
+}
+
 /** Bulle du congé en cours : « R = 3.00 », ou l'expression telle quelle. */
 export function filletRadiusLabel(raw) {
   const text = String(raw ?? "").trim();
