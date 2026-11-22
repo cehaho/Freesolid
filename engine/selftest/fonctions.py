@@ -7742,6 +7742,16 @@ def p163_revolution_deux_directions_et_arete(self, mark, report, etat):
         and self._revolution_state(groove)["angle2"] is None
         and near(float(body.Shape.Volume), 1000 - quarter))
 
+    # La pièce change (cube plus haut) : l'arête née de l'extrusion reste
+    # l'axe, la gorge suit — un lien direct à l'arête s'y perdait.
+    pad = self._require_doc().getObject("Pad")
+    taller = dispatch(self, "set_params", {"feature": pad.Name,
+                                           "values": {"length": 12}})
+    report["p163_l_arete_suit_la_cote"] = (
+        taller.get("ok") is True
+        and self._revolution_state(groove)["axis"] == "edge:{}".format(edge)
+        and near(float(body.Shape.Volume), 1200 - quarter))
+
     # Refus : plus d'un tour, plan milieu avec deux directions, arête
     # inconnue — la pièce ne bouge pas.
     before = float(body.Shape.Volume)

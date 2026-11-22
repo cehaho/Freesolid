@@ -485,7 +485,8 @@ class Kernel(SketchShareMixin, TreeMixin, SolidsMixin, BodyFuseMixin, BodyScopeM
         # corps, outils des corps concernés : ils suivent les fonctions
         # d'avant, une passe par niveau d'imbrication.
         for _ in range(8):
-            changed = self._refresh_frozen_shapes()
+            changed = self._refresh_edge_axes()
+            changed = self._refresh_frozen_shapes() or changed
             changed = self._refresh_removals() or changed
             changed = self._refresh_repetitions() or changed
             if not changed:
