@@ -405,7 +405,7 @@
  "Symétrie": "Mirror",
  "Symétrie : sélectionnez les entités PUIS la ligne d'axe en dernier": "Mirror: select the entities THEN the axis line last",
  "Symétrie — sélectionnez les entités puis la ligne d'axe en dernier": "Mirror — select the entities then the axis line last",
- "Symétrie de la dernière fonction par rapport à un plan d'origine": "Mirror of the last feature about an origin plane",
+ "Symétrie des fonctions choisies (ou de la dernière) par rapport à un plan ou une face plane": "Mirror of the chosen features (or the last one) about a plane or a planar face",
  "Sélection : {n} entité(s) — relation, symétrie ou répétition ; clic dans le vide = vider": "Selection: {n} entity(ies) — relation, mirror or pattern; click empty space = clear",
  "Sélectionner": "Select",
  "Sélectionner — glisser un point, cliquer des entités": "Select — drag a point, click entities",

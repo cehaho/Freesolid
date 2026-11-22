@@ -168,6 +168,14 @@ export function mirrorPlaneRows(plane = "YZ", face = null,
   ];
 }
 
+/** Plan d'une nouvelle symétrie : la face cliquée avant la commande,
+ *  comme dans les modeleurs courants ; sinon le plan de droite. */
+export function mirrorPlaneFromSelection(ctx) {
+  const face = ctx?.selection?.(["face"])?.face;
+  return Number.isInteger(face) ? mirrorPlaneRows("face", face)
+    : mirrorPlaneRows();
+}
+
 /** Params moteur du plan d'une symétrie ; null : face à cliquer. */
 export function mirrorPlaneParams(v) {
   if (v.plane !== "face") return { plane: v.plane || "YZ" };
@@ -283,7 +291,7 @@ export const REPETITIONS = [
     groups: (ctx) => patternGroups(ctx, [
       {
         label: "Plan de symétrie",
-        rows: mirrorPlaneRows(),
+        rows: mirrorPlaneFromSelection(ctx),
       },
     ]),
     build: (v, ctx) => {
