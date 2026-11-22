@@ -383,5 +383,6 @@ export function installFeaturePanel(ctx) {
     }
   }
 
-  return { currentSelection, openFeaturePanel, bindFeature, editDepthHandle };
+  return { currentSelection, openFeaturePanel, bindFeature, editDepthHandle,
+           patternDirectionHandle };
 }
