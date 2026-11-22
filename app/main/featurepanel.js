@@ -103,6 +103,14 @@ export function installFeaturePanel(ctx) {
           const question = entry.confirm(v, ctx);
           if (question && !confirm(question)) return;
         }
+        // Comme dans les modeleurs courants, la fonction validée vide la
+        // sélection : un plan de référence choisi avant la commande ne
+        // reste pas choisi pour la suivante (Esquisse s'y ouvrirait). Une
+        // face, elle, tombe déjà avec le nouveau maillage.
+        if (app.selectedDatumFeature) {
+          app.selectedDatumFeature = null;
+          app.refreshDatumGhost?.(null);
+        }
         const run = entry.refresh === "any" ? refreshAny : refresh;
         const before = ctx.lastTree;
         const started = Date.now();
