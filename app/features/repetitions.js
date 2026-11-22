@@ -9,7 +9,9 @@ import { bodyZoneRow, bodyZoneValue, zoneNames } from "./commun.js";
 // (add_body_pattern).
 // Fonctions à répéter : clic dans l'arbre (plusieurs, un second clic
 // retire) ; vide = la dernière fonction. Direction : un axe d'origine ou
-// une arête droite cliquée dans la zone graphique.
+// une arête droite cliquée dans la zone graphique — pour un réseau
+// circulaire, une arête circulaire aussi (son axe), comme dans les
+// modeleurs courants.
 // Corps à répéter, corps concernés : des zones, remplies par un clic dans
 // la vue ou sur une ligne du dossier.
 
@@ -126,7 +128,7 @@ export function patternFeaturesParams(v) {
   return items.length ? { features: items.map((i) => i.name) } : {};
 }
 
-export function patternDirectionRows(defaultAxis) {
+export function patternDirectionRows(defaultAxis, { circular = false } = {}) {
   return [
     { type: "select", key: "dirKind", value: "axis",
       options: [["axis", "Axe d'origine"], ["edge", "Arête"]] },
@@ -136,7 +138,8 @@ export function patternDirectionRows(defaultAxis) {
     // Comme dans les modeleurs courants, cliquer une arête donne la
     // direction, même quand la liste est sur un axe d'origine.
     { type: "selection", key: "edge", accepts: ["edges"],
-      hint: "Cliquez une arête droite",
+      hint: circular ? "Cliquez une arête droite ou circulaire"
+        : "Cliquez une arête droite",
       reveal: { key: "dirKind", value: "edge" },
       showIf: (v) => v.dirKind === "edge" },
     { type: "check", key: "reversed", label: "Inverser la direction",
@@ -253,7 +256,7 @@ export const REPETITIONS = [
       {
         label: "Axe",
         rows: [
-          ...patternDirectionRows("Z"),
+          ...patternDirectionRows("Z", { circular: true }),
           { type: "number", key: "angle", label: "Angle total", value: 360,
             unit: "°", min: 0.01 },
           { type: "number", key: "count", label: "Nombre d'occurrences",
@@ -372,8 +375,8 @@ const lostDirection = (pattern) => !pattern?.axis
 
 /** Rangées de la direction d'une répétition rééditée : axe d'origine ou
  *  arête (remplie de la sienne), et son sens. */
-function directionEditRows(pattern) {
-  const rows = patternDirectionRows(pattern?.axis ?? "X");
+function directionEditRows(pattern, { circular = false } = {}) {
+  const rows = patternDirectionRows(pattern?.axis ?? "X", { circular });
   const edge = pattern?.edge;
   return rows.map((row) => {
     if (row.key === "dirKind") {
@@ -407,7 +410,7 @@ export function patternEditGroups(pattern, typeKey, dims = [],
   const polar = typeKey === "polar_pattern";
   const linear = typeKey === "linear_pattern";
   const groups = [{ label: polar ? "Axe" : "Direction 1", rows: [
-    ...directionEditRows(pattern),
+    ...directionEditRows(pattern, { circular: polar }),
     ...(linear ? [patternModeRow(pattern?.mode ?? "extent")] : []),
     ...dims] }];
   if (linear) {

@@ -2193,7 +2193,8 @@ class SolidsMixin:
     def add_polar_pattern(self, count, angle=360.0, axis="Z", features=None,
                           edge=None, reversed=False, scope=None):
         """Réseau circulaire d'une ou plusieurs fonctions autour d'un
-        axe d'origine ou d'une arête droite.
+        axe d'origine, d'une arête droite ou de l'axe d'une arête
+        circulaire (``edge``).
 
         ``features`` : noms des fonctions à répéter. Absent : la dernière
         fonction additive ou soustractive du corps actif. ``scope`` :
