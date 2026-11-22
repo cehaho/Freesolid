@@ -323,6 +323,7 @@ class SolidsMixin:
         if (obj.TypeId != "PartDesign::Boolean"
                 or any(getattr(obj, prop, "") for prop in (
                     "FreeSolidCutsurface", "FreeSolidVchamferspec",
+                    "FreeSolidRibspec",
                     "FreeSolidDeletefaces", "FreeSolidReplacedby",
                     "FreeSolidScopeOf", "FreeSolidGraphJson",
                     "FreeSolidRepeatJson", self._THIN_HELPER))):

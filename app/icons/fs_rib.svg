@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs>
+<linearGradient id="gT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e4f0fc"/><stop offset="1" stop-color="#a9c3ee"/></linearGradient>
+<linearGradient id="gL" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a7c0f0"/><stop offset="1" stop-color="#6380cf"/></linearGradient>
+<linearGradient id="gR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7d97dc"/><stop offset="1" stop-color="#3e58a8"/></linearGradient>
+<linearGradient id="gRib" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a7d"/><stop offset="1" stop-color="#c40f08"/></linearGradient>
+</defs><polygon points="2,20 16,27 30,20 16,13" fill="url(#gT)" stroke="#1f3570" stroke-width="0.8" stroke-linejoin="round"/><polygon points="2,20 2,23 16,30 16,27" fill="url(#gL)" stroke="#1f3570" stroke-width="0.8" stroke-linejoin="round"/><polygon points="16,27 16,30 30,23 30,20" fill="url(#gR)" stroke="#1f3570" stroke-width="0.8" stroke-linejoin="round"/><polygon points="2,8 16,1 16,13 2,20" fill="url(#gR)" stroke="#1f3570" stroke-width="0.8" stroke-linejoin="round"/><polygon points="9,8.5 9,16.5 18,21" fill="url(#gRib)" stroke="#7a0a05" stroke-width="0.8" stroke-linejoin="round"/></svg>

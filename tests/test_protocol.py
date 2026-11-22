@@ -543,6 +543,7 @@ def test_ops_snapshot_keys():
             "add_repeat_feature",
             "add_replace_face",
             "add_revolution",
+            "add_rib",
             "add_sketch3d",
             "add_surface_cut",
             "add_sweep",

@@ -431,7 +431,7 @@ describe("palette constructive", () => {
   const edgeSel = { kind: "edges", edges: [1, 2] };
 
   it("FEATURES porte les marqueurs dressup / sketchProfile, sans table parallèle", () => {
-    assert.equal(FEATURES.length, 48);
+    assert.equal(FEATURES.length, 49);
     assert.equal(pad?.sketchProfile, true);
     assert.equal(pad?.dressup, undefined);
     assert.equal(fillet?.dressup, true);
@@ -441,7 +441,7 @@ describe("palette constructive", () => {
     assert.equal(combine?.button, "btn-boolean");
     assert.equal(combine?.buttons, undefined);
     assert.equal(FEATURES.filter((entry) => entry.dressup).length, 5);
-    assert.equal(FEATURES.filter((entry) => entry.sketchProfile).length, 4);
+    assert.equal(FEATURES.filter((entry) => entry.sketchProfile).length, 5);
   });
 
   it("le profil de création est l'esquisse sélectionnée, sinon la dernière libre", () => {
@@ -497,7 +497,7 @@ describe("palette constructive", () => {
       lastTree: { features: [] },
       selection: null,
     });
-    assert.equal(items.length, 48);
+    assert.equal(items.length, 49);
     const padItem = items.find((item) => item.button === "btn-pad");
     const filletItem = items.find((item) => item.button === "btn-fillet");
     assert.equal(padItem.title, pad.title);

@@ -27,6 +27,7 @@ export function featureEditor(item) {
   if (isGraphFeature(item) || isRepeatFeature(item)) return "graph";
   if (item.type_key === "sketch") return "sketch";
   if (item.vertex_chamfer) return "vertex_chamfer";
+  if (item.rib) return "rib";
   // Plan, axe, point, repère : ce qui les porte, re-choisi au rang.
   if (item.reference) return "reference";
   if (item.text) return "text";

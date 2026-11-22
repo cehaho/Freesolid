@@ -39,6 +39,7 @@
             {"id": "btn-chamfer", "titre": "Chanfrein", "taille": "large", "icon": "chamfer", "libelle": "Chanfrein"},
             {"id": "btn-shell", "titre": "Coque — les faces cliquées deviennent des ouvertures", "icon": "shell", "libelle": "Coque", "taille": "large"},
             {"id": "btn-draft", "titre": "Dépouille des faces choisies par rapport à une face neutre ou un plan", "icon": "draft", "libelle": "Dépouille"},
+            {"id": "btn-rib", "titre": "Nervure — une esquisse ouverte épaissie jusqu'à la pièce", "icon": "rib", "libelle": "Nervure"},
             {"id": "btn-vertex-chamfer", "titre": "Chanfrein de sommet — coupe le coin cliqué", "icon": "vertex_chamfer", "libelle": "Chanfrein de sommet"}
           ]
         },

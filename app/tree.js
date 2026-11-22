@@ -27,6 +27,7 @@ import {
   shellEditValues,
   checkedContours, contourRows, vertexChamferEditValues, vertexChamferPick,
   vertexChamferPointValues, vertexChamferRow, vertexChamferRows,
+  ribEditValues, ribGroups,
   REMOVE_BODIES_NOTE, removeBodiesGroups, removeBodiesParams,
   patternEditGroups, patternEditValues, patternFeaturesPick,
   patternFeaturesValues, patternSourcesPick, patternSourcesValues,
@@ -1694,6 +1695,7 @@ export function installTree(ctx) {
         ? "linear_pattern"
         : feature.surface_cut ? "surface_cut"
           : feature.vertex_chamfer ? "vertex_chamfer"
+          : feature.rib ? "rib"
           : feature.delete_face ? "surface_delete_face"
             : feature.replace_face ? "replace_face"
             : feature.body_pattern ? BODY_PATTERN_ICONS[feature.body_pattern]
@@ -3071,6 +3073,18 @@ export function installTree(ctx) {
     });
   }
 
+  /** Nervure : épaisseur, direction et côté ; son esquisse se réédite
+   *  à part (double-clic sur elle). */
+  function editRib(feature) {
+    const rib = feature.rib;
+    return editAtRank(feature, {
+      icon: "rib",
+      groups: ribGroups(rib),
+      values: (v) => ribEditValues(v, rib),
+      problem: () => "Épaisseur invalide",
+    });
+  }
+
   /** Chanfrein de sommet : le panneau de sa création, son coin
    *  re-choisi sur la pièce à son rang. */
   function editVertexChamfer(feature) {
@@ -3271,6 +3285,7 @@ export function installTree(ctx) {
       ctx.sketchMode.enter(call("sketch_edit", { feature: feature.name }));
     },
     vertex_chamfer: editVertexChamfer,
+    rib: editRib,
     reference: (feature) => editReference(feature),
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),

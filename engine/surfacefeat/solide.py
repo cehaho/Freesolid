@@ -145,6 +145,8 @@ class SurfaceSolidMixin:
         from engine.kernel import KernelError
         if "vchamfer" in stamps:
             return self._vertex_chamfered(base_shape, stamps["vchamfer"])
+        if "rib" in stamps:
+            return self._rib_shape(base_shape, stamps["rib"])
         if "defeatfaces" in stamps:
             faces = [int(f) for f in str(stamps["defeatfaces"]).split(";")
                      if f != ""]
@@ -301,7 +303,14 @@ class SurfaceSolidMixin:
         owner = self._frozen_owner(frozen)
         before = getattr(old, "Shape", None)
         after = new.Shape
-        if getattr(frozen, "FreeSolidVchamferbase", ""):
+        if getattr(frozen, "FreeSolidRibbase", ""):
+            # Une nervure ne numérote rien sur la pièce : elle part
+            # seulement de la nouvelle fonction d'avant.
+            spec = frozen.FreeSolidRib
+            stamps = {"ribbase": new.Name, "rib": spec}
+            owned = {"ribspec": spec}
+            result = {"rib": spec}
+        elif getattr(frozen, "FreeSolidVchamferbase", ""):
             vertex, distances = parse_spec(frozen.FreeSolidVchamfer)
             spec = format_spec(_same_vertex(before, after, vertex),
                                distances)

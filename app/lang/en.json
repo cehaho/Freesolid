@@ -1,4 +1,10 @@
 {
+ "Nervure": "Rib",
+ "Nervure — une esquisse ouverte épaissie jusqu'à la pièce": "Rib — an open sketch thickened up to the part",
+ "Parallèle à l'esquisse": "Parallel to sketch",
+ "Normale à l'esquisse": "Normal to sketch",
+ "Inverser le côté de la matière": "Flip material side",
+ "Le profil est une esquisse ouverte : une ligne, ou plusieurs bout à bout. La matière s'étend jusqu'à la pièce.": "The profile is an open sketch: one line, or several end to end. The material extends up to the part.",
  " (sans cotes)": " (without dimensions)",
  " (sans coupe)": " (without section)",
  " — {n} ignorée(s)": " — {n} skipped",

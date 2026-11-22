@@ -56,6 +56,7 @@ export const STEP_LABELS = {
   add_graph_feature: "Fonction", add_repeat_feature: "Fonction",
   add_replace_face: "Fonction", add_sketch3d: "Fonction",
   add_surface_cut: "Fonction", add_vertex_chamfer: "Fonction",
+  add_rib: "Fonction",
   array_component: "Modification", edit_curve3d: "Modification",
   edit_graph_feature: "Modification", edit_remove_bodies: "Modification",
   edit_repeat_feature: "Modification",

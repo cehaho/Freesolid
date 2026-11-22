@@ -149,6 +149,10 @@ class TreeMixin:
             if linked is not None:
                 # Esquisse partagée : elle voyage avec sa première fonction.
                 consumed.setdefault(linked.Name, obj.Name)
+            rib = self._rib_state(obj)
+            if rib is not None:
+                # La nervure range son esquisse ouverte sous elle.
+                consumed.setdefault(rib["sketch"], obj.Name)
         for obj in self._doc.Objects:
             if not self._is_surface_obj(obj):
                 continue
@@ -449,6 +453,9 @@ class TreeMixin:
             for named in (linked, source):
                 if named is not None:
                     used.add(named.Name)
+            rib = self._rib_state(obj)
+            if rib is not None:
+                used.add(rib["sketch"])
         return [o for o in body.Group
                 if o.TypeId == "Sketcher::SketchObject"
                 and o.Name not in used
@@ -1392,6 +1399,10 @@ class TreeMixin:
                     "vertex": vertex, "distances": distances,
                     # Son coin, sur la pièce à son rang.
                     "point": self._vertex_chamfer_point(obj)}
+            rib = self._rib_state(obj)
+            if rib is not None:
+                # Nervure : épaisseur, direction et côté se rééditent.
+                item["rib"] = rib
             deleted = getattr(obj, "FreeSolidDeletefaces", "")
             if deleted:
                 item["delete_face"] = {"faces": [

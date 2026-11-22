@@ -149,6 +149,47 @@ function profileSketchEntry(ctx) {
   return null;
 }
 
+// Comme dans les modeleurs courants : la nervure s'épaissit de part et
+// d'autre du plan de l'esquisse (parallèle) ou de la ligne (normale).
+const RIB_DIRECTIONS = [["parallel", "Parallèle à l'esquisse"],
+                        ["normal", "Normale à l'esquisse"]];
+
+/** Groupes de la nervure : épaisseur, direction, côté. `rib` : l'état
+ *  d'une nervure rééditée. */
+export function ribGroups(rib) {
+  return [{ label: "Paramètres", rows: [
+    { type: "number", key: "thickness", label: "Épaisseur",
+      value: rib?.thickness ?? 3, unit: "mm", min: 0.01 },
+    { type: "select", key: "direction", label: "Direction",
+      value: rib?.direction ?? "parallel", options: RIB_DIRECTIONS },
+    { type: "check", key: "flip", label: "Inverser le côté de la matière",
+      value: !!rib?.flip },
+  ] }];
+}
+
+/** Paramètres `add_rib` du panneau, null si l'épaisseur est invalide. */
+export function ribBuild(v) {
+  const thickness = num(v.thickness);
+  if (!(thickness > 0)) return null;
+  const params = { thickness, direction: v.direction ?? "parallel" };
+  if (v.flip) params.flip = true;
+  return { op: "add_rib", params };
+}
+
+/** Valeurs `set_params` d'une nervure rééditée : `{}` si rien n'a
+ *  changé, null si l'épaisseur est invalide. */
+export function ribEditValues(v, rib) {
+  const thickness = num(v.thickness ?? rib.thickness);
+  if (!(thickness > 0)) return null;
+  const values = {};
+  if (Math.abs(thickness - rib.thickness) > 1e-9) values.thickness = thickness;
+  const direction = v.direction ?? rib.direction;
+  if (direction !== rib.direction) values.direction = direction;
+  const flip = v.flip ?? rib.flip;
+  if (!!flip !== !!rib.flip) values.flip = !!flip;
+  return values;
+}
+
 /** Fonctions à profil d'esquisse : ligne « Profil : … », params.sketch
  *  si présélection, garde si aucune esquisse disponible. */
 function withSketchProfile(entry) {
@@ -1255,6 +1296,18 @@ export const VOLUMES = [
     invalid: "Balayage : un profil puis une trajectoire (différents)",
     refresh: "part",
   },
+  withSketchProfile({
+    button: "btn-rib",
+    op: "add_rib",
+    icon: "rib",
+    title: "Nervure",
+    groups: () => ribGroups(),
+    note: "Le profil est une esquisse ouverte : une ligne, ou plusieurs " +
+          "bout à bout. La matière s'étend jusqu'à la pièce.",
+    build: (v) => ribBuild(v),
+    invalid: "Épaisseur invalide",
+    refresh: "part",
+  }),
   {
     button: "btn-helix",
     op: "add_helix",

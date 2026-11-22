@@ -1,7 +1,7 @@
 """Corps et fonctions volumiques : extrusions, révolutions, lissage,
 balayage, hélice, perçage, texte, Combiner.
 
-Méthodes : solids.py, text.py, sketchshare.py, directedit.py.
+Méthodes : solids.py, text.py, sketchshare.py, directedit.py, rib.py.
 """
 
 from engine.ops._base import Op, Req
@@ -166,6 +166,12 @@ OPS = (
                                        # (none|lamage|fraisage), cut_diameter,
                                        # cut_depth, cut_angle ; face + points :
                                        # les centres cliqués sur la face
+    # Nervure : esquisse ouverte (sinon la dernière libre), épaisseur ;
+    # direction parallel | normal, flip : l'autre côté.
+    Op("add_rib", Req(("thickness", float), optional={
+        "sketch": str, "direction": str, "flip": bool}),
+       undo=True, preview=True,
+       no_replay="forme figée (FrozenShape), pas get_params"),
     Op("add_text", Req(("text", str), ("face", int)), undo=True, preview=True,
        no_replay="propriétés FreeSolid* hors get_params"),
                                        # optional: size, depth, x, y, emboss, font

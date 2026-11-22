@@ -38,8 +38,9 @@ Tenir la grille à jour : une fonction ajoutée ou corrigée met sa ligne à jou
 | Congé | oui + bulle de rayon | rayon ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui + bulle de rayon | oui | oui (rayon, arêtes) |
 | Chanfrein | oui | type, taille, taille 2, angle, sens ; arêtes ou face, re-choisies sur la pièce à son rang | — | oui | oui | oui |
 | Chanfrein de sommet | oui | le panneau de la création : sommet, distances | — | oui | oui (une ligne ; une fonction posée sous la barre avant lui entre dans sa forme) | oui |
+| Nervure | oui | épaisseur, direction (parallèle ou normale à l'esquisse), côté de la matière ; l'esquisse se réédite à part et la nervure la suit | — | oui | oui (une ligne, son esquisse rangée sous elle ; une fonction posée sous la barre avant elle entre dans sa forme) | oui (épaisseur, esquisse rééditée) |
 | Coque | oui | épaisseur, « vers l'extérieur » ; faces à ouvrir, re-choisies sur la pièce à son rang | — | oui | oui | oui (sens, refus d'une coque trop épaisse, faces) |
-| Dépouille | oui | angle, plan neutre ; face, re-choisie sur la pièce à son rang | — | oui | oui | oui (face, plan neutre) |
+| Dépouille | oui | angle, plan neutre (face de la pièce ou plan d'origine), sens ; faces, re-choisies sur la pièce à son rang | — | oui | oui | oui (faces, plan neutre, face neutre, sens) |
 | Combiner | non, voulu | le panneau de la création, au rang (le corps outil y reparaît) : opération, corps outil (venu d'un module : l'opération seule) | — | non, voulu | oui | oui (opération, corps outil, refus) |
 | Supprimer des corps | non, voulu | complète : corps, solides ou surfaces choisis (une zone : clic ou cadre dans la vue, clic dans le dossier, croix pour retirer), ôter ou garder | rien | non, voulu | oui (drapeau) | oui |
 | Plan de référence | oui + fantôme | le panneau de la création, sur la pièce à son rang : face ou plan d'origine, décalage, angle | — | oui + fantôme | oui (drapeau) | oui |
