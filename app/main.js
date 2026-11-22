@@ -128,6 +128,7 @@ const panel = createPropertyPanel({
       && (selectedFaceId !== null || selectedEdges.size > 0);
     if (dropView) {
       selectedFaceId = null;
+      ctx.breadcrumbs?.render();
       selectedEdges = new Set();
       ctx.clearSketchSelection?.({ quiet: true });
       ctx.clearSurfaceSelection?.({ quiet: true });
@@ -351,6 +352,8 @@ function showMesh(mesh) {
   lastFaceMatch = mesh.face_match ?? null;
   hoveredGroup = -1;
   selectedFaceId = null; // ids shift after every feature: stale picks lie
+  // Le fil de la sélection suit : il montrait encore la face d'avant.
+  ctx.breadcrumbs?.render();
   const cleared = panel.invalidateSelections();
   lastClearedSelections = cleared > 0;
   // Les noms/labels d'esquisse bougent aussi après une fonction.
@@ -2070,7 +2073,7 @@ ctx.treeHooks.push((tree) => refGeometry.draw(tree));
 // Propriétés du document : elles arrivent avec chaque arbre de pièce.
 ctx.treeHooks.push((tree) => applyDocOptions(tree.options ?? null));
 // Fil de la sélection : pièce › fonction › esquisse › face.
-installBreadcrumbs(ctx);
+ctx.breadcrumbs = installBreadcrumbs(ctx);
 // Gestionnaire à onglets : arbre, propriétés, configurations, affichage.
 ctx.updateTreeFlyout = updateTreeFlyout;
 ctx.managerTabs = installManagerTabs(ctx);
