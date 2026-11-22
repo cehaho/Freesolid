@@ -256,3 +256,17 @@ describe("mode d'une répétition variable", () => {
     assert.deepEqual(repeatModeValues({ mode: "fuse" }, {}), {});
   });
 });
+
+describe("axe d'un réseau circulaire", () => {
+  const hintOf = (groups) => groups.flatMap((g) => g.rows)
+    .find((row) => row.key === "edge").hint;
+
+  it("une arête circulaire convient (son axe), pas pour un réseau linéaire",
+     () => {
+    const pattern = { features: ["Hole"], axis: null, edge: 0 };
+    assert.equal(hintOf(patternEditGroups(pattern, "polar_pattern")),
+                 "Cliquez une arête droite ou circulaire");
+    assert.equal(hintOf(patternEditGroups(pattern, "linear_pattern")),
+                 "Cliquez une arête droite");
+  });
+});
