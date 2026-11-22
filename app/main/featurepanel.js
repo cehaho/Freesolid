@@ -144,7 +144,9 @@ export function installFeaturePanel(ctx) {
     const depthHandle = ["btn-pad", "btn-pocket", "btn-surf-extrude"]
       .includes(entry.button) ? extrudeDepthHandle(entry, ctx)
       : entry.button === "btn-hole" ? holeDepthHandle()
-        : entry.button === "btn-helix" ? helixDepthHandle(ctx) : null;
+        : entry.button === "btn-helix" ? helixDepthHandle(ctx)
+          : entry.button === "btn-linpattern" ? patternDirectionHandle()
+            : null;
     if (depthHandle) spec.onClose = () => depthHandle.close();
     if (entry.preview !== false) {
       spec.onChange = (v, how) => {
@@ -306,6 +308,49 @@ export function installFeaturePanel(ctx) {
       }).catch(() => {});
     }
     return arrow;
+  }
+
+  /** Flèche d'une répétition linéaire qu'on crée : comme dans les
+   *  modeleurs courants, elle montre le sens des occurrences — depuis
+   *  l'arête choisie (sinon le centre de la pièce, pour un axe
+   *  d'origine), au bout de la distance. « Inverser la direction » la
+   *  retourne ; la tirer change la distance. */
+  function patternDirectionHandle() {
+    const frames = new Map(); // « arête:3:1 » ou « axe:X:0 » → cadre
+    const keyOf = (v) => {
+      const reversed = v.reversed ? 1 : 0;
+      if (v.dirKind === "edge") {
+        const edge = v.edge?.edges?.[0];
+        return Number.isInteger(edge)
+          ? { key: `edge:${edge}:${reversed}`,
+              params: { edge, reversed: !!v.reversed } } : null;
+      }
+      const axis = v.axis ?? "X";
+      return { key: `axis:${axis}:${reversed}`,
+               params: { axis, reversed: !!v.reversed } };
+    };
+    const arrow = depthArrow((v) => {
+      const at = keyOf(v);
+      const frame = at ? frames.get(at.key) : null;
+      const length = num(v.length);
+      if (!frame?.dir || !(length > 0)) return null;
+      return { origin: frame.origin.map((c, i) => c + frame.dir[i] * length),
+               dir: frame.dir, length, factor: 1, key: "length" };
+    });
+    return {
+      ...arrow,
+      update: (v) => {
+        const at = keyOf(v);
+        if (at && !frames.has(at.key)) {
+          frames.set(at.key, null);
+          call("pattern_frame", at.params).then((result) => {
+            frames.set(at.key, result);
+            arrow.ready();
+          }).catch(() => {});
+        }
+        arrow.update(v);
+      },
+    };
   }
 
   /** Flèche de la fonction qu'on réédite : le moteur la pose au bout de

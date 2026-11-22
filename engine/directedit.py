@@ -90,6 +90,44 @@ class DirectEditMixin:
         return {"center": [center.x, center.y, center.z],
                 "normal": [normal.x, normal.y, normal.z]}
 
+    _AXIS_DIRECTIONS = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0),
+                        "Z": (0.0, 0.0, 1.0)}
+
+    def pattern_frame(self, edge=None, axis="X", reversed=False):
+        """D'où part et où va la flèche de direction d'une répétition
+        linéaire : le milieu de l'arête droite ``edge`` (sinon le centre
+        de la pièce, pour un axe d'origine) et le sens des occurrences —
+        celui du modeleur, du premier au dernier sommet de l'arête."""
+        from engine.kernel import KernelError
+        body = self._require_body()
+        shape = getattr(body, "Shape", None)
+        if shape is None or shape.isNull():
+            raise KernelError("aucune arête : la pièce est vide")
+        if edge is not None:
+            index = int(edge)
+            if not 0 <= index < len(shape.Edges):
+                raise KernelError("arête inconnue : {}".format(edge))
+            target = shape.Edges[index]
+            if type(target.Curve).__name__ != "Line":
+                return {"origin": None, "dir": None}
+            start = target.Vertexes[0].Point
+            end = target.Vertexes[-1].Point
+            direction = end - start
+            if direction.Length < 1e-12:
+                return {"origin": None, "dir": None}
+            direction.normalize()
+            origin = (start + end) * 0.5
+            dir_ = [direction.x, direction.y, direction.z]
+        else:
+            dir_ = self._AXIS_DIRECTIONS.get(str(axis).upper())
+            if dir_ is None:
+                raise KernelError("axe inconnu : {}".format(axis))
+            origin = shape.BoundBox.Center
+            dir_ = list(dir_)
+        if reversed:
+            dir_ = [-c for c in dir_]
+        return {"origin": [origin.x, origin.y, origin.z], "dir": dir_}
+
     def face_drag_info(self, face):
         """Comment tirer la face ``face`` du corps actif, ou
         ``{"drag": None}`` si elle ne pilote aucune cote simple."""

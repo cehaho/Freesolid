@@ -179,6 +179,9 @@ OPS = (
                                        # optional: text, size, depth, x, y,
                                        # face, emboss — absents = inchangés
     Op("face_frame", Req(("face", int))),
+    # Flèche de direction d'une répétition linéaire (lecture seule).
+    Op("pattern_frame", Req(optional={"edge": int, "axis": str,
+                                      "reversed": bool})),
                                        # lecture : centre et normale d'une face
     Op("face_drag_info", Req(("face", int))),
                                        # lecture : la face se tire-t-elle
