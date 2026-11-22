@@ -94,6 +94,7 @@
   "new_from_template": {"requis": ["name"], "types": [["name", "str"]], "optionnels": []},
   "new_part": {"requis": [], "types": [], "optionnels": []},
   "open_part": {"requis": ["path"], "types": [["path", "str"]], "optionnels": []},
+  "pattern_frame": {"requis": [], "types": [], "optionnels": [["edge", "int"], ["axis", "str"], ["reversed", "bool"]]},
   "paste_feature": {"requis": ["feature"], "types": [["feature", "str"]], "optionnels": [["face", "int"], ["plane", "str"], ["datum", "str"]]},
   "ping": {"requis": [], "types": [], "optionnels": []},
   "preview": {"requis": ["op", "params"], "types": [["op", "str"], ["params", "dict"]], "optionnels": []},

@@ -7944,3 +7944,40 @@ def p164_nervure(self, mark, report, etat):
         and abs(float(body.Shape.Volume) - before) < 1e-6
         and not any(getattr(o, "FreeSolidRibspec", "") for o in body.Group)
         and len(body.Group) > count)
+
+
+def p165_fleche_de_repetition(self, mark, report, etat):
+    mark("p165: flèche de direction d'une répétition linéaire")
+    from engine.kernel import dispatch
+    # La flèche dit le sens où les occurrences partent : celui du
+    # modeleur, sur chaque arête droite, inversée ou non.
+    self.new_part("Flèche de répétition")
+    self.add_rect_sketch(60, 30)
+    self.add_pad(10)
+    name = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_circle(name, 0, 0, 3)
+    self.sketch_finish(name)
+    self.add_pad(20)
+    body = self._require_body()
+    boss = body.Tip
+    before = body.Shape.BoundBox
+    agree = []
+    for index, edge in enumerate(boss.Shape.Edges):
+        if type(edge.Curve).__name__ != "Line" or abs(edge.tangentAt(
+                edge.FirstParameter).z) > 0.5:
+            continue
+        for reversed_ in (False, True):
+            frame = self.pattern_frame(edge=index, reversed=reversed_)
+            dispatch(self, "add_linear_pattern", {
+                "length": 5, "count": 2, "edge": index, "spacing": True,
+                "reversed": reversed_})
+            after = body.Shape.BoundBox
+            grow = [after.XMax - before.XMax + after.XMin - before.XMin,
+                    after.YMax - before.YMax + after.YMin - before.YMin]
+            agree.append(all(abs(g) < 1e-6 or (g > 0) == (d > 0)
+                             for g, d in zip(grow, frame["dir"][:2])))
+            dispatch(self, "undo", {})
+    axis = self.pattern_frame(axis="Y", reversed=True)
+    report["p165_fleche_suit_le_sens"] = (
+        len(agree) >= 8 and all(agree)
+        and axis["dir"] == [-0.0, -1.0, -0.0])

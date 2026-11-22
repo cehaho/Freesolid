@@ -608,6 +608,7 @@ def test_ops_snapshot_keys():
             "new_part",
             "open_part",
             "paste_feature",
+            "pattern_frame",
             "ping",
             "preview",
             "progress",
