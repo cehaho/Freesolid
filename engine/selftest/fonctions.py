@@ -498,6 +498,13 @@ def p8_plan_decale_lissage(self, mark, report, etat):
                  if f["type"] == "PartDesign::Plane")
     report["p8_datum_has_placement"] = any(
         "placement" in f for f in tree["features"])
+    # Comme un corps, un plan de référence se masque et se réaffiche.
+    hidden = self.set_hidden([datum], True)
+    shown = self.set_hidden([datum], False)
+    report["p8_datum_hides"] = (
+        any(f["name"] == datum and f.get("hidden") for f in hidden["features"])
+        and not any(f["name"] == datum and f.get("hidden")
+                    for f in shown["features"]))
     self.add_rect_sketch(40, 40)
     base_sk = self._latest_sketch().Name
     state = self.sketch_start(datum=datum)

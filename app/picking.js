@@ -391,6 +391,7 @@ export function installPicking(ctx) {
     let surfaceHit = null;
     let boundaryHit = null;
     let other = null;
+    let datum = null;
     if (!sketchHit) {
       const faceHit = ctx.partMesh
         ? raycaster.intersectObject(ctx.partMesh)[0] : undefined;
@@ -450,6 +451,13 @@ export function installPicking(ctx) {
         edgeGroupIndex = -1;
         pointHit = otherHit;
       }
+      // Un plan de référence, là où rien d'autre n'est visé : comme dans
+      // les modeleurs courants, il se choisit dans la vue.
+      if (!pointHit && ctx.datumMeshes?.length && allow.planes !== false) {
+        const datumHit = raycaster.intersectObjects(ctx.datumMeshes)[0];
+        datum = datumHit?.object.userData.datum ?? null;
+        pointHit = datumHit ?? null;
+      }
       // Barre d'état : coordonnées du point visé sur la pièce.
       coordsEl.textContent = coordsText(pointHit?.point ?? null);
     }
@@ -462,7 +470,11 @@ export function installPicking(ctx) {
         || sketchHit?.name !== ctx.hoveredSketch?.name
         || surfaceName !== ctx.hoveredSurface?.name
         || boundaryKey !== hoveredKey
-        || otherKey(other) !== otherKey(ctx.hoveredOther)) {
+        || otherKey(other) !== otherKey(ctx.hoveredOther)
+        || datum?.name !== ctx.hoveredDatum?.name) {
+      const datumChanged = datum?.name !== ctx.hoveredDatum?.name;
+      ctx.hoveredDatum = datum;
+      if (datumChanged) ctx.refreshDatumGhost(null);
       ctx.hoveredGroup = groupIndex;
       ctx.hoveredEdgeGroup = edgeGroupIndex;
       ctx.hoveredSketch = sketchHit;
@@ -471,7 +483,7 @@ export function installPicking(ctx) {
       ctx.hoveredOther = other;
       renderer.domElement.style.cursor =
         groupIndex >= 0 || edgeGroupIndex >= 0 || sketchHit || surfaceHit
-          || boundaryHit || other ? "pointer" : "";
+          || boundaryHit || other || datum ? "pointer" : "";
       repaintGroups();
       repaintEdges();
       repaintSurfaces();
@@ -858,6 +870,18 @@ export function installPicking(ctx) {
       panel.notifyPick("edges",
         { kind: "edges", edges: [...ctx.selectedEdges] });
       if (event.button === 0) ctx.showContextToolbar(event);
+      return;
+    }
+
+    // Un plan de référence cliqué dans la vue : choisi comme depuis sa
+    // ligne de l'arbre (Esquisse le prend ensuite).
+    if (ctx.hoveredDatum && ctx.hoveredGroup < 0) {
+      ctx.selectedFaceId = null;
+      ctx.selectedEdges = new Set();
+      repaintEdges();
+      clearFeatureDims();
+      const feature = findFeatureInTree(ctx.lastTree, ctx.hoveredDatum.name);
+      if (feature) ctx.onDatumRow(feature, { toggle: false });
       return;
     }
 

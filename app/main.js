@@ -586,6 +586,8 @@ async function updateViewport(gen) {
   const mesh = await call("tessellate");
   if (gen !== viewGen) return;
   showMesh(mesh);
+  // Les plans de référence prennent l'emprise de la nouvelle pièce.
+  ctx.refreshDatumGhost?.(null);
   const edges = await call("tessellate_edges");
   if (gen !== viewGen) return;
   showEdgeLines(edges);
@@ -1343,7 +1345,7 @@ const {
   setFlatTree, isFlatTree,
 } = installTree(ctx);
 Object.assign(ctx, {
-  renderTree, refreshDatumGhost, clearSketchSelection, editRepeatFeatures,
+  renderTree, refreshDatumGhost, onDatumRow, clearSketchSelection, editRepeatFeatures,
   cancelPendingSurfaceClick, onSurfaceClick, onSurfaceDblClick,
   clearSurfaceSelection, selectSketch,
   moveBar, stepBar, barToPrevious, barCommands, isAfterBar,

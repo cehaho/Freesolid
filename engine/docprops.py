@@ -175,8 +175,9 @@ class DocPropsMixin:
         return bool(getattr(obj, "FreeSolidHidden", False))
 
     def set_hidden(self, objects, hidden=True, solid=None):
-        """Masque (ou affiche) des corps ou des surfaces : ils restent dans
-        la pièce et dans l'arbre, la vue ne les dessine plus. Enregistré
+        """Masque (ou affiche) des corps, des surfaces ou des plans de
+        référence : ils restent dans la pièce et dans l'arbre, la vue ne
+        les dessine plus. Enregistré
         dans le fichier. ``solid`` : un seul des solides d'un corps qui en
         garde plusieurs (``objects`` ne nomme alors que ce corps)."""
         from engine.kernel import KernelError
@@ -184,9 +185,10 @@ class DocPropsMixin:
         targets = []
         for name in objects or ():
             obj = doc.getObject(str(name))
-            if obj is None or not (obj.TypeId == "PartDesign::Body"
+            if obj is None or not (obj.TypeId in ("PartDesign::Body",
+                                                  "PartDesign::Plane")
                                    or self._is_surface_obj(obj)):
-                raise KernelError("corps ou surface inconnu : {}".format(name))
+                raise KernelError("corps, surface ou plan inconnu : {}".format(name))
             targets.append(obj)
         if not targets:
             raise KernelError("choisissez un corps ou une surface")
