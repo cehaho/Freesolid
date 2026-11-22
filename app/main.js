@@ -1626,6 +1626,9 @@ async function featureCommand(openPanel) {
   // Une fonction choisie pendant le dessin prend la main : celle qui
   // attendait la sortie de l'esquisse ne s'ouvre plus.
   pendingFeature = null;
+  // Les cotes affichées d'un double-clic ne suivent pas la commande :
+  // elles parleraient d'une autre fonction que celle du panneau.
+  clearFeatureDims();
   if (sketchMode.active) await sketchMode.finish();
   openPanel();
 }

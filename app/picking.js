@@ -1106,6 +1106,10 @@ export function installPicking(ctx) {
 
   renderer.domElement.addEventListener("dblclick", (event) => {
     if (ctx.sketchMode.active || ctx.assemblyState || ctx.planePicking || ctx.measuring) return;
+    // Le premier clic a ouvert la barre contextuelle : elle couvrirait les
+    // cotes que le double-clic affiche (comme dans les modeleurs courants,
+    // elle s'efface).
+    ctx.hideContextToolbar?.();
     if (ctx.hoveredSurface) {
       ctx.onSurfaceDblClick(ctx.hoveredSurface);
       return;
