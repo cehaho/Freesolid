@@ -10,7 +10,7 @@ import {
   boxMode, isDrag, normalizeRect, pickInBox, pickMeshesInBox,
 } from "./navigation.js";
 import {
-  dimEditPayload, dimLabel, openDimEditor, sketchDimAnchor,
+  dimEditPayload, dimLabel, featureDimLabel, openDimEditor, sketchDimAnchor,
 } from "./dims.js";
 import { paramLabel } from "./tree.js";
 
@@ -1046,11 +1046,8 @@ export function installPicking(ctx) {
       const world = featureParamWorldPos(
         param, feature, hit, firstSketchState,
         placedOnSketch ? 0 : nearClick++);
-      const sprite = createDimSprite(dimLabel({
-        ...dim,
-        type: dim.unit === "°" ? "Angle" : dim.type,
-        value: dim.unit === "°" ? dim.value * Math.PI / 180 : dim.value,
-      }), world.x, world.y, world.z);
+      const sprite = createDimSprite(featureDimLabel(dim),
+        world.x, world.y, world.z);
       sprite.userData.dim = dim;
       sprite.renderOrder = 24;
       featureDimsGroup.add(sprite);

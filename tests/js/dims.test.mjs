@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  dimEditPayload, dimGeometry, dimLabel, filletRadiusLabel, sketchDimAnchor,
+  dimEditPayload, dimGeometry, dimLabel, featureDimLabel, filletRadiusLabel,
+  sketchDimAnchor,
 } from "../../app/dims.js";
 import { setDisplayDecimals } from "../../app/num.js";
 
@@ -108,5 +109,24 @@ describe("cotes : longueur d'arc, angle à l'axe, référence", () => {
       { shown: "5", isSketchAngle: false }), { driving: false });
     assert.deepEqual(dimEditPayload({ value: "5", driven: false }, dim,
       { shown: "5", isSketchAngle: false }), {});
+  });
+});
+
+describe("cotes de fonction dans la vue", () => {
+  it("la valeur seule, avec Ø ou R, sans le nom", () => {
+    setDisplayDecimals({ length: 2, angle: 1 });
+    assert.equal(featureDimLabel({ key: "length", value: 10, unit: "mm" }),
+                 "10.00");
+    assert.equal(featureDimLabel({ key: "diameter", value: 6, unit: "mm" }),
+                 "Ø6.00");
+    assert.equal(featureDimLabel({ key: "cutDiameter", value: 11, unit: "mm" }),
+                 "Ø11.00");
+    assert.equal(featureDimLabel({ key: "radius", value: 2, unit: "mm" }),
+                 "R2.00");
+    assert.equal(featureDimLabel({ key: "angle", value: 90, unit: "°" }),
+                 "90.0°");
+    assert.equal(featureDimLabel({ key: "count", value: 4, unit: "" }), "4");
+    assert.equal(featureDimLabel(
+      { key: "size", value: 2, unit: "mm", expr: "a*2" }), "Σ 2.00");
   });
 });
