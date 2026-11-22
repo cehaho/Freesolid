@@ -207,6 +207,46 @@ def p2_depouille_coque(self, mark, report, etat):
     report["p2_thickness_ok"] = not any(
         f["error"] for f in tree["features"])
 
+    # Comme dans les modeleurs courants : les quatre flancs d'un coup,
+    # par rapport à la face du dessous ; le sens s'inverse, et la
+    # réédition relit faces, face neutre et sens.
+    from engine.kernel import dispatch
+    self.new_part("Pièce dépouille")
+    self.add_rect_sketch(40, 20)
+    self.add_pad(10)
+    tip = self._require_body().Tip
+    faces = tip.Shape.Faces
+    sides = [i for i, f in enumerate(faces) if abs(f.normalAt(0, 0).z) < 0.1]
+    bottom = next(i for i, f in enumerate(faces) if f.normalAt(0, 0).z < -0.9)
+    vol = float(self._require_body().Shape.Volume)
+    out = dispatch(self, "add_draft", {"faces": sides, "angle": 5,
+                                       "neutral_face": bottom})
+    body = self._require_body()
+    draft = body.Tip
+    entry = next(f for f in out["result"]["features"]
+                 if f["name"] == draft.Name) if out.get("ok") else {}
+    inward = float(body.Shape.Volume)
+    report["p2_draft_plusieurs_faces_face_neutre"] = (
+        out.get("ok") is True and inward < vol - 1
+        and entry.get("draft", {}).get("faces") == sides
+        and entry.get("draft", {}).get("neutral_face") == bottom)
+    edit = dispatch(self, "set_params", {"feature": draft.Name,
+                                         "values": {"reversed": True}})
+    report["p2_draft_sens_inverse"] = (
+        edit.get("ok") is True and float(body.Shape.Volume) > vol + 1
+        and bool(draft.Reversed))
+    # Deux flancs seulement : la face neutre reste la sienne.
+    edit = dispatch(self, "set_params", {"feature": draft.Name,
+                                         "values": {"faces": sides[:2]}})
+    report["p2_draft_faces_reeditees"] = (
+        edit.get("ok") is True
+        and self._draft_neutral_face_id(draft) == bottom
+        and len(draft.Base[1]) == 2)
+    bad = dispatch(self, "add_draft", {"faces": sides, "angle": 5,
+                                       "neutral_face": sides[0]})
+    report["p2_draft_face_neutre_depouillee_refusee"] = (
+        bad.get("ok") is False)
+
 
 def p4_apercu_jaune(self, mark, report, etat):
     mark("p4: aperçu jaune (exécuté puis annulé)")
@@ -4686,13 +4726,16 @@ def p114_coque_depouille_rechoisissent(self, mark, report, etat):
     moved = (done.get("ok") is True
              and list(draft.Base[1]) == ["Face{}".format(other + 1)]
              and entry(done["result"], draft.Name).get("draft")
-             == {"face": other, "neutral": "XY"} and clean())
+             == {"faces": [other], "face": other, "neutral": "XY",
+                 "neutral_face": None, "reversed": False} and clean())
     parallel = call("set_params", feature=draft.Name,
                     values={"neutral": "XZ"})
     unknown = call("set_params", feature=draft.Name, values={"neutral": "AB"})
     foreign = call("set_params", feature=pad.Name, values={"neutral": "XY"})
     report["p114_depouille_rechoisit_face_et_plan"] = (
-        listed == {"face": side, "neutral": "XY"} and at_rank and moved
+        listed == {"faces": [side], "face": side, "neutral": "XY",
+                   "neutral_face": None, "reversed": False}
+        and at_rank and moved
         and parallel.get("ok") is False
         and self._draft_neutral_token(draft) == "XY"
         and unknown.get("ok") is False and foreign.get("ok") is False

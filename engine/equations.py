@@ -156,6 +156,12 @@ class EquationsMixin:
         targets = self._picked_subs(obj, picks) if picks else None
         draft = obj.TypeId == "PartDesign::Draft"
         neutral = values.pop("neutral", None) if draft else None
+        # Plan neutre pris sur une face de la pièce à son rang, et sens
+        # d'une dépouille.
+        neutral_face = (values.pop("neutral_face", None)
+                        if draft else None)
+        draft_reversed = (values.pop("reversed", None)
+                          if draft else None)
         # Positions d'un perçage (face et centres), re-choisies au rang :
         # son esquisse se réécrit, avant les cotes.
         positions = (values.pop("positions", None)
@@ -232,18 +238,40 @@ class EquationsMixin:
             except Exception as exc:  # noqa: BLE001
                 self._restore_props(obj, previous)
                 raise KernelError(_explain(exc))
-        if draft and (targets is not None or neutral is not None):
-            # Le plan neutre se repose sur la face (peut-être nouvelle) :
-            # une face parallèle de la base, autre que celle qu'on dépouille.
-            plane = neutral or self._draft_neutral_token(obj)
-            face = (self._base_face_ids(obj) or [None])[0]
+        draft_neutral = draft and (targets is not None or neutral is not None
+                                   or neutral_face is not None)
+        if draft_neutral:
+            # Une face choisie comme plan neutre reste la sienne ; sinon le
+            # plan neutre se repose sur la face (peut-être nouvelle) : une
+            # face parallèle de la base, autre que celle qu'on dépouille.
+            kept = (self._draft_neutral_face_id(obj)
+                    if neutral is None else None)
+            # La marque existe avant d'être retenue : un refus la remet.
+            self._mark_draft_neutral_face(obj, kept is not None, force=True)
             previous.append(("NeutralPlane", None, obj.NeutralPlane))
+            previous.append(("FreeSolidNeutralFace", None,
+                             obj.FreeSolidNeutralFace))
+            chosen = neutral_face if neutral_face is not None else kept
             try:
-                obj.NeutralPlane = self._draft_neutral_ref(
-                    self._pick_base(obj), plane, face)
+                if chosen is not None:
+                    obj.NeutralPlane = self._draft_neutral_face_ref(
+                        self._pick_base(obj), chosen, list(obj.Base[1]))
+                    self._mark_draft_neutral_face(obj, True)
+                else:
+                    plane = neutral or self._draft_neutral_token(obj)
+                    face = (self._base_face_ids(obj) or [None])[0]
+                    obj.NeutralPlane = self._draft_neutral_ref(
+                        self._pick_base(obj), plane, face)
+                    self._mark_draft_neutral_face(obj, False)
+            except KernelError:
+                self._restore_props(obj, previous)
+                raise
             except Exception as exc:  # noqa: BLE001
                 self._restore_props(obj, previous)
                 raise KernelError(_explain(exc))
+        if draft and draft_reversed is not None:
+            previous.append(("Reversed", None, obj.Reversed))
+            obj.Reversed = bool(draft_reversed)
         editable = (() if obj.TypeId in self._NO_DIMENSIONS
                     else self._EDITABLE_PROPS)
         thin = self._thin_spec(obj) is not None
@@ -481,7 +509,7 @@ class EquationsMixin:
                     raise KernelError(invalid)
             if shelled and not self._settle_shell(obj):
                 raise KernelError(shell_too_thick_message())
-            if (draft and (targets is not None or neutral is not None)
+            if ((draft_neutral or (draft and draft_reversed is not None))
                     and self._draft_without_effect(obj)):
                 raise KernelError(self._DRAFT_NO_EFFECT)
         except KernelError as exc:

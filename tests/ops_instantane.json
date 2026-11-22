@@ -12,7 +12,7 @@
   "add_datum_plane": {"requis": [], "types": [], "optionnels": []},
   "add_datum_point": {"requis": [], "types": [], "optionnels": [["point", "list"], ["vertex", "list"], ["edge", "int"]]},
   "add_delete_face": {"requis": ["faces"], "types": [["faces", "list"]], "optionnels": []},
-  "add_draft": {"requis": ["face", "angle"], "types": [["face", "int"], ["angle", "float"]], "optionnels": []},
+  "add_draft": {"requis": ["angle"], "types": [["angle", "float"]], "optionnels": [["face", "int"], ["faces", "list"], ["neutral", "str"], ["neutral_face", "int"], ["reversed", "bool"]]},
   "add_fillet": {"requis": ["radius"], "types": [["radius", "float"]], "optionnels": []},
   "add_graph_feature": {"requis": ["graph"], "types": [["graph", "dict"]], "optionnels": [["mode", "str"]]},
   "add_groove": {"requis": [], "types": [], "optionnels": [["angle", "float"], ["axis", "str"], ["reversed", "bool"], ["midplane", "bool"], ["angle2", "float"], ["contours", "list"], ["bodies", "list"]]},

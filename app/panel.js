@@ -368,10 +368,15 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
       active.values[rows[0].reveal.key] = rows[0].reveal.value;
       rows.splice(1);
     }
-    // La zone active d'abord, si elle prend ce choix.
-    const multiRow = rows.find((r) => r.multiple && r.key === active.focus)
-      ?? rows.find((r) => r.multiple);
-    if (multiRow) {
+    // La zone active d'abord, si elle prend ce choix — une zone simple
+    // cliquée (la face neutre d'une dépouille) passe avant la zone
+    // multiple voisine.
+    const focused = rows.find((r) => r.key === active.focus);
+    const multiRow = focused?.multiple ? focused
+      : (focused ? null : rows.find((r) => r.multiple));
+    if (focused && !focused.multiple && rows.some((r) => r.multiple)) {
+      active.values[focused.key] = zonePick(focused, kind, value);
+    } else if (multiRow) {
       const pick = zonePick(multiRow, kind, value);
       const current = active.values[multiRow.key] ?? { kind, items: [] };
       active.values[multiRow.key] = { ...current, items: zoneToggle(

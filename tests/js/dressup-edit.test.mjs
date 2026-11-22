@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  draftEditGroups, draftEditValues, dressupPick, dressupPickValues,
+  draftBuild, draftEditGroups, draftEditValues, draftGroups, dressupPick, dressupPickValues,
   filletEditRows, filletEditValues, shellFacesPick, shellFacesValues,
 } from "../../app/features.js";
 
@@ -88,9 +88,10 @@ describe("dépouille rééditée", () => {
                     draft: { face: 1, neutral: "XZ" } };
 
   it("reprend son angle et son plan neutre", () => {
-    const [angle, neutral] = draftEditGroups(feature)[0].rows;
-    assert.equal(angle.value, 5);
-    assert.equal(neutral.value, "XZ");
+    const [plane, sizes] = draftEditGroups(feature);
+    assert.equal(plane.rows[0].value, "XZ");
+    assert.equal(sizes.rows[0].value, 5);
+    assert.equal(sizes.rows[1].value, false);
   });
 
   it("n'envoie que ce qui change", () => {
@@ -100,6 +101,50 @@ describe("dépouille rééditée", () => {
       { angle: 4, neutral: "XY" });
     assert.equal(draftEditValues({ angle: "95", neutral: "XZ" }, feature),
       null);
+  });
+
+  it("garde sa face neutre, la change, inverse le sens", () => {
+    const own = { params: [{ key: "angle", value: 5 }],
+                  draft: { faces: [0, 1], neutral: "XY", neutral_face: 4,
+                           reversed: false } };
+    const [plane] = draftEditGroups(own);
+    assert.equal(plane.rows[0].value, "face");
+    assert.deepEqual(plane.rows[1].value, { kind: "face", face: 4 });
+    assert.deepEqual(draftEditValues({ angle: "5", neutral: "face" }, own),
+      {});
+    assert.deepEqual(draftEditValues({ angle: "5", neutral: "face",
+                                       nface: { kind: "face", face: 5 },
+                                       reversed: true }, own),
+      { neutral_face: 5, reversed: true });
+    assert.deepEqual(draftEditValues({ angle: "5", neutral: "XZ" }, own),
+      { neutral: "XZ" });
+    assert.equal(draftEditValues({ angle: "5", neutral: "face",
+                                   nface: null }, own), null);
+  });
+});
+
+describe("dépouille créée", () => {
+  it("part de la face cliquée, plan neutre sur une face", () => {
+    const groups = draftGroups(null, { first: { kind: "face", face: 2 } });
+    assert.deepEqual(groups[0].rows[0].value.items, [{ kind: "face", face: 2 }]);
+    assert.equal(groups[1].rows[0].value, "face");
+    assert.equal(groups[1].rows[1].showIf({ neutral: "face" }), true);
+    assert.equal(groups[1].rows[1].showIf({ neutral: "XY" }), false);
+  });
+
+  it("plusieurs faces et une face neutre", () => {
+    const faces = { items: [{ face: 0 }, { face: 1 }, { face: 1 }] };
+    assert.deepEqual(draftBuild({ faces, angle: 5, neutral: "face",
+                                  nface: { face: 4 }, reversed: true }),
+      { op: "add_draft",
+        params: { angle: 5, faces: [0, 1], neutral_face: 4,
+                  reversed: true } });
+    assert.deepEqual(draftBuild({ faces: { items: [{ face: 3 }] }, angle: 3,
+                                  neutral: "XZ" }),
+      { op: "add_draft", params: { angle: 3, face: 3, neutral: "XZ" } });
+    assert.equal(draftBuild({ faces, angle: 5, neutral: "face" }), null);
+    assert.equal(draftBuild({ faces: { items: [] }, angle: 5,
+                              neutral: "XY" }), null);
   });
 
   it("sa face se compare comme celle d'un congé", () => {

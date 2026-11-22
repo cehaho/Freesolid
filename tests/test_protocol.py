@@ -169,7 +169,7 @@ def test_p2_ops_declare_their_required_params():
     assert protocol.OPS["add_linear_pattern"] == ("length", "count")
     assert protocol.OPS["add_polar_pattern"] == ("count",)
     assert protocol.OPS["add_thickness"] == ("thickness",)  # face(s) en option
-    assert protocol.OPS["add_draft"] == ("face", "angle")
+    assert protocol.OPS["add_draft"] == ("angle",)  # face(s) en option
 
 
 def test_pad_accepts_direction_options():

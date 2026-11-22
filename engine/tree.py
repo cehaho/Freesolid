@@ -1347,9 +1347,13 @@ class TreeMixin:
                     item["shell"]["faces"] = faces
             if obj.TypeId == "PartDesign::Draft":
                 faces = self._base_face_ids(obj)
-                if faces and len(faces) == 1:
-                    item["draft"] = {"face": faces[0],
-                                     "neutral": self._draft_neutral_token(obj)}
+                if faces:
+                    item["draft"] = {
+                        "faces": faces,
+                        "face": faces[0],
+                        "neutral": self._draft_neutral_token(obj),
+                        "neutral_face": self._draft_neutral_face_id(obj),
+                        "reversed": bool(getattr(obj, "Reversed", False))}
             if obj.TypeId == "PartDesign::Hole":
                 hole = self._hole_state(obj)
                 if hole is not None:
