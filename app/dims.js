@@ -531,6 +531,9 @@ export function openDimEditor({ panel, dim, onApply, onCancel }) {
     note: t("Expression : « Variables.Largeur / 2 » ou " +
           "« .Constraints.largeur * 2 » (les noms de cotes de cette " +
           "esquisse s'utilisent avec .Constraints.nom)"),
+    // Comme la boîte de cote des modeleurs courants : Entrée applique et
+    // ferme, on enchaîne sur la cote suivante.
+    enterApplies: true,
     onApply: (values) => onApply(values, { shown, isSketchAngle }),
     onCancel,
   });

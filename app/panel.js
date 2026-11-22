@@ -15,6 +15,7 @@
 //       sélection cachées n'absorbent pas les clics,
 //     note?: string,
 //     noApply?: boolean,   // panneau info : pas de bouton OK
+//     enterApplies?: boolean, // Entrée dans un champ modifié : appliquer et fermer (boîte de cote)
 //     autoFocus?: boolean, // false : ne pas voler le focus clavier
 //     actions?: [{ label, title?, className?, onClick(values) }],
 //     values?: {…} — valeurs de départ (y compris des clés sans ligne),
@@ -69,9 +70,13 @@ import { iconSrc } from "./icons.js";
  *  champ est d'abord appliquée (l'aperçu suit, le panneau reste ouvert) ;
  *  un second appui — ou Entrée hors d'un champ modifié — valide la
  *  fonction. */
-export function enterAction({ tag, edited, noApply }) {
+export function enterAction({ tag, edited, noApply, enterApplies }) {
   if (tag === "SELECT" || tag === "TEXTAREA") return "none";
-  if (tag === "INPUT" && edited) return "commit";
+  // Boîte de cote (`enterApplies`) : comme dans les modeleurs courants,
+  // Entrée prend la valeur et ferme d'un coup.
+  if (tag === "INPUT" && edited && !(enterApplies && !noApply)) {
+    return "commit";
+  }
   return noApply ? "none" : "apply";
 }
 
@@ -311,6 +316,7 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
         tag: event.target.tagName,
         edited: event.target === editedInput,
         noApply: active?.spec.noApply,
+        enterApplies: active?.spec.enterApplies,
       });
       if (action === "none") return;
       event.preventDefault();
