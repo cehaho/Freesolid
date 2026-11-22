@@ -7981,3 +7981,88 @@ def p165_fleche_de_repetition(self, mark, report, etat):
     report["p165_fleche_suit_le_sens"] = (
         len(agree) >= 8 and all(agree)
         and axis["dir"] == [-0.0, -1.0, -0.0])
+
+
+def p166_repetition_pilotee_par_esquisse(self, mark, report, etat):
+    mark("p166: répétition pilotée par esquisse")
+    import FreeCAD
+    from engine.kernel import dispatch
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    self.new_part("Répétition par esquisse")
+    self.add_rect_sketch(60, 30)
+    self.add_pad(10)
+    name = self.sketch_start(face=self._top_face_id())["sketch"]
+    self.sketch_add_circle(name, -20, 0, 3)
+    self.sketch_finish(name)
+    self.add_pocket(length=5)
+    body = self._require_body()
+    hole = body.Tip
+    one = float(hole.AddSubShape.Volume)
+    before = float(body.Shape.Volume)
+    count = len(body.Group)
+
+    # Trois points, dont un sur l'original : deux copies.
+    points = self.sketch_start(face=self._top_face_id())["sketch"]
+    for x, y in ((-20, 0), (0, 0), (15, 5)):
+        self.sketch_add_point(points, x, y)
+    self.sketch_finish(points)
+    out = call("add_sketch_pattern")
+    owner = body.Tip
+    item = next((f for f in (out.get("result") or {}).get("features", ())
+                 if f["name"] == owner.Name), {})
+    report["p166_copies_sur_les_points"] = (
+        out.get("ok") is True
+        and abs(before - float(body.Shape.Volume) - 2 * one) < 1e-3
+        and item.get("sketch_pattern") == {"sketch": points,
+                                           "features": [hole.Name]}
+        and points not in [s.Name for s in self._free_sketches()])
+    # Un point ajouté à l'esquisse : une copie de plus.
+    sketch = self._get_sketch(points)
+    import Part
+    sketch.addGeometry(Part.Point(FreeCAD.Vector(20, -8, 0)))
+    self._recompute()
+    report["p166_suit_son_esquisse"] = (
+        abs(before - float(body.Shape.Volume) - 3 * one) < 1e-3)
+    call("undo")
+    report["p166_annulee"] = abs(float(body.Shape.Volume) - before) < 1e-6
+
+    # Un bossage aussi : la matière s'ajoute aux points.
+    boss = self.sketch_start(face=self._top_face_id())["sketch"]
+    self.sketch_add_circle(boss, 20, 0, 2)
+    self.sketch_finish(boss)
+    self.add_pad(length=4)
+    pad = body.Tip
+    grown = float(body.Shape.Volume)
+    spots = self.sketch_start(face=self._top_face_id())["sketch"]
+    self.sketch_add_point(spots, 20, 10)
+    self.sketch_finish(spots)
+    out = call("add_sketch_pattern", features=[pad.Name, hole.Name])
+    added = float(pad.AddSubShape.Volume)
+    report["p166_bossage_et_trou"] = (
+        out.get("ok") is True
+        and abs(float(body.Shape.Volume) - grown - added + one) < 1e-3)
+    owner = body.Tip
+    edit = call("set_params", feature=owner.Name,
+                values={"features": [pad.Name]})
+    # La réédition ouverte sans rien changer : son aperçu passe.
+    same = dispatch(self, "preview", {
+        "op": "set_params",
+        "params": {"feature": owner.Name, "values": {}}})
+    report["p166_fonctions_rechoisies"] = (
+        edit.get("ok") is True and same.get("ok") is True
+        and abs(float(body.Shape.Volume) - grown - added) < 1e-3)
+    call("undo")
+    call("undo")
+
+    # Refus : une esquisse sans point.
+    empty = self.sketch_start(face=self._top_face_id())["sketch"]
+    self.sketch_add_line(empty, 0, 0, 10, 0)
+    self.sketch_finish(empty)
+    refused = call("add_sketch_pattern", sketch=empty)
+    report["p166_refus"] = (
+        refused.get("ok") is False
+        and abs(float(body.Shape.Volume) - grown) < 1e-6
+        and len(body.Group) > count)

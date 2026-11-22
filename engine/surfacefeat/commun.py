@@ -560,7 +560,8 @@ class SurfaceCommonMixin:
             base_name = (getattr(obj, "FreeSolidDefeatbase", "")
                          or getattr(obj, "FreeSolidReplacebase", "")
                          or getattr(obj, "FreeSolidVchamferbase", "")
-                         or getattr(obj, "FreeSolidRibbase", ""))
+                         or getattr(obj, "FreeSolidRibbase", "")
+                         or getattr(obj, "FreeSolidSpatbase", ""))
             if not base_name:
                 continue
             base = doc.getObject(base_name)
@@ -575,6 +576,8 @@ class SurfaceCommonMixin:
                 stamps = {"vchamfer": obj.FreeSolidVchamfer}
             elif getattr(obj, "FreeSolidRibbase", ""):
                 stamps = {"rib": obj.FreeSolidRib}
+            elif getattr(obj, "FreeSolidSpatbase", ""):
+                stamps = {"spat": obj.FreeSolidSpat}
             elif getattr(obj, "FreeSolidDefeatbase", ""):
                 stamps = {"defeatfaces": obj.FreeSolidDefeatfaces}
             else:

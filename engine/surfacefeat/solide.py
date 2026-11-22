@@ -147,6 +147,8 @@ class SurfaceSolidMixin:
             return self._vertex_chamfered(base_shape, stamps["vchamfer"])
         if "rib" in stamps:
             return self._rib_shape(base_shape, stamps["rib"])
+        if "spat" in stamps:
+            return self._sketch_patterned(base_shape, stamps["spat"])
         if "defeatfaces" in stamps:
             faces = [int(f) for f in str(stamps["defeatfaces"]).split(";")
                      if f != ""]
@@ -303,7 +305,14 @@ class SurfaceSolidMixin:
         owner = self._frozen_owner(frozen)
         before = getattr(old, "Shape", None)
         after = new.Shape
-        if getattr(frozen, "FreeSolidRibbase", ""):
+        if getattr(frozen, "FreeSolidSpatbase", ""):
+            # Une répétition pilotée par esquisse ne numérote rien sur la
+            # pièce : elle part seulement de la nouvelle fonction d'avant.
+            spec = frozen.FreeSolidSpat
+            stamps = {"spatbase": new.Name, "spat": spec}
+            owned = {"spatspec": spec}
+            result = {"spat": spec}
+        elif getattr(frozen, "FreeSolidRibbase", ""):
             # Une nervure ne numérote rien sur la pièce : elle part
             # seulement de la nouvelle fonction d'avant.
             spec = frozen.FreeSolidRib

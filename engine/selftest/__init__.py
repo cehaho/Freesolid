@@ -280,6 +280,7 @@ def _etapes():
         fonctions.p163_revolution_deux_directions_et_arete,
         fonctions.p164_nervure,
         fonctions.p165_fleche_de_repetition,
+        fonctions.p166_repetition_pilotee_par_esquisse,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,

@@ -545,6 +545,7 @@ def test_ops_snapshot_keys():
             "add_revolution",
             "add_rib",
             "add_sketch3d",
+            "add_sketch_pattern",
             "add_surface_cut",
             "add_sweep",
             "add_text",

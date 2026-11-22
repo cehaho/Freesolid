@@ -106,6 +106,7 @@ export {
   patternFeaturesParams,
   patternFeaturesPick,
   patternFeaturesValues,
+  sketchPatternBuild,
   patternSourcesPick,
   patternSourcesValues,
 } from "./features/repetitions.js";
