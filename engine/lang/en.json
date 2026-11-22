@@ -607,7 +607,7 @@
  "couleur invalide : {}": "invalid color: {}",
  "calque inconnu : {}": "unknown layer: {}",
  "sélectionnez les entités à ranger": "select the entities to put on a layer",
- "corps ou surface inconnu : {}": "unknown body or surface: {}",
+ "corps, surface ou plan inconnu : {}": "unknown body, surface or plane: {}",
  "choisissez un corps ou une surface": "choose a body or a surface",
  "cette ligne ne se désactive pas : {}": "this item cannot be suppressed: {}",
  "« {} » a été désactivée avec « {} » : réactivez « {} »": "\"{}\" was suppressed with \"{}\": unsuppress \"{}\"",

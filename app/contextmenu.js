@@ -49,11 +49,13 @@ export function isSuppressibleTarget(feature) {
     && key !== "body" && !isBodyMenuTarget(feature);
 }
 
-/** Corps, ou ligne du dossier des surfaces (`surface`, courbes
- *  composites comprises) : ce qu'on masque et affiche. */
+/** Corps, ligne du dossier des surfaces (`surface`, courbes
+ *  composites comprises) ou plan de référence : ce qu'on masque et
+ *  affiche. */
 export function isHideableTarget(feature, { surface = false } = {}) {
   if (!feature?.name || typeof feature.grounded === "boolean") return false;
-  return isBodyMenuTarget(feature) || surface || isSurfaceKey(feature.type_key);
+  return isBodyMenuTarget(feature) || surface || isSurfaceKey(feature.type_key)
+    || (feature.type_key === "datum_plane" && !feature.body);
 }
 
 /** « Modifier » quand le double-clic rouvre quelque chose (editkind.js).

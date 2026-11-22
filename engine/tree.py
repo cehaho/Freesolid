@@ -1288,6 +1288,8 @@ class TreeMixin:
                 item["placement"] = [
                     float(v) for v in obj.Placement.Matrix.A]
                 item["rolled_back"] = self._is_rolled_back(obj)
+                if self._is_hidden(obj):
+                    item["hidden"] = True
                 # Ce qui la porte : sa réédition le re-choisit au rang.
                 try:
                     reference = self._reference_spec(obj)

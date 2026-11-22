@@ -231,45 +231,105 @@ export function installTree(ctx) {
   })());
 
 
-  // ---------- plans de référence (fantôme + sélection d'esquisse) ----------
+  // ---------- plans de référence (vue + sélection d'esquisse) ----------
+  // Comme dans les modeleurs courants, un plan de référence reste dessiné
+  // dans la vue (sauf masqué) et s'y choisit d'un clic (picking.js lit
+  // `ctx.datumMeshes`). Le survol — de sa ligne ou dans la vue — et la
+  // sélection le soulignent ; un plan masqué ne se montre qu'alors.
 
-  let datumGhost = null;
+  let datumGroup = null;
+  ctx.datumMeshes = [];
 
-  function refreshDatumGhost(hoverFeature) {
-    if (datumGhost) {
-      disposeSubtree(datumGhost);
-      scene.remove(datumGhost);
-      datumGhost = null;
+  function datumStyle(name, hover, selected) {
+    if (name === selected) {
+      return { color: sceneTheme.selection, fill: 0.18, border: 0.95 };
     }
-    const feature = hoverFeature ?? ctx.selectedDatumFeature;
-    if (!feature?.placement) return;
-    const { radius } = partCenterRadius();
-    const size = Math.max(radius * 1.4, 60);
-    const holder = new THREE.Group();
-    holder.matrixAutoUpdate = false;
-    holder.matrix.set(...feature.placement);
-    const fillMaterial = new THREE.MeshBasicMaterial({
-      color: sceneTheme.accent, transparent: true, opacity: 0.14,
-      side: THREE.DoubleSide, depthWrite: false });
-    fillMaterial.userData.own = true;
-    const fill = new THREE.Mesh(
-      new THREE.PlaneGeometry(size, size), fillMaterial);
-    const borderMaterial = new THREE.LineBasicMaterial(
-      { color: sceneTheme.accent, transparent: true, opacity: 0.7 });
-    borderMaterial.userData.own = true;
-    const border = new THREE.LineSegments(
-      new THREE.EdgesGeometry(fill.geometry), borderMaterial);
-    holder.add(fill, border);
-    scene.add(holder);
-    datumGhost = holder;
+    if (name === hover) return { color: sceneTheme.accent, fill: 0.16, border: 0.9 };
+    return { color: sceneTheme.accent, fill: 0.05, border: 0.45 };
   }
 
-  function onDatumRow(feature) {
+  /** Rectangle d'un plan de référence, dans son repère : l'emprise de la
+   *  pièce projetée sur lui, avec une marge — comme dans les modeleurs
+   *  courants. Sans pièce, un carré de 60 mm autour de son origine. */
+  function datumExtent(box, matrix) {
+    if (box.isEmpty()) return { cx: 0, cy: 0, width: 60, height: 60 };
+    const inverse = matrix.clone().invert();
+    const local = new THREE.Box3();
+    for (const x of [box.min.x, box.max.x]) {
+      for (const y of [box.min.y, box.max.y]) {
+        for (const z of [box.min.z, box.max.z]) {
+          local.expandByPoint(new THREE.Vector3(x, y, z).applyMatrix4(inverse));
+        }
+      }
+    }
+    const width = local.max.x - local.min.x;
+    const height = local.max.y - local.min.y;
+    const margin = Math.max(width, height, 10) * 0.1;
+    return { cx: (local.min.x + local.max.x) / 2,
+             cy: (local.min.y + local.max.y) / 2,
+             width: width + 2 * margin, height: height + 2 * margin };
+  }
+
+  function refreshDatumGhost(hoverFeature) {
+    if (datumGroup) {
+      disposeSubtree(datumGroup);
+      scene.remove(datumGroup);
+      datumGroup = null;
+    }
+    ctx.datumMeshes = [];
+    const hover = hoverFeature?.name ?? ctx.hoveredDatum?.name ?? null;
+    const selected = ctx.selectedDatumFeature?.name ?? null;
+    const datums = (ctx.lastTree?.features ?? []).filter((f) =>
+      f.type_key === "datum_plane" && !f.body && f.placement
+      && !f.rolled_back && !f.suppressed
+      && (!f.hidden || f.name === hover || f.name === selected));
+    if (hoverFeature?.placement
+        && !datums.some((f) => f.name === hoverFeature.name)) {
+      datums.push(hoverFeature);
+    }
+    if (!datums.length) return;
+    const box = new THREE.Box3();
+    for (const mesh of [ctx.partMesh, ...(ctx.othersMeshes ?? [])]) {
+      if (mesh?.geometry) box.expandByObject(mesh);
+    }
+    datumGroup = new THREE.Group();
+    for (const feature of datums) {
+      const style = datumStyle(feature.name, hover, selected);
+      const holder = new THREE.Group();
+      holder.matrixAutoUpdate = false;
+      holder.matrix.set(...feature.placement);
+      const { cx, cy, width, height } = datumExtent(box, holder.matrix);
+      const fillMaterial = new THREE.MeshBasicMaterial({
+        color: style.color, transparent: true, opacity: style.fill,
+        side: THREE.DoubleSide, depthWrite: false });
+      fillMaterial.userData.own = true;
+      const fill = new THREE.Mesh(
+        new THREE.PlaneGeometry(width, height), fillMaterial);
+      fill.position.set(cx, cy, 0);
+      fill.userData.datum = { name: feature.name, label: feature.label,
+                              placement: feature.placement };
+      const borderMaterial = new THREE.LineBasicMaterial(
+        { color: style.color, transparent: true, opacity: style.border });
+      borderMaterial.userData.own = true;
+      const border = new THREE.LineSegments(
+        new THREE.EdgesGeometry(fill.geometry), borderMaterial);
+      border.position.copy(fill.position);
+      holder.add(fill, border);
+      datumGroup.add(holder);
+      ctx.datumMeshes.push(fill);
+    }
+    scene.add(datumGroup);
+    datumGroup.updateMatrixWorld(true);
+  }
+
+  /** Choisit un plan de référence (ligne de l'arbre, ou clic dans la
+   *  vue avec `toggle: false` : un second clic le garde choisi). */
+  function onDatumRow(feature, { toggle = true } = {}) {
     cancelPendingSurfaceClick();
     clearSketchSelection({ quiet: true });
     clearSurfaceSelection({ quiet: true });
     ctx.selectedDatumFeature =
-      ctx.selectedDatumFeature?.name === feature.name
+      toggle && ctx.selectedDatumFeature?.name === feature.name
         ? null
         : { name: feature.name, placement: feature.placement };
     if (ctx.selectedDatumFeature) {
@@ -1281,6 +1341,7 @@ export function installTree(ctx) {
     clearAssemblyView(); // un arbre de pièce = le mode assemblage s'efface
     dropRolledBackSelection(tree);
     ctx.lastTree = tree;
+    refreshDatumGhost(null);
     for (const hook of ctx.treeHooks ?? []) hook(tree);
     updateEditMode();
     ctx.treeHoverPlane = null;
@@ -1669,6 +1730,7 @@ export function installTree(ctx) {
     } else if (feature.type_key === "datum_plane") {
       // Un plan de référence se choisit comme un plan d'origine.
       row.classList.add("plane");
+      if (feature.hidden) row.classList.add("hidden-object");
       if (ctx.selectedDatumFeature?.name === feature.name) {
         row.classList.add("sel");
       }

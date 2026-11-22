@@ -54,6 +54,13 @@ describe("cible du menu de l'arbre", () => {
     assert.equal(isHideableTarget({ name: "Body", active: true }), true);
     assert.equal(isHideableTarget({ name: "Pad", type_key: "pad" }), false);
   });
+
+  it("un plan de référence se masque, sauf celui d'un autre corps", () => {
+    assert.equal(isHideableTarget(
+      { name: "DatumPlane", type_key: "datum_plane" }), true);
+    assert.equal(isHideableTarget(
+      { name: "DatumPlane", type_key: "datum_plane", body: "Body001" }), false);
+  });
 });
 
 describe("« Désactiver »", () => {
