@@ -1,4 +1,12 @@
 {
+ "Répétition pilotée par table": "Table driven pattern",
+ "Répétition pilotée par table — une copie des fonctions par ligne de décalages X, Y, Z": "Table driven pattern — a copy of the features per row of X, Y, Z offsets",
+ "Rép. par table": "Table pattern",
+ "Chaque ligne place une copie : X, Y, Z depuis l'original, dans les axes de la pièce (mm).": "Each row places a copy: X, Y, Z from the original, along the part axes (mm).",
+ "Décalages depuis l'original": "Offsets from the original",
+ "Ajouter une copie": "Add a copy",
+ "Ajoutez une ligne par copie": "Add a row per copy",
+ "Ajoutez au moins une copie": "Add at least one copy",
  "Répétition pilotée par esquisse": "Sketch driven pattern",
  "Répétition pilotée par esquisse — une copie des fonctions sur chaque point d'une esquisse": "Sketch driven pattern — a copy of the features on each point of a sketch",
  "Rép. par esquisse": "Sketch pattern",

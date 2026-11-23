@@ -50,6 +50,7 @@
             {"id": "btn-polpattern", "titre": "Réseau circulaire des fonctions choisies (ou de la dernière)", "icon": "polar_pattern", "libelle": "Rés. circulaire"},
             {"id": "btn-mirror", "titre": "Symétrie des fonctions choisies (ou de la dernière) par rapport à un plan ou une face plane", "icon": "mirror", "libelle": "Symétrie"},
             {"id": "btn-sketch-pattern", "titre": "Répétition pilotée par esquisse — une copie des fonctions sur chaque point d'une esquisse", "icon": "sketch_pattern", "libelle": "Rép. par esquisse"},
+            {"id": "btn-table-pattern", "titre": "Répétition pilotée par table — une copie des fonctions par ligne de décalages X, Y, Z", "icon": "table_pattern", "libelle": "Rép. par table"},
             {"id": "btn-repeat-variable", "titre": "Réseau variable — rejoue un groupe avec des cotes différentes", "icon": "variable_pattern", "libelle": "Rés. variable"}
           ]
         }

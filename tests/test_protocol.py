@@ -548,6 +548,7 @@ def test_ops_snapshot_keys():
             "add_sketch_pattern",
             "add_surface_cut",
             "add_sweep",
+            "add_table_pattern",
             "add_text",
             "add_thickness",
             "add_vertex_chamfer",

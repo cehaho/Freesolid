@@ -8066,3 +8066,58 @@ def p166_repetition_pilotee_par_esquisse(self, mark, report, etat):
         refused.get("ok") is False
         and abs(float(body.Shape.Volume) - grown) < 1e-6
         and len(body.Group) > count)
+
+
+def p167_repetition_pilotee_par_table(self, mark, report, etat):
+    mark("p167: répétition pilotée par table")
+    from engine.kernel import dispatch
+
+    def call(op, **params):
+        return dispatch(self, op, params)
+
+    self.new_part("Répétition par table")
+    self.add_rect_sketch(60, 30)
+    self.add_pad(10)
+    name = self.sketch_start(face=self._top_face_id())["sketch"]
+    self.sketch_add_circle(name, -20, 0, 3)
+    self.sketch_finish(name)
+    self.add_pocket(length=5)
+    body = self._require_body()
+    hole = body.Tip
+    one = float(hole.AddSubShape.Volume)
+    before = float(body.Shape.Volume)
+
+    # Deux décalages (et une ligne sur l'original) : deux copies.
+    out = call("add_table_pattern",
+               offsets=[[15, 0, 0], [0, 0, 0], [30, 8]])
+    owner = body.Tip
+    item = next((f for f in (out.get("result") or {}).get("features", ())
+                 if f["name"] == owner.Name), {})
+    report["p167_copies_aux_decalages"] = (
+        out.get("ok") is True
+        and abs(before - float(body.Shape.Volume) - 2 * one) < 1e-3
+        and item.get("table_pattern") == {
+            "offsets": [[15.0, 0.0, 0.0], [0.0, 0.0, 0.0], [30.0, 8.0, 0.0]],
+            "features": [hole.Name]}
+        and "sketch_pattern" not in item)
+    edit = call("set_params", feature=owner.Name,
+                values={"offsets": [[15, 0, 0], [30, 8, 0], [40, -8, 0]]})
+    report["p167_table_reeditee"] = (
+        edit.get("ok") is True
+        and abs(before - float(body.Shape.Volume) - 3 * one) < 1e-3)
+    # Le trou d'origine change : les copies suivent.
+    hole.Length = 2
+    self._recompute()
+    small = float(hole.AddSubShape.Volume)
+    report["p167_suit_la_fonction"] = abs(
+        float(body.Shape.Volume) - (60 * 30 * 10 - 4 * small)) < 1e-3
+    hole.Length = 5
+    self._recompute()
+    call("undo")
+    call("undo")
+    report["p167_annulee"] = abs(float(body.Shape.Volume) - before) < 1e-6
+    refused = [call("add_table_pattern", offsets=rows)
+               for rows in ([], [[0, 0, 0]], [["x", 1, 2]])]
+    report["p167_refus"] = (
+        all(r.get("ok") is False for r in refused)
+        and abs(float(body.Shape.Volume) - before) < 1e-6)

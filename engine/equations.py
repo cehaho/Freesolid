@@ -74,7 +74,8 @@ class EquationsMixin:
             # Une esquisse : son plan, re-choisi à son rang.
             return self._set_sketch_plane_params(obj, dict(values))
         if getattr(obj, "FreeSolidSpatspec", ""):
-            # Une répétition pilotée par esquisse : ses fonctions.
+            # Une répétition pilotée par esquisse (ses fonctions) ou par
+            # table (aussi ses décalages).
             return self._set_sketch_pattern_params(obj, dict(values))
         if getattr(obj, "FreeSolidRibspec", ""):
             # Une nervure : épaisseur, direction, côté.

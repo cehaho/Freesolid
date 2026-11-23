@@ -29,6 +29,7 @@ export function featureEditor(item) {
   if (item.vertex_chamfer) return "vertex_chamfer";
   if (item.rib) return "rib";
   if (item.sketch_pattern) return "sketch_pattern";
+  if (item.table_pattern) return "table_pattern";
   // Plan, axe, point, repère : ce qui les porte, re-choisi au rang.
   if (item.reference) return "reference";
   if (item.text) return "text";

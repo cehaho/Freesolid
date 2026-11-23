@@ -18,3 +18,22 @@ describe("répétition pilotée par esquisse", () => {
       { op: "add_sketch_pattern", params: {} });
   });
 });
+
+import { tablePatternBuild, tableOffsetsValues } from "../../app/features.js";
+
+describe("répétition pilotée par table", () => {
+  it("envoie les décalages, rien sans ligne", () => {
+    assert.deepEqual(tablePatternBuild({ offsets: [[20, 0, 0], [5, 5, 0]] }),
+      { op: "add_table_pattern",
+        params: { offsets: [[20, 0, 0], [5, 5, 0]] } });
+    assert.equal(tablePatternBuild({ offsets: [] }), null);
+  });
+
+  it("réédition : seulement une table changée", () => {
+    const before = [[20, 0, 0]];
+    assert.deepEqual(tableOffsetsValues({ offsets: [[20, 0, 0]] }, before), {});
+    assert.deepEqual(tableOffsetsValues({ offsets: [[20, 5, 0]] }, before),
+      { offsets: [[20, 5, 0]] });
+    assert.equal(tableOffsetsValues({ offsets: [] }, before), null);
+  });
+});

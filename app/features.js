@@ -107,6 +107,9 @@ export {
   patternFeaturesPick,
   patternFeaturesValues,
   sketchPatternBuild,
+  tableOffsetsGroup,
+  tableOffsetsValues,
+  tablePatternBuild,
   patternSourcesPick,
   patternSourcesValues,
 } from "./features/repetitions.js";
