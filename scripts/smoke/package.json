@@ -7,6 +7,6 @@
   },
   "devDependencies": {
     "playwright-core": "^1.49.0",
-    "three": "0.160.0"
+    "three": "0.187.0"
   }
 }
