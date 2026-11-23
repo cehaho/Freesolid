@@ -44,6 +44,18 @@ export function installPicking(ctx) {
     return ORTHO_HEIGHT / (camera.zoom * Math.max(viewSize().height, 1)) * 8;
   }
 
+  /** Sur une face, une arête ne gagne que si le curseur est presque sur
+   *  son trait (3 px) ; la tolérance large (8 px) reste pour une arête
+   *  vue sur le fond. Sans cela, sur une face étroite (l'anneau d'un tube
+   *  mince), les arêtes et leur tolérance la couvraient toute — comme
+   *  dans les modeleurs courants, on vise ce qui est sous le curseur. */
+  function edgeOnFace(hit) {
+    const px = linePickThreshold() / 8;
+    const foot = raycaster.ray.closestPointToPoint(hit.point,
+      new THREE.Vector3());
+    return hit.point.distanceTo(foot) <= 3 * px;
+  }
+
   function pickHoveredSketch() {
     if (!ctx.sketchLineMeshes.length) return null;
     raycaster.params.Line.threshold = linePickThreshold();
@@ -400,6 +412,7 @@ export function installPicking(ctx) {
         const { radius } = ctx.partCenterRadius();
         raycaster.params.Line.threshold = linePickThreshold();
         edgeHit = raycaster.intersectObject(ctx.partEdges)[0];
+        if (edgeHit && faceHit && !edgeOnFace(edgeHit)) edgeHit = undefined;
         if (edgeHit && (!faceHit
             || edgeHit.distance <= faceHit.distance + radius * 0.02)) {
           edgeGroupIndex = ctx.edgeGroups.findIndex(

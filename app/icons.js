@@ -298,6 +298,7 @@ export const ICONS = {
   vb_front: "fs_vb_front.svg",
   vb_graph: "fs_vb_graph.svg",
   vb_iso: "fs_vb_iso.svg",
+  vb_orient: "fs_vb_orient.svg",
   vb_prev: "fs_vb_prev.svg",
   vb_right: "fs_vb_right.svg",
   vb_style: "fs_vb_style.svg",
