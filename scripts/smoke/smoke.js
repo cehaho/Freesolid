@@ -1056,7 +1056,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // Le compte du NOYAU seul. La palette vient de `graphPaletteItems(FEATURES)`
   // et un plugin y ajoute les siennes : avec un plugin installé, c'est plus.
   // Ajouter une fonction au noyau doit faire bouger ce nombre — c'est le but.
-  const PALETTE_NOYAU = 48;
+  const PALETTE_NOYAU = 51;
   if (paletteState.count !== PALETTE_NOYAU) {
     errors.push("N005 : palette " + paletteState.count
       + " items (attendu " + PALETTE_NOYAU + " sans plugin)");

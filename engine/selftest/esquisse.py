@@ -1606,10 +1606,23 @@ def p160_decalage_parametrique(self, mark, report, etat):
     state = run("sketch_state", sketch=name)
     # Le solveur l'allonge d'un côté ou de l'autre : la copie l'entoure
     # toujours à 8.
-    (x0, x1), (y0, y1) = span({"entities": state["entities"][:before]}, 0)
+    # Comparaison à 1e-4 près : le solveur laisse un bruit de l'ordre de
+    # 1e-6, qui faisait échouer une égalité d'arrondis (CI Linux).
+    def bounds(entities):
+        xs = [c for e in entities for c in (e["p1"][0], e["p2"][0])]
+        ys = [c for e in entities for c in (e["p1"][1], e["p2"][1])]
+        return xs, ys
+
+    (oxs, oys) = bounds(state["entities"][:before])
+    (cxs, cys) = bounds(state["entities"][before:])
+
+    def surrounds(orig, copy):
+        low, high = min(orig) - 8, max(orig) + 8
+        return all(min(abs(c - low), abs(c - high)) < 1e-4 for c in copy)             and abs(min(copy) - low) < 1e-4 and abs(max(copy) - high) < 1e-4
+
     report["p160_la_copie_suit_l_original"] = (
-        abs(x1 - x0 - 60) < 1e-6
-        and span(state, before) == ([x0 - 8, x1 + 8], [y0 - 8, y1 + 8]))
+        abs(max(oxs) - min(oxs) - 60) < 1e-4
+        and surrounds(oxs, cxs) and surrounds(oys, cys))
     relations = run("sketch_constraints", sketch=name)["constraints"]
     report["p160_suiveuses_hors_du_panneau"] = sum(
         1 for c in relations if c["type"] == "Distance") == 1
