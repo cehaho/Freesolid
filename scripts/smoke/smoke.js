@@ -48,10 +48,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // l'importmap d'app/index.html.
   const threeRoot = path.join(__dirname, "node_modules", "three");
   if (fs.existsSync(threeRoot)) {
-    await page.route("https://unpkg.com/three@0.160.0/**", (route) => {
+    await page.route("https://unpkg.com/three@0.187.0/**", (route) => {
       const url = new URL(route.request().url());
       route.fulfill({
-        path: path.join(threeRoot, url.pathname.replace("/three@0.160.0/", "")),
+        path: path.join(threeRoot, url.pathname.replace("/three@0.187.0/", "")),
         contentType: "text/javascript; charset=utf-8",
       });
     });
