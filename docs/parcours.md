@@ -115,3 +115,17 @@ les coins avant, puis la paroi passée à 50 mm (tout suit).
 |---|--------|-------|
 | 40 | Esquisse sélectionnée dans l'arbre (celle des positions d'un perçage), puis bouton Esquisse : une nouvelle esquisse demande un plan au lieu de rouvrir la sélectionnée. | **Corrigé** : comme dans les modeleurs courants, Esquisse rouvre l'esquisse choisie dans l'arbre (le même geste que « Modifier » de son panneau, qui se ferme). |
 | 41 | Réseau linéaire de la nervure : refusé (« pas une fonction additive ou soustractive »). | **Corrigé** : la nervure est maintenant une fonction additive dont le moteur pose la forme et la matière ajoutée ; réseaux linéaire et circulaire, symétrie et répétition pilotée par esquisse la répètent comme un bossage, et les copies suivent sa réédition (selftest p164). Une nervure d'un fichier plus ancien garde l'ancien rangement : la recréer pour la répéter. |
+
+## 7. Capot coqué
+
+Rectangle centré 100 × 60 sur le Plan de dessus, extrudé de 30 mm ;
+congés R10 sur les quatre arêtes verticales, coque de 2 mm ouverte
+par-dessous ; bossage Ø16 × 10 sur le dessus, sa symétrie par le Plan
+de droite, chanfreins de 1 mm en tête des bossages ; une fente de la
+paroi avant répétée 5 fois au pas de 8 mm, puis le bloc passé à 40 mm
+(tout suit).
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 42 | Panneau Coque ouvert, curseur dans l'Épaisseur : Ctrl+6 ne fait rien ; la face cliquée ensuite est celle du dessus, et la coque s'ouvre du mauvais côté. | **Corrigé** : comme dans les modeleurs courants, Ctrl+1…8 (vues standard, normal à) marchent même le curseur dans un champ — une saisie ne s'en sert jamais. |
+| 43 | Fonction cliquée dans l'arbre, puis Symétrie : « Fonctions à répéter » reste vide (seul le repli « la dernière » sauvait le résultat). | **Corrigé** : ouvrir une commande efface les cotes affichées mais garde la fonction choisie, que le panneau prend d'emblée (répétitions, symétrie). |

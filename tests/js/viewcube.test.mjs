@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  VIEW_KEYS, VIEWS, framedMeshes, orthoZoomFor, placeOrientBox,
+  VIEW_KEYS, VIEWS, framedMeshes, isViewShortcut, orthoZoomFor,
+  placeOrientBox,
 } from "../../app/viewcube.js";
 
 describe("orthoZoomFor", () => {
@@ -62,5 +63,23 @@ describe("framedMeshes", () => {
     assert.deepEqual(framedMeshes({ partMesh: null, othersMeshes: [mesh("B")] })
       .map((m) => m.name), ["B"]);
     assert.deepEqual(framedMeshes({}), []);
+  });
+});
+
+describe("isViewShortcut", () => {
+  it("Ctrl+1…8 passent, même depuis un champ", () => {
+    for (const key of ["1", "2", "3", "4", "5", "6", "7", "8"]) {
+      assert.equal(isViewShortcut({ key, ctrlKey: true }), true, key);
+    }
+    assert.equal(isViewShortcut({ key: "6", metaKey: true }), true);
+  });
+  it("le reste reste à la saisie", () => {
+    assert.equal(isViewShortcut({ key: "6" }), false);
+    assert.equal(isViewShortcut({ key: "9", ctrlKey: true }), false);
+    assert.equal(isViewShortcut({ key: "a", ctrlKey: true }), false);
+    assert.equal(isViewShortcut({ key: "6", ctrlKey: true, shiftKey: true }),
+                 false);
+    assert.equal(isViewShortcut({ key: "6", ctrlKey: true, altKey: true }),
+                 false);
   });
 });

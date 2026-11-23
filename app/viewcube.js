@@ -54,6 +54,14 @@ export const VIEW_KEYS = {
   5: "view-top", 6: "view-bottom", 7: "view-iso",
 };
 
+/** Ctrl+1…8 (vues standard, normal à) : comme dans les modeleurs courants,
+ *  ils marchent même le curseur dans un champ du panneau — une saisie
+ *  n'en fait jamais rien. */
+export function isViewShortcut({ key, ctrlKey, metaKey, altKey, shiftKey }) {
+  return Boolean(ctrlKey || metaKey) && !altKey && !shiftKey
+    && (key in VIEW_KEYS || key === "8");
+}
+
 // Normale des plans d'origine, côté d'où on les regarde (même sens que
 // les vues Face / Dessus / Droite).
 const PLANE_VIEW_NORMALS = { XY: [0, 0, 1], XZ: [0, -1, 0], YZ: [1, 0, 0] };

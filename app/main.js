@@ -19,7 +19,7 @@ import {
 } from "./features.js";
 import { installContextMenu } from "./contextmenu.js";
 import { installMeasure } from "./measure.js";
-import { VIEW_KEYS, VIEWS, installViewCube } from "./viewcube.js";
+import { VIEW_KEYS, VIEWS, installViewCube, isViewShortcut } from "./viewcube.js";
 import { installAssembly } from "./assembly.js";
 import { installGraphView } from "./graphview.js";
 import { paramLabel, paramLabels, installTree } from "./tree.js";
@@ -1195,8 +1195,10 @@ document.addEventListener("keydown", (event) => {
     }
     return;
   }
-  // Typing in a panel field must not trigger view shortcuts (F, Ctrl+1…).
-  if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
+  // Typing in a panel field must not trigger view shortcuts (F, Z…) —
+  // Ctrl+1…8 excepted: a field never uses them.
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)
+      && !isViewShortcut(event)) return;
   if (handleBarKey(event)) return; // barre de retour sélectionnée : ↑/↓
   if (applyViewNudge(event)) return;
   if (event.key !== "Escape" && pluginRuntime?.dispatchKey(event)) return;
