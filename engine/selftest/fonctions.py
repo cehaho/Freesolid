@@ -892,6 +892,24 @@ def p41_percage_centres_cliques(self, mark, report, etat):
         abs(removed - 2 * math.pi * 9 * 8) < 1e-2
         and tree["features"][-1]["type"] == "PartDesign::Hole"
         and len(tree["features"]) == 2)
+    # Le diamètre du perçage tient les rayons : centres placés, l'esquisse
+    # est définie (avant : sous-contrainte à jamais, rayons libres).
+    import Sketcher
+    sketch = self._require_doc().getObject(
+        tree["features"][-1]["name"]).Profile[0]
+    loose = self.sketch_state(sketch.Name)
+    for index, geo in enumerate(sketch.Geometry):
+        sketch.addConstraint(Sketcher.Constraint(
+            "DistanceX", -1, 1, index, 3, geo.Center.x))
+        sketch.addConstraint(Sketcher.Constraint(
+            "DistanceY", -1, 1, index, 3, geo.Center.y))
+    self._recompute()
+    placed = self.sketch_state(sketch.Name)
+    report["p41_esquisse_percage_definie"] = (
+        loose["definition"] == "under"
+        and placed["definition"] == "full" and placed["dof"] == 0
+        and placed["fullyConstrained"]
+        and self._sketch_definition(sketch) == "full")
 
 
 def p57_chanfrein_sommet(self, mark, report, etat):

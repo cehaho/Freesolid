@@ -40,6 +40,22 @@ def entity_status(geo_count, dependent, constraint_geos, conflicting,
     return status
 
 
+def drop_driven_radii(dependent, circles):
+    """``dependent`` sans le rayon des cercles ``circles`` — ceux d'une
+    esquisse de perçage, dont le diamètre du perçage décide (comme dans
+    les modeleurs courants, l'esquisse ne fixe que les positions).
+    Sketcher rend un rayon libre en (géo, 0)."""
+    circles = set(circles or ())
+    kept = []
+    for item in dependent or ():
+        geo, pos = (tuple(item) + (0,))[:2] if isinstance(
+            item, (tuple, list)) else (item, 0)
+        if geo in circles and pos == 0:
+            continue
+        kept.append(item)
+    return kept
+
+
 def definition_from_flags(fully, conflicting=(), redundant=(),
                           malformed=()):
     """Résumé lu sur l'objet esquisse après son dernier calcul — pour
