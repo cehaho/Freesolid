@@ -1,7 +1,15 @@
 """État de définition des entités d'esquisse — sans FreeCAD."""
 
 from engine.sketchstatus import (
-    FULL, OVER, UNDER, entity_status, sketch_definition)
+    FULL, OVER, UNDER, drop_driven_radii, entity_status, sketch_definition)
+
+
+def test_rayon_pilote_par_le_percage_ne_compte_pas():
+    # Cercle 0 de perçage : son rayon (0, 0) part, son centre (0, 1) reste ;
+    # le rayon du cercle 2, hors perçage, reste libre.
+    free = [(0, 0), (0, 1), (2, 0)]
+    assert drop_driven_radii(free, {0}) == [(0, 1), (2, 0)]
+    assert drop_driven_radii([(0, 0)], {0}) == []
 
 
 def test_tout_contraint_sans_parametre_libre():

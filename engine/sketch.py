@@ -419,6 +419,14 @@ class SketchMixin:
         # Bleu / blanc / rouge côté client : entité libre, définie, en trop.
         from engine.sketchstatus import entity_status, sketch_definition
         dependent = self._free_geometry(sk)
+        # Esquisse de perçage : le diamètre du perçage tient les rayons.
+        from engine.sketchstatus import drop_driven_radii
+        driven = self._hole_circles(sk)
+        free_radii = 0
+        if driven:
+            kept = drop_driven_radii(dependent, driven)
+            free_radii = len(dependent) - len(kept)
+            dependent = kept
         status = entity_status(
             len(entities), dependent,
             [c["geos"] for c in constraints],
@@ -455,6 +463,8 @@ class SketchMixin:
                 dof = int(sk.DoF)
             except Exception:
                 pass
+        if dof is not None and free_radii:
+            dof = max(dof - free_radii, 0)
         matrix = sk.Placement.Matrix.A
         return {
             "sketch": sk.Name,
@@ -464,7 +474,9 @@ class SketchMixin:
             "dims": dims,
             "constraints": constraints,
             "dof": dof,
-            "fullyConstrained": bool(getattr(sk, "FullyConstrained", False)),
+            "fullyConstrained": bool(
+                getattr(sk, "FullyConstrained", False)
+                or (driven and not dependent)),
             "definition": sketch_definition(status, solver_code),
             "layers": layer_data["layers"],
             "placement": [float(v) for v in matrix],
@@ -538,11 +550,27 @@ class SketchMixin:
         return read()
 
     @staticmethod
-    def _sketch_definition(sk):
+    def _hole_circles(sk):
+        """Les cercles d'une esquisse de perçage : le diamètre du perçage
+        décide de leur rayon. Vide pour une autre esquisse."""
+        if not any(getattr(user, "TypeId", "") == "PartDesign::Hole"
+                   for user in getattr(sk, "InList", ())):
+            return set()
+        return {index for index, geo in enumerate(sk.Geometry)
+                if geo.TypeId == "Part::GeomCircle"
+                and not sk.getConstruction(index)}
+
+    def _sketch_definition(self, sk):
         """under | full | over — préfixe (-) / (+) de l'arbre."""
-        from engine.sketchstatus import definition_from_flags
+        from engine.sketchstatus import definition_from_flags,             drop_driven_radii
+        fully = bool(getattr(sk, "FullyConstrained", False))
+        if not fully:
+            driven = self._hole_circles(sk)
+            if driven:
+                fully = not drop_driven_radii(self._free_geometry(sk),
+                                              driven)
         return definition_from_flags(
-            bool(getattr(sk, "FullyConstrained", False)),
+            fully,
             getattr(sk, "ConflictingConstraints", []),
             getattr(sk, "RedundantConstraints", []),
             getattr(sk, "MalformedConstraints", []))
