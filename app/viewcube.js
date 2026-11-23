@@ -210,14 +210,20 @@ export function installViewCube(ctx) {
     lastViewportPointer = { x: event.clientX, y: event.clientY };
   });
 
-  function openOrientBox() {
+  /** `below` (un bouton) : la boîte s'ouvre dessous, comme un menu ;
+   *  sinon sous le curseur. */
+  function openOrientBox(below = null) {
     if (!orientBox) return;
     ctx.hideContextToolbar?.(); // elle passerait par-dessus la boîte
     const host = container.getBoundingClientRect();
-    const at = lastViewportPointer ?? {
-      x: host.left + host.width / 2, y: host.top + host.height / 2 };
     orientBox.hidden = false;
     const box = orientBox.getBoundingClientRect();
+    const anchor = below?.getBoundingClientRect?.();
+    const at = anchor
+      ? { x: anchor.left + anchor.width / 2,
+          y: anchor.bottom + 6 + box.height / 2 }
+      : lastViewportPointer ?? {
+        x: host.left + host.width / 2, y: host.top + host.height / 2 };
     const place = placeOrientBox(at, host, box);
     orientBox.style.left = `${place.left}px`;
     orientBox.style.top = `${place.top}px`;

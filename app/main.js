@@ -1132,6 +1132,13 @@ function saveScreenshot() {
 }
 
 document.getElementById("view-prev").addEventListener("click", goPreviousView);
+// Orientation de la vue : la boîte des vues standard, comme la touche
+// Espace — dessous, arrière et gauche compris.
+document.getElementById("view-orient").addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (orientBoxOpen()) closeOrientBox();
+  else openOrientBox(event.currentTarget);
+});
 document.getElementById("view-zoom-sel").addEventListener("click", () => {
   if (!sketchMode.active) zoomToSelection();
 });
