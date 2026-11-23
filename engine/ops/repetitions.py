@@ -1,13 +1,18 @@
 """Répétitions : symétrie, répétitions linéaire et circulaire, réseau de
-corps.
+corps, répétition pilotée par esquisse.
 
-Méthodes : solids.py, bodypattern.py.
+Méthodes : solids.py, bodypattern.py, sketchpattern.py.
 """
 
 from engine.ops._base import Op, Req
 
 
 OPS = (
+    # Répétition pilotée par esquisse : les fonctions (sinon la dernière)
+    # recopiées sur chaque point de l'esquisse (sinon la dernière libre).
+    Op("add_sketch_pattern", Req(optional={"sketch": str, "features": list}),
+       undo=True, preview=True,
+       no_replay="forme figée (FrozenShape), pas get_params"),
     Op("add_mirror", Req(optional={"features": list, "scope": list,
                                    "face": int}),
        undo=True, preview=True,

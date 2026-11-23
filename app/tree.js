@@ -1696,6 +1696,7 @@ export function installTree(ctx) {
         : feature.surface_cut ? "surface_cut"
           : feature.vertex_chamfer ? "vertex_chamfer"
           : feature.rib ? "rib"
+          : feature.sketch_pattern ? "sketch_pattern"
           : feature.delete_face ? "surface_delete_face"
             : feature.replace_face ? "replace_face"
             : feature.body_pattern ? BODY_PATTERN_ICONS[feature.body_pattern]
@@ -3073,6 +3074,26 @@ export function installTree(ctx) {
     });
   }
 
+  /** Répétition pilotée par esquisse : ses fonctions, re-choisies dans
+   *  l'arbre ; son esquisse se réédite à part (double-clic sur elle). */
+  function editSketchPattern(feature) {
+    const driven = feature.sketch_pattern;
+    return editAtRank(feature, {
+      icon: "sketch_pattern",
+      zone: {
+        label: "Fonctions à répéter",
+        row: { type: "selection", key: "features", accepts: ["feature"],
+               multiple: true, hint: "Cliquez les fonctions dans l'arbre",
+               value: patternFeaturesPick(driven, ctx.lastTree) },
+        changed: (v) => patternFeaturesValues(v.features, driven),
+        missing: "Cliquez les fonctions dans l'arbre",
+      },
+      groups: [],
+      values: () => ({}),
+      problem: () => "Cliquez les fonctions dans l'arbre",
+    });
+  }
+
   /** Nervure : épaisseur, direction et côté ; son esquisse se réédite
    *  à part (double-clic sur elle). */
   function editRib(feature) {
@@ -3305,6 +3326,7 @@ export function installTree(ctx) {
     },
     vertex_chamfer: editVertexChamfer,
     rib: editRib,
+    sketch_pattern: editSketchPattern,
     reference: (feature) => editReference(feature),
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),

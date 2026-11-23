@@ -181,7 +181,7 @@ describe("l'organisation transposée", () => {
         "btn-rib", "btn-vertex-chamfer"]);
     assert.deepEqual(sequence(groupe("features", "Transformations")),
       ["btn-linpattern", "btn-polpattern", "btn-mirror",
-        "btn-repeat-variable"]);
+        "btn-sketch-pattern", "btn-repeat-variable"]);
   });
 
   it("met en avant les commandes de tête (taille large)", () => {

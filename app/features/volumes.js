@@ -192,7 +192,7 @@ export function ribEditValues(v, rib) {
 
 /** Fonctions à profil d'esquisse : ligne « Profil : … », params.sketch
  *  si présélection, garde si aucune esquisse disponible. */
-function withSketchProfile(entry) {
+export function withSketchProfile(entry) {
   return {
     ...entry,
     sketchProfile: true,

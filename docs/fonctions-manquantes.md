@@ -34,7 +34,8 @@ Périmètre complet et critère « fait » : [esquisse.md](esquisse.md).
 | Enroulement (wrap) | ❌ | pas d'équivalent |
 | Dôme, forme libre, flex | ❌ | pas d'équivalent |
 | Filetage réel | ✅ | fait (hélice) ; assistant filetages normalisés = données + UI |
-| Répétition pilotée par esquisse / table | 🟧 | positions lues d'une esquisse de points → MultiTransform ; codable |
+| Répétition pilotée par esquisse | ✅ **fait** | une copie des fonctions sur chaque point d'une esquisse, dans son plan ; forme calculée (outil de chaque fonction déplacé), recalculée quand l'esquisse ou les fonctions changent |
+| Répétition pilotée par table | 🟧 | positions saisies dans un tableau ; même moteur que par esquisse |
 
 ## Surfacique avancé
 

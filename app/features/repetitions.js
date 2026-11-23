@@ -2,6 +2,7 @@
 
 import { num } from "../num.js";
 import { bodyZoneRow, bodyZoneValue, zoneNames } from "./commun.js";
+import { withSketchProfile } from "./volumes.js";
 
 // ---------- répétitions et symétrie ----------
 // Répéter des fonctions du corps actif, ou des corps entiers : chaque
@@ -214,6 +215,12 @@ export function patternDirectionParams(v) {
   return params;
 }
 
+/** Répétition pilotée par esquisse : les fonctions choisies (vide : la
+ *  dernière) ; l'esquisse de points est le profil. */
+export function sketchPatternBuild(v) {
+  return { op: "add_sketch_pattern", params: patternFeaturesParams(v) };
+}
+
 export const REPETITIONS = [
   {
     button: "btn-linpattern",
@@ -262,6 +269,18 @@ export const REPETITIONS = [
     invalid: patternInvalid,
     refresh: "part",
   },
+  withSketchProfile({
+    button: "btn-sketch-pattern",
+    op: "add_sketch_pattern",
+    icon: "sketch_pattern",
+    title: "Répétition pilotée par esquisse",
+    groups: (ctx) => [patternFeaturesGroup(ctx)],
+    note: "Le profil est une esquisse de points : une copie sur chaque " +
+          "point, dans le plan de l'esquisse.",
+    build: (v) => sketchPatternBuild(v),
+    invalid: "Valeurs invalides",
+    refresh: "part",
+  }),
   {
     button: "btn-polpattern",
     op: ["add_polar_pattern", "add_body_pattern"],
