@@ -1,4 +1,8 @@
 {
+ "la table est vide — ajoutez une ligne par copie": "the table is empty — add a row per copy",
+ "ligne de table invalide — X, Y, Z attendus": "invalid table row — X, Y, Z expected",
+ "toutes les copies tombent sur l'original — décalez-les": "all copies fall on the original — offset them",
+ "Répétition pilotée par table": "Table driven pattern",
  "l'esquisse n'a aucun point — placez un point à chaque copie": "the sketch has no point — place a point at each copy",
  "« {} » n'ajoute ni n'enlève de matière — répétez un bossage, un enlèvement ou un perçage": "\"{}\" neither adds nor removes material — repeat a boss, a cut or a hole",
  "« {} » n'a pas de forme à recopier": "\"{}\" has no shape to copy",

@@ -126,6 +126,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     { id: "btn-text", tab: "features" },
     { id: "btn-graph-feature", tab: "features" },
     { id: "btn-sketch-pattern", tab: "features" },
+    { id: "btn-table-pattern", tab: "features" },
     { id: "btn-repeat-variable", tab: "features" },
     { id: "btn-fillet", tab: "features" },
     { id: "btn-chamfer", tab: "features" },

@@ -1411,6 +1411,10 @@ class TreeMixin:
                 # Répétition pilotée par esquisse : ses fonctions se
                 # re-choisissent ; l'esquisse se réédite à part.
                 item["sketch_pattern"] = driven
+            table = self._table_pattern_state(obj)
+            if table is not None:
+                # Répétition pilotée par table : décalages et fonctions.
+                item["table_pattern"] = table
             deleted = getattr(obj, "FreeSolidDeletefaces", "")
             if deleted:
                 item["delete_face"] = {"faces": [

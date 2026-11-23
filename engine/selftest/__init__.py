@@ -281,6 +281,7 @@ def _etapes():
         fonctions.p164_nervure,
         fonctions.p165_fleche_de_repetition,
         fonctions.p166_repetition_pilotee_par_esquisse,
+        fonctions.p167_repetition_pilotee_par_table,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,

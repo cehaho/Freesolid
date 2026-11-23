@@ -221,6 +221,38 @@ export function sketchPatternBuild(v) {
   return { op: "add_sketch_pattern", params: patternFeaturesParams(v) };
 }
 
+/** Répétition pilotée par table : un décalage [x, y, z] par copie,
+ *  depuis l'original ; null sans ligne. */
+export function tablePatternBuild(v) {
+  const offsets = (v.offsets ?? []).map((row) => row.slice(0, 3));
+  return offsets.length
+    ? { op: "add_table_pattern",
+        params: { offsets, ...patternFeaturesParams(v) } }
+    : null;
+}
+
+/** La table des décalages, à la création comme à la réédition. */
+export function tableOffsetsGroup(offsets) {
+  return {
+    label: "Décalages depuis l'original",
+    rows: [{ type: "points", key: "offsets", typed: true,
+             value: offsets.map((row) => [...row]),
+             titles: ["X", "Y", "Z"], addLabel: "Ajouter une copie",
+             addRow: [20, 0, 0],
+             empty: "Ajoutez une ligne par copie" }],
+  };
+}
+
+/** Réédition : `{ offsets }` si la table a changé, `{}` sinon, null
+ *  vide. */
+export function tableOffsetsValues(v, before) {
+  const rows = (v.offsets ?? []).map((row) => row.slice(0, 3).map(Number));
+  if (!rows.length) return null;
+  const same = rows.length === (before ?? []).length
+    && rows.every((row, i) => row.every((c, k) => c === before[i][k]));
+  return same ? {} : { offsets: rows };
+}
+
 export const REPETITIONS = [
   {
     button: "btn-linpattern",
@@ -281,6 +313,19 @@ export const REPETITIONS = [
     invalid: "Valeurs invalides",
     refresh: "part",
   }),
+  {
+    button: "btn-table-pattern",
+    op: "add_table_pattern",
+    icon: "table_pattern",
+    title: "Répétition pilotée par table",
+    groups: (ctx) => [patternFeaturesGroup(ctx),
+                      tableOffsetsGroup([[20, 0, 0]])],
+    note: "Chaque ligne place une copie : X, Y, Z depuis l'original, " +
+          "dans les axes de la pièce (mm).",
+    build: (v) => tablePatternBuild(v),
+    invalid: "Ajoutez au moins une copie",
+    refresh: "part",
+  },
   {
     button: "btn-polpattern",
     op: ["add_polar_pattern", "add_body_pattern"],

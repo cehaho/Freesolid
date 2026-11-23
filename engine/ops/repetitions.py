@@ -1,5 +1,5 @@
 """Répétitions : symétrie, répétitions linéaire et circulaire, réseau de
-corps, répétition pilotée par esquisse.
+corps, répétitions pilotées par esquisse et par table.
 
 Méthodes : solids.py, bodypattern.py, sketchpattern.py.
 """
@@ -11,6 +11,11 @@ OPS = (
     # Répétition pilotée par esquisse : les fonctions (sinon la dernière)
     # recopiées sur chaque point de l'esquisse (sinon la dernière libre).
     Op("add_sketch_pattern", Req(optional={"sketch": str, "features": list}),
+       undo=True, preview=True,
+       no_replay="forme figée (FrozenShape), pas get_params"),
+    # Répétition pilotée par table : un décalage [x, y, z] par copie,
+    # depuis l'original.
+    Op("add_table_pattern", Req(("offsets", list), optional={"features": list}),
        undo=True, preview=True,
        no_replay="forme figée (FrozenShape), pas get_params"),
     Op("add_mirror", Req(optional={"features": list, "scope": list,

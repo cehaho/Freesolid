@@ -60,6 +60,9 @@
 //         premières valeurs nomment la ligne (lecture seule, headText(p)
 //         pour les écrire autrement) ; titles —
 //         infobulles des colonnes éditables
+//       points : addLabel? — bouton qui ajoute une ligne (une copie de la
+//         dernière, sinon addRow) ; typed — la liste ne prend pas les
+//         clics de la vue, elle se tape (table de décalages)
 //
 // invalidateSelections() : vide les rows `selection` (ids périmés au rebuild).
 
@@ -422,7 +425,7 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
   function findPointsRow() {
     for (const group of active.spec.groups) {
       for (const row of group.rows ?? []) {
-        if (row.type === "points") return row;
+        if (row.type === "points" && !row.typed) return row;
       }
     }
     return null;
@@ -882,6 +885,18 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
       line.append(remove);
       wrap.append(line);
     });
+    if (row.addLabel) {
+      const add = el("button", "pbtn", row.addLabel);
+      add.addEventListener("click", () => {
+        const now = active.values[row.key] ?? [];
+        const last = now[now.length - 1];
+        active.values[row.key] = [...now.map((p) => [...p]),
+          last ? [...last] : [...(row.addRow ?? [0, 0, 0])]];
+        render();
+        changed();
+      });
+      wrap.append(add);
+    }
     return wrap;
   }
 

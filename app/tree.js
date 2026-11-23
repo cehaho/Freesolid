@@ -30,7 +30,8 @@ import {
   ribEditValues, ribGroups,
   REMOVE_BODIES_NOTE, removeBodiesGroups, removeBodiesParams,
   patternEditGroups, patternEditValues, patternFeaturesPick,
-  patternFeaturesValues, patternSourcesPick, patternSourcesValues,
+  patternFeaturesValues, patternSourcesPick, tableOffsetsGroup,
+  tableOffsetsValues, patternSourcesValues,
   BODY_PATTERN_TYPES, bodyZoneRow,
   COMBINE_TYPES, combineEditOptions, combineEditValues,
   cutOptionValues, extendPick, extendTargetValues, filletEdgesPick,
@@ -1697,6 +1698,7 @@ export function installTree(ctx) {
           : feature.vertex_chamfer ? "vertex_chamfer"
           : feature.rib ? "rib"
           : feature.sketch_pattern ? "sketch_pattern"
+          : feature.table_pattern ? "table_pattern"
           : feature.delete_face ? "surface_delete_face"
             : feature.replace_face ? "replace_face"
             : feature.body_pattern ? BODY_PATTERN_ICONS[feature.body_pattern]
@@ -3094,6 +3096,25 @@ export function installTree(ctx) {
     });
   }
 
+  /** Répétition pilotée par table : ses décalages et ses fonctions. */
+  function editTablePattern(feature) {
+    const table = feature.table_pattern;
+    return editAtRank(feature, {
+      icon: "table_pattern",
+      zone: {
+        label: "Fonctions à répéter",
+        row: { type: "selection", key: "features", accepts: ["feature"],
+               multiple: true, hint: "Cliquez les fonctions dans l'arbre",
+               value: patternFeaturesPick(table, ctx.lastTree) },
+        changed: (v) => patternFeaturesValues(v.features, table),
+        missing: "Cliquez les fonctions dans l'arbre",
+      },
+      groups: [tableOffsetsGroup(table.offsets)],
+      values: (v) => tableOffsetsValues(v, table.offsets),
+      problem: () => "Ajoutez au moins une copie",
+    });
+  }
+
   /** Nervure : épaisseur, direction et côté ; son esquisse se réédite
    *  à part (double-clic sur elle). */
   function editRib(feature) {
@@ -3327,6 +3348,7 @@ export function installTree(ctx) {
     vertex_chamfer: editVertexChamfer,
     rib: editRib,
     sketch_pattern: editSketchPattern,
+    table_pattern: editTablePattern,
     reference: (feature) => editReference(feature),
     text: editText,
     surface_cut: (feature) => editSurfaceCut(feature),
