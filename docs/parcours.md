@@ -23,7 +23,7 @@ Profil en L sur le Plan de face (60 × 40, épaisseur 8), extrusion de
 | 10 | Le message garde « (BRep_API: command not done) ». | **Corrigé** : ce générique du modeleur n'est plus recopié. |
 | 11 | Après un refus puis une réussite, l'erreur rouge reste affichée. | **Corrigé** : une opération réussie l'efface. |
 | — | Deux onglets sur le même serveur partagent le même document. | Voulu (un document par processus) ; à afficher un jour. |
-| — | Les symboles de relations (H, V) se chevauchent sur deux segments proches. | À reprendre (finition). |
+| — | Les symboles de relations (H, V) se chevauchent sur deux segments proches. | **Corrigé** : comme dans les modeleurs courants, chaque symbole se pose à côté de son entité sans rien couvrir — s'il tombe sur un autre symbole, un trait de l'esquisse, une ligne ou une étiquette de cote, il glisse le long de l'entité, change de côté, puis s'éloigne ; sans place libre, il prend celle qui gêne le moins. |
 | — | Entrée applique la valeur puis une seconde Entrée valide. | Voulu : on voit l'aperçu avant de valider. |
 
 ## 2. Boîtier
@@ -39,7 +39,7 @@ de 40 mm ; congés de 8 mm sur les quatre arêtes verticales ; coque de
 | 14 | Après une reconstruction, la barre d'état cite encore « sél. 4 arête(s) ». | **Corrigé**. |
 | 15 | Pendant l'aperçu de la coque, la face choisie reste orange et cache l'ouverture. | **Corrigé** : la face choisie s'estompe avec la pièce. |
 | 16 | Juste après l'ouverture d'un panneau, Entrée ne valide pas : le premier aperçu marquait le champ comme modifié (tous les panneaux). | **Corrigé**. |
-| — | La cote verticale recouvre le symbole « V » du côté coté. | À reprendre (finition, avec le chevauchement des symboles). |
+| — | La cote verticale recouvre le symbole « V » du côté coté. | **Corrigé** : comme dans les modeleurs courants, chaque symbole se pose à côté de son entité sans rien couvrir — s'il tombe sur un autre symbole, un trait de l'esquisse, une ligne ou une étiquette de cote, il glisse le long de l'entité, change de côté, puis s'éloigne ; sans place libre, il prend celle qui gêne le moins. |
 | — | Les flèches gauche/droite tournent autour de l'axe vertical de l'écran : douze appuis montrent la pièce par-dessous. Une rotation autour de l'axe Z de la pièce serait plus naturelle. | À discuter. |
 | — | Sélectionner une arête cachée oblige à tourner la vue (pas de vue isométrique arrière dans la boîte d'orientation). | À discuter : vues isométriques des quatre coins. |
 | ✓ | Le chanfrein d'une arête suit toute la chaîne tangente (côtés et arrondis). | Bon comportement. |
@@ -55,7 +55,7 @@ de 2 × 1,5 mm et un enlèvement par révolution ; chanfrein de 1 mm au bout.
 | 17 | Esquisse sur un plan qui traverse la pièce : le solide cache les traits (ils étaient « devant », mais la pièce, transparente pour l'aperçu, était dessinée après). | **Corrigé** : les traits, cotes et points d'esquisse passent dans la même passe, devant la pièce. |
 | 18 | Un trait vertical traverse chaque cylindre : la couture interne du noyau, tracée comme une arête. | **Corrigé** : les arêtes de couture ne sont plus tracées (selftest p43) ; les ids des autres restent ceux du noyau. |
 | 19 | Titre de panneau coupé (« Enlèvement par r… »). | **Corrigé** : il passe sur deux lignes. |
-| — | Sur une petite entité, les symboles H/V recouvrent tout le tracé. | À reprendre, avec les autres chevauchements de symboles. |
+| — | Sur une petite entité, les symboles H/V recouvrent tout le tracé. | **Corrigé** : comme dans les modeleurs courants, chaque symbole se pose à côté de son entité sans rien couvrir — s'il tombe sur un autre symbole, un trait de l'esquisse, une ligne ou une étiquette de cote, il glisse le long de l'entité, change de côté, puis s'éloigne ; sans place libre, il prend celle qui gêne le moins. |
 | — | Après la première fonction, la vue n'est pas recadrée sur la pièce (F le fait). | À discuter : cadrer automatiquement après la première fonction. |
 | — | Positionner exactement un profil (la gorge) demande de le coter ; pas de cote entre un point et l'origine testée ici. | À vérifier au prochain parcours. |
 

@@ -250,33 +250,148 @@ const RELATION_GLYPHS = {
   Equal: "=", Tangent: "T", Block: "⚓", Symmetric: "S",
 };
 
-function entityMid(entity) {
-  if (!entity) return null;
-  if (entity.p1 && entity.p2 && entity.type === "line") {
-    return { x: (entity.p1[0] + entity.p2[0]) / 2,
-             y: (entity.p1[1] + entity.p2[1]) / 2,
-             nx: -(entity.p2[1] - entity.p1[1]),
-             ny: entity.p2[0] - entity.p1[0] };
+/** Les traits d'une entité, en segments [x1, y1, x2, y2]. */
+function entitySegments(entity) {
+  const pts = [];
+  if (entity.type === "line" && entity.p1 && entity.p2) {
+    pts.push(entity.p1, entity.p2);
+  } else if (entity.c && entity.r != null) {
+    let a1 = 0, a2 = Math.PI * 2;
+    if (entity.type === "arc" && entity.p1 && entity.p2) {
+      ({ a1, a2 } = arcAngles(entity));
+    }
+    for (let i = 0; i <= 24; i++) {
+      const a = a1 + (i / 24) * (a2 - a1);
+      pts.push([entity.c[0] + entity.r * Math.cos(a),
+                entity.c[1] + entity.r * Math.sin(a)]);
+    }
+  } else if (entity.points?.length) {
+    pts.push(...entity.points);
+  }
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    out.push([pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]]);
+  }
+  return out;
+}
+
+/** Places possibles d'un symbole sur son entité, de la préférée à la
+ *  moins bonne : { x, y, nx, ny } (point de l'entité, normale unitaire). */
+function glyphAnchors(entity) {
+  if (entity.type === "line" && entity.p1 && entity.p2) {
+    const dx = entity.p2[0] - entity.p1[0], dy = entity.p2[1] - entity.p1[1];
+    const len = Math.hypot(dx, dy) || 1;
+    return [0.5, 0.3, 0.7, 0.15, 0.85].map((f) => ({
+      x: entity.p1[0] + dx * f, y: entity.p1[1] + dy * f,
+      nx: -dy / len, ny: dx / len }));
   }
   if (entity.c && entity.r != null) {
-    return { x: entity.c[0], y: entity.c[1] + entity.r, nx: 0, ny: 1 };
+    let angles = [90, 45, 135, 0, 180, -45, -135, -90]
+      .map((d) => d * Math.PI / 180);
+    if (entity.type === "arc" && entity.p1 && entity.p2) {
+      const { a1, a2 } = arcAngles(entity);
+      angles = [0.5, 0.3, 0.7, 0.15, 0.85].map((f) => a1 + (a2 - a1) * f);
+    }
+    return angles.map((a) => ({
+      x: entity.c[0] + entity.r * Math.cos(a),
+      y: entity.c[1] + entity.r * Math.sin(a),
+      nx: Math.cos(a), ny: Math.sin(a) }));
   }
-  if (entity.points?.length) {
-    const p = entity.points[Math.floor(entity.points.length / 2)];
-    return { x: p[0], y: p[1], nx: 0, ny: 1 };
+  const pts = entity.points ?? [];
+  if (pts.length < 2) return [];
+  return [0.5, 0.3, 0.7].map((f) => {
+    const i = Math.min(Math.max(Math.round(f * (pts.length - 1)), 1),
+                       pts.length - 1);
+    const a = pts[i - 1], b = pts[i];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: b[0], y: b[1], nx: -dy / len, ny: dx / len };
+  });
+}
+
+/** Le segment coupe-t-il le carré de demi-côté `h` centré en (x, y) ? */
+function segmentHitsBox(seg, x, y, h) {
+  const [x1, y1, x2, y2] = seg;
+  // Liang-Barsky : le segment entre-t-il dans la boîte ?
+  const dx = x2 - x1, dy = y2 - y1;
+  let t0 = 0, t1 = 1;
+  for (const [p, q] of [[-dx, x1 - (x - h)], [dx, (x + h) - x1],
+                        [-dy, y1 - (y - h)], [dy, (y + h) - y1]]) {
+    if (p === 0) {
+      if (q < 0) return false;
+    } else {
+      const r = q / p;
+      if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+      else { if (r < t0) return false; if (r < t1) t1 = r; }
+    }
   }
-  return null;
+  return true;
+}
+
+/** Segments rangés par case de côté `cell` : `near(x, y)` rend ceux des
+ *  cases autour du point, sans doublon — une esquisse chargée (texte,
+ *  contour importé) ne se parcourt pas en entier à chaque essai. */
+function segmentGrid(segments, cell) {
+  const cells = new Map();
+  const wide = [];
+  const key = (i, j) => `${i},${j}`;
+  for (const seg of segments) {
+    const i0 = Math.floor(Math.min(seg[0], seg[2]) / cell);
+    const i1 = Math.floor(Math.max(seg[0], seg[2]) / cell);
+    const j0 = Math.floor(Math.min(seg[1], seg[3]) / cell);
+    const j1 = Math.floor(Math.max(seg[1], seg[3]) / cell);
+    if ((i1 - i0 + 1) * (j1 - j0 + 1) > 400) { wide.push(seg); continue; }
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const k = key(i, j);
+        if (!cells.has(k)) cells.set(k, []);
+        cells.get(k).push(seg);
+      }
+    }
+  }
+  return {
+    near(x, y) {
+      const i = Math.floor(x / cell), j = Math.floor(y / cell);
+      const found = new Set(wide);
+      for (let di = -1; di <= 1; di++) {
+        for (let dj = -1; dj <= 1; dj++) {
+          for (const seg of cells.get(key(i + di, j + dj)) ?? []) {
+            found.add(seg);
+          }
+        }
+      }
+      return [...found];
+    },
+  };
 }
 
 /**
- * Symboles à dessiner : [{ text, x, y }] en coordonnées d'esquisse,
- * décalés de `offset` hors de l'entité. Plusieurs symboles sur la même
- * entité s'étalent le long de la normale.
+ * Symboles à dessiner : [{ text, x, y, geo }] en coordonnées d'esquisse,
+ * décalés de `offset` hors de l'entité. Comme dans les modeleurs
+ * courants, chacun se pose à côté du trait sans rien couvrir : s'il
+ * tombe sur un autre symbole, une courbe de l'esquisse ou un obstacle
+ * (`obstacles` : étiquettes de cote { x, y, hw, hh } et traits de cote
+ * [x1, y1, x2, y2]), il glisse le long de son entité, change de côté,
+ * puis s'éloigne. `size` : côté d'un symbole à l'écran, en unités de
+ * l'esquisse.
  */
-export function relationGlyphs(constraints, entities, offset = 2) {
+export function relationGlyphs(constraints, entities, offset = 2,
+                               { size = offset, obstacles = {} } = {}) {
   const byId = new Map((entities ?? []).map((e) => [e.id, e]));
-  const count = new Map();
   const glyphs = [];
+  const half = size * 0.4;
+  const curves = (entities ?? []).flatMap(entitySegments);
+  const lines = segmentGrid([...curves, ...(obstacles.segments ?? [])],
+                            Math.max(size * 2, 1e-9));
+  const boxes = obstacles.boxes ?? [];
+  // Ce qu'un symbole posé en (x, y) couvrirait : 0 = place libre.
+  const clash = (x, y) =>
+    2 * glyphs.filter((g) => Math.abs(g.x - x) < 2 * half
+      && Math.abs(g.y - y) < 2 * half).length
+    + 2 * boxes.filter((b) => Math.abs(b.x - x) < b.hw + half
+      && Math.abs(b.y - y) < b.hh + half).length
+    + lines.near(x, y).filter((seg) => segmentHitsBox(seg, x, y, half))
+      .length;
   // Beaucoup d'entités bloquées (texte, contour importé) : la couleur
   // « définie » suffit, une ancre par contour noierait le dessin.
   const blocks = (constraints ?? []).filter((c) => c.type === "Block").length;
@@ -293,14 +408,27 @@ export function relationGlyphs(constraints, entities, offset = 2) {
     // chacune.
     const geos = (c.geos ?? []).filter((g) => g != null && g >= 0);
     for (const g of c.type === "Symmetric" ? geos.slice(0, 2) : geos) {
-      const mid = entityMid(byId.get(g));
-      if (!mid) continue;
-      const k = count.get(g) ?? 0;
-      count.set(g, k + 1);
-      const len = Math.hypot(mid.nx, mid.ny) || 1;
-      const d = offset * (1 + k * 1.2);
-      glyphs.push({ text, x: mid.x + mid.nx / len * d,
-                    y: mid.y + mid.ny / len * d, geo: g });
+      const entity = byId.get(g);
+      const anchors = entity ? glyphAnchors(entity) : [];
+      if (!anchors.length) continue;
+      // La première place libre ; sinon celle qui couvre le moins, la
+      // plus proche de son entité.
+      let spot = null;
+      let best = null;
+      for (let ring = 0; ring < 4 && !spot; ring++) {
+        const d = offset + ring * size;
+        for (const a of anchors) {
+          for (const side of [1, -1]) {
+            const x = a.x + a.nx * side * d, y = a.y + a.ny * side * d;
+            const hits = clash(x, y);
+            if (!hits) { spot = { x, y }; break; }
+            if (!best || hits < best.hits) best = { x, y, hits };
+          }
+          if (spot) break;
+        }
+      }
+      spot ??= best;
+      glyphs.push({ text, x: spot.x, y: spot.y, geo: g });
     }
   }
   return glyphs;

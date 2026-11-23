@@ -870,15 +870,9 @@ export function createSketchMode(deps) {
     // Calques masqués : ni symboles, ni cotes de leurs entités. Les
     // boutons de la barre masquent tous les symboles, ou toutes les cotes.
     const shown = mode.state.entities.filter((e) => !hidden.has(e.id));
-    const glyphs = !mode.prefs.showRelations ? []
-      : relationGlyphs(mode.state.constraints, shown, span * 0.025);
-    for (const glyph of glyphs) {
-      const sprite = createGlyphSprite(glyph.text);
-      sprite.position.set(glyph.x, glyph.y, 0.01);
-      sprite.scale.set(span * 0.028, span * 0.028, 1);
-      sprite.renderOrder = 22;
-      group.add(sprite);
-    }
+    // Ce que les symboles de relation ne doivent pas couvrir : les traits
+    // et les étiquettes des cotes (posés d'abord).
+    const dimObstacles = { segments: [], boxes: [] };
 
     // L'unité de tracé suit le zoom : la cote garde sa taille à l'écran.
     const dimSize = dimDrawSize();
@@ -891,6 +885,7 @@ export function createSketchMode(deps) {
       const shape = dimGeometry(dim, constraint, mode.state.entities, dimSize);
       if (!shape) continue;
       const segments = shape.segments;
+      dimObstacles.segments.push(...segments);
       if (shape.arrows.length) {
         // Pointes pleines et fines, à taille d'écran (9 × 3 px).
         const tips = new Float32Array(shape.arrows.flatMap((a) => {
@@ -930,6 +925,22 @@ export function createSketchMode(deps) {
                             shape.along.y + n.y * reach, 0.01);
       }
       sprite.userData.dim = dim;
+      sprite.renderOrder = 22;
+      group.add(sprite);
+      dimObstacles.boxes.push({ x: sprite.position.x, y: sprite.position.y,
+                                hw: labelWidth / 2, hh: labelHeight / 2 });
+    }
+
+    // Symboles de relation : à côté de leur entité, sans couvrir un
+    // trait, une cote ou un autre symbole.
+    const glyphSize = span * 0.028;
+    const glyphs = !mode.prefs.showRelations ? []
+      : relationGlyphs(mode.state.constraints, shown, span * 0.025,
+                       { size: glyphSize, obstacles: dimObstacles });
+    for (const glyph of glyphs) {
+      const sprite = createGlyphSprite(glyph.text);
+      sprite.position.set(glyph.x, glyph.y, 0.01);
+      sprite.scale.set(glyphSize, glyphSize, 1);
       sprite.renderOrder = 22;
       group.add(sprite);
     }
