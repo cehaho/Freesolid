@@ -52,6 +52,41 @@ describe("relationGlyphs", () => {
   });
 });
 
+describe("symboles sans chevauchement", () => {
+  const overlap = (a, b, size) => Math.abs(a.x - b.x) < size * 0.8
+    && Math.abs(a.y - b.y) < size * 0.8;
+  it("deux segments proches : leurs symboles ne se couvrent pas", () => {
+    const g = relationGlyphs(
+      [{ type: "Horizontal", geos: [0] }, { type: "Horizontal", geos: [1] }],
+      [line(0, [0, 0], [10, 0]), line(1, [0, 1], [10, 1])], 1,
+      { size: 1.5 });
+    assert.equal(g.length, 2);
+    assert.ok(!overlap(g[0], g[1], 1.5));
+  });
+
+  it("une étiquette de cote repousse le symbole de l'autre côté", () => {
+    // V de la ligne x = 0 : d'office à droite (x = +2), là où est la cote.
+    const g = relationGlyphs([{ type: "Vertical", geos: [0] }],
+      [line(0, [0, 10], [0, 0])], 2,
+      { size: 2, obstacles: { boxes: [{ x: 2, y: 5, hw: 2, hh: 1 }] } });
+    assert.ok(g[0].x < 0);
+  });
+
+  it("petite entité : ses symboles restent hors du tracé et séparés", () => {
+    const square = [line(0, [0, 0], [1, 0]), line(1, [1, 0], [1, 1]),
+                    line(2, [1, 1], [0, 1]), line(3, [0, 1], [0, 0])];
+    const g = relationGlyphs(
+      [0, 2].map((i) => ({ type: "Horizontal", geos: [i] }))
+        .concat([1, 3].map((i) => ({ type: "Vertical", geos: [i] }))),
+      square, 1.2, { size: 1.5 });
+    assert.equal(g.length, 4);
+    for (const a of g) {
+      assert.ok(a.x < -0.5 || a.x > 1.5 || a.y < -0.5 || a.y > 1.5);
+      for (const b of g) if (a !== b) assert.ok(!overlap(a, b, 1.5));
+    }
+  });
+});
+
 describe("ancres des entités bloquées", () => {
   it("disparaissent quand elles sont trop nombreuses", async () => {
     const { MAX_BLOCK_GLYPHS, relationGlyphs: glyphs } =
