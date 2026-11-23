@@ -13,8 +13,8 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test deps
@@ -30,11 +30,11 @@ jobs:
     name: Selftest headless (FreeCAD réel)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Version de référence
         id: platform
         run: echo "freecad=$(python3 -c 'from engine.platform import FREECAD; print(FREECAD)')" >> "$GITHUB_OUTPUT"
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: freecad
           # Une seule source : engine/platform.py (FREECAD).
@@ -53,7 +53,7 @@ jobs:
         continue-on-error: true
         shell: bash -el {0}
         run: PYTHONIOENCODING=utf-8 freecadcmd scripts/spike-element-map.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: spike-element-map
@@ -73,8 +73,8 @@ jobs:
     name: Tests JS (Node)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       # Aucun nom utilisé sans être déclaré ni importé (ESLint no-undef).
@@ -110,14 +110,14 @@ jobs:
     # 25 s à 10 min selon le runner (2026-11-18).
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Version de référence
         id: platform
         run: echo "freecad=$(python3 -c 'from engine.platform import FREECAD; print(FREECAD)')" >> "$GITHUB_OUTPUT"
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: freecad
           create-args: >-
@@ -152,7 +152,7 @@ jobs:
             exit 1
           fi
           node scripts/smoke/smoke.js
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: smoke-shots
