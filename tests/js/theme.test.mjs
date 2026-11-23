@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseColor, readScene, sceneColor } from "../../app/theme.js";
+import { luminance, parseColor, readScene, sceneColor, sketchNeedsHalo }
+  from "../../app/theme.js";
 
 describe("thème de la scène", () => {
   it("rend la couleur de repli sans DOM", () => {
@@ -26,5 +27,15 @@ describe("thème de la scène", () => {
   it("accepte un hex court", () => {
     assert.equal(parseColor("#abc"), 0xaabbcc);
     assert.equal(parseColor("pas une couleur"), null);
+  });
+
+  it("liseré des traits d'esquisse en thème sombre seulement", () => {
+    assert.equal(luminance(0x000000), 0);
+    assert.equal(luminance(0xffffff), 1);
+    // Sombre : traits #e8edf2 plus clairs que la pièce #aebccb.
+    assert.equal(sketchNeedsHalo(readScene(null)), true);
+    // Clair : traits #1d2733 sur une pièce #a9bbcd.
+    assert.equal(sketchNeedsHalo({ defined: 0x1d2733, part: 0xa9bbcd }),
+                 false);
   });
 });

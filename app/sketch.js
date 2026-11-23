@@ -5,6 +5,9 @@
 // The server owns truth (geometry, solver); this module owns gesture.
 
 import * as THREE from "three";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { t } from "./i18n.js";
 import { iconSrc } from "./icons.js";
 import { createLocalSolver } from "./solver.js";
@@ -27,6 +30,7 @@ import {
   openDimEditor, pointPairDimKind, pointPairDimPath,
 } from "./dims.js";
 import { ORIGIN_GEO, sceneTheme } from "./sketch/commun.js";
+import { sketchNeedsHalo } from "./theme.js";
 import {
   SNAP_KINDS, SNAP_PX, SNAP_TOL, activeSnaps, arcSnaps, circleSnaps,
   engineSnaps, lineSnaps, modelEdgeOf, modelEdgeSnaps, normalizeSnapSettings,
@@ -96,6 +100,23 @@ export function createSketchMode(deps) {
     constructionMaterials[status] = new THREE.LineDashedMaterial({
       color, dashSize: 2.5, gapSize: 1.8, depthTest: false,
       transparent: true, opacity: 0.6 });
+  }
+  // Liseré couleur du fond sous chaque trait quand les traits sont plus
+  // clairs que la pièce (thème sombre) : sinon un trait défini, presque
+  // blanc, se perd sur une face claire — comme le halo des étiquettes de
+  // cote. Thème clair : traits sombres, rien à ajouter.
+  const haloMaterial = sketchNeedsHalo(sceneTheme)
+    ? new LineMaterial({ color: sceneTheme.bg, linewidth: 4,
+                         depthTest: false, transparent: true,
+                         opacity: 0.85 })
+    : null;
+  function addHalo(curve) {
+    if (!haloMaterial) return;
+    const geometry = new LineGeometry();
+    geometry.setPositions(curve.geometry.attributes.position.array);
+    const halo = new Line2(geometry, haloMaterial);
+    halo.renderOrder = 19;
+    group.add(halo);
   }
   const previewMaterial = new THREE.LineBasicMaterial(
     { color: sceneTheme.accent, ...ON_TOP });
@@ -711,6 +732,7 @@ export function createSketchMode(deps) {
     group.matrixAutoUpdate = false;
     if (imageMesh && mode.active) group.add(imageMesh);
     if (!mode.state) return;
+    if (haloMaterial) renderer.getSize(haloMaterial.resolution);
 
     const points = [];
     const hidden = hiddenIds();
@@ -741,6 +763,7 @@ export function createSketchMode(deps) {
         if (entity.construction && !isSelected) arc.computeLineDistances();
         arc.renderOrder = 20;
         group.add(arc);
+        if (!entity.construction) addHalo(arc);
         points.push(entity.p1, entity.p2);
       } else if (entity.type === "line") {
         const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -750,6 +773,7 @@ export function createSketchMode(deps) {
         if (entity.construction) line.computeLineDistances();
         line.renderOrder = 20;
         group.add(line);
+        if (!entity.construction) addHalo(line);
         points.push(entity.p1, entity.p2);
       } else if (entity.type === "circle") {
         const segments = [];
@@ -764,6 +788,7 @@ export function createSketchMode(deps) {
         if (entity.construction) circle.computeLineDistances();
         circle.renderOrder = 20;
         group.add(circle);
+        if (!entity.construction) addHalo(circle);
         points.push(entity.c);
       } else if (entity.type === "point") {
         points.push(entity.p1);
@@ -776,6 +801,7 @@ export function createSketchMode(deps) {
         if (entity.construction && !isSelected) line.computeLineDistances();
         line.renderOrder = 20;
         group.add(line);
+        if (!entity.construction) addHalo(line);
       }
     }
     // Origine de l'esquisse : deux flèches courtes, à taille d'écran.
