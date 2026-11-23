@@ -67,7 +67,7 @@ Emplacements (par OS, via Tauri) :
 
 ## Développer
 
-Prérequis : Rust stable, Node 22, et les
+Prérequis : Rust stable, Node 24, et les
 [dépendances système de Tauri](https://tauri.app/start/prerequisites/)
 (sur Ubuntu : `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev
 patchelf`).
