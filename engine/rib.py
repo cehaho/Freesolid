@@ -13,14 +13,20 @@ Deux directions :
   pièce (des raidisseurs sous un plateau).
 
 Le côté où va la matière est celui où elle rencontre la pièce ; ``flip``
-prend l'autre quand les deux la rencontrent. La forme est rangée dans
-l'historique comme le chanfrein de sommet (``_commit_frozen``) et
-recalculée à chaque reconstruction depuis la fonction d'avant et
-l'esquisse. Les imports FreeCAD restent dans les méthodes ; ``parse_spec``
-et ``format_spec`` sont testées en CI.
+prend l'autre quand les deux la rencontrent. La nervure est une fonction
+additive (``RIB_TYPE``) dont le moteur pose la forme et l'outil (la
+matière ajoutée), recalculés à chaque reconstruction depuis la fonction
+d'avant et l'esquisse : les réseaux et la symétrie la répètent comme un
+bossage. Une nervure d'un fichier plus ancien reste une forme figée
+rangée en booléen (``_commit_frozen``), qui se réédite toujours. Les
+imports FreeCAD restent dans les méthodes ; ``parse_spec`` et
+``format_spec`` sont testées en CI.
 """
 
 DIRECTIONS = ("parallel", "normal")
+
+#: La nervure : une fonction additive dont le moteur pose la forme.
+RIB_TYPE = "PartDesign::FeatureAdditivePython"
 
 
 def format_spec(sketch, thickness, direction="parallel", flip=False):
@@ -58,6 +64,10 @@ class RibMixin:
 
     def _rib_shape(self, base_shape, spec):
         """La pièce ``base_shape`` avec la nervure ``spec``."""
+        return self._rib_parts(base_shape, spec)[0]
+
+    def _rib_parts(self, base_shape, spec):
+        """(pièce avec la nervure, matière de la nervure seule)."""
         from engine.kernel import KernelError
         import FreeCAD
         import Part
@@ -104,7 +114,8 @@ class RibMixin:
             raise KernelError("le modeleur ne sait pas poser cette nervure")
         if len(result.Solids) > 1:
             raise KernelError("la nervure ne touche pas la pièce")
-        return result
+        material = keep[0] if len(keep) == 1 else keep[0].fuse(keep[1:])
+        return result, material
 
     @staticmethod
     def _rib_wire(sketch):
@@ -204,7 +215,11 @@ class RibMixin:
     def add_rib(self, thickness, sketch=None, direction="parallel",
                 flip=False):
         """Nervure de l'esquisse ouverte ``sketch`` (sinon la dernière
-        esquisse libre) : épaisseur, direction, côté."""
+        esquisse libre) : épaisseur, direction, côté.
+
+        Une fonction additive dont le moteur pose la forme (la pièce avec
+        la nervure) et l'outil (la matière de la nervure) : les réseaux et
+        la symétrie la répètent comme un bossage."""
         from engine.kernel import KernelError
         problem = check_params(thickness, direction)
         if problem:
@@ -213,12 +228,50 @@ class RibMixin:
         source = (self._get_sketch(str(sketch)) if sketch
                   else self._latest_sketch())
         spec = format_spec(source.Name, thickness, direction, flip)
-        stamps = {"ribbase": tip.Name, "rib": spec}
-        result = self._frozen_result(stamps, tip.Shape)
-        tree = self._commit_frozen(tip, result, stamps, "Nervure",
-                                   {"ribspec": spec})
+        result, material = self._rib_parts(tip.Shape, spec)
+        body = self._require_body()
+        owner = body.newObject(RIB_TYPE, "Rib")
+        owner.BaseFeature = tip
+        body.Tip = owner
+        self._stamp(owner, ribspec=spec)
+        owner.AddSubShape = material
+        owner.Shape = result
+        owner.Label = self._t("Nervure")
+        try:
+            self._recompute()
+        except KernelError:
+            self._drop_failed_feature(body, self._require_doc(), owner, tip)
+            self._recompute()
+            raise
         source.Visibility = False
-        return tree
+        return self.get_tree()
+
+    @staticmethod
+    def _is_rib_feature(obj):
+        """Une nervure rangée en fonction additive (pas l'ancienne forme
+        figée rangée en booléen)."""
+        return (getattr(obj, "TypeId", "") == RIB_TYPE
+                and bool(getattr(obj, "FreeSolidRibspec", "")))
+
+    def _refresh_rib(self, owner):
+        """Recalcule la nervure depuis la fonction d'avant et son
+        esquisse ; vrai si sa forme a changé. Désactivée, FreeCAD lui
+        donne la forme d'avant : rien à faire."""
+        base = getattr(owner, "BaseFeature", None)
+        if (getattr(owner, "Suppressed", False) or base is None
+                or getattr(base, "Shape", None) is None
+                or base.Shape.isNull()):
+            return False
+        result, material = self._rib_parts(base.Shape,
+                                           owner.FreeSolidRibspec)
+        old = owner.Shape
+        if (not old.isNull() and len(old.Faces) == len(result.Faces)
+                and abs(old.Volume - result.Volume) <= 1e-9
+                and abs(old.Area - result.Area) <= 1e-9):
+            return False
+        owner.AddSubShape = material
+        owner.Shape = result
+        return True
 
     def _rib_frozen(self, owner):
         """La forme figée d'une nervure."""
@@ -249,6 +302,8 @@ class RibMixin:
                 raise KernelError(
                     "propriété non éditable : {}".format(key))
         doc = self._require_doc()
+        if self._is_rib_feature(owner):
+            return self._set_rib_feature_params(owner, values)
         frozen = self._rib_frozen(owner)
         sketch, thickness, direction, flip = parse_spec(frozen.FreeSolidRib)
         thickness = values.get("thickness", thickness)
@@ -265,4 +320,35 @@ class RibMixin:
         frozen.FreeSolidRib = spec
         owner.FreeSolidRibspec = spec
         self._recompute()
+        return self.get_tree()
+
+    def _set_rib_feature_params(self, owner, values):
+        """``set_params`` d'une nervure rangée en fonction additive ; un
+        refus la laisse telle quelle."""
+        from engine.kernel import KernelError
+        sketch, thickness, direction, flip = parse_spec(
+            owner.FreeSolidRibspec)
+        thickness = values.get("thickness", thickness)
+        direction = values.get("direction", direction)
+        flip = bool(values.get("flip", flip))
+        problem = check_params(thickness, direction)
+        if problem:
+            raise KernelError(problem)
+        base = owner.BaseFeature
+        if base is None:
+            raise KernelError("nervure incomplète — la forme est absente")
+        result, material = self._rib_parts(
+            base.Shape, format_spec(sketch, thickness, direction, flip))
+        saved = (owner.FreeSolidRibspec, owner.Shape.copy(),
+                 owner.AddSubShape.copy())
+        owner.FreeSolidRibspec = format_spec(sketch, thickness, direction,
+                                             flip)
+        owner.AddSubShape = material
+        owner.Shape = result
+        try:
+            self._recompute()
+        except KernelError:
+            owner.FreeSolidRibspec, owner.Shape, owner.AddSubShape = saved
+            self._recompute()
+            raise
         return self.get_tree()

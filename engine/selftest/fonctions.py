@@ -7941,6 +7941,22 @@ def p164_nervure(self, mark, report, etat):
     call("undo")
     report["p164_annulee"] = abs(float(body.Shape.Volume) - before) < 1e-6
 
+    # Réseau linéaire de la nervure, comme d'un bossage : la copie à
+    # 10 mm, puis l'épaisseur rééditée que la copie suit.
+    out = call("add_rib", thickness=3,
+               sketch=rib_sketch([(5, 30), (30, 5)]))
+    rib = body.Tip.Name
+    pattern = call("add_linear_pattern", length=10, count=2, axis="Y",
+                   features=[rib], spacing=True)
+    twice = float(body.Shape.Volume) - before
+    edit = call("set_params", feature=rib, values={"thickness": 4})
+    report["p164_repetee"] = (
+        out.get("ok") is True and pattern.get("ok") is True
+        and abs(twice - 2 * 937.5) < 1 and edit.get("ok") is True
+        and abs(float(body.Shape.Volume) - before - 2 * 1250) < 1)
+    for _ in range(3):
+        call("undo")
+
     # Ligne trop courte : ses bouts se prolongent jusqu'aux ailes.
     rib_sketch([(10, 20), (20, 10)])
     out = call("add_rib", thickness=3)

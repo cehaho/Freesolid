@@ -11,7 +11,7 @@
 export const BODY_FEATURE_KEYS = new Set([
   "pad", "pocket", "revolution", "groove", "loft", "loft_cut", "sweep",
   "sweep_cut", "helix", "helix_cut", "hole", "fillet", "chamfer", "draft",
-  "thickness", "mirror", "linear_pattern", "polar_pattern", "boolean",
+  "thickness", "mirror", "linear_pattern", "polar_pattern", "boolean", "rib",
   "datum_plane", "datum_axis", "datum_point", "datum_cs", "binder", "body",
   "feature",
 ]);

@@ -90,6 +90,7 @@ export const TREE_ICONS = {
   sweep_cut: "PartDesign_SubtractivePipe",
   helix: "nodes_helix",
   boolean: "boolean",
+  rib: "rib",
   remove_bodies: "remove_bodies",
   body: "body",
   surface_extrude: "nodes_extrude",
