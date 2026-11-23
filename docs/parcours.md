@@ -114,4 +114,4 @@ les coins avant, puis la paroi passée à 50 mm (tout suit).
 | # | Accroc | Suite |
 |---|--------|-------|
 | 40 | Esquisse sélectionnée dans l'arbre (celle des positions d'un perçage), puis bouton Esquisse : une nouvelle esquisse demande un plan au lieu de rouvrir la sélectionnée. | **Corrigé** : comme dans les modeleurs courants, Esquisse rouvre l'esquisse choisie dans l'arbre (le même geste que « Modifier » de son panneau, qui se ferme). |
-| 41 | Réseau linéaire de la nervure : refusé (« pas une fonction additive ou soustractive »). | **À reprendre** : la nervure est une forme calculée rangée en booléen ; la répéter demande au moteur d'en extraire la matière ajoutée. |
+| 41 | Réseau linéaire de la nervure : refusé (« pas une fonction additive ou soustractive »). | **Corrigé** : la nervure est maintenant une fonction additive dont le moteur pose la forme et la matière ajoutée ; réseaux linéaire et circulaire, symétrie et répétition pilotée par esquisse la répètent comme un bossage, et les copies suivent sa réédition (selftest p164). Une nervure d'un fichier plus ancien garde l'ancien rangement : la recréer pour la répéter. |

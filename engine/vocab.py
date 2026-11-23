@@ -147,6 +147,8 @@ TYPE_KEYS: dict[str, str] = {
     "PartDesign::LinearPattern": "linear_pattern",
     "PartDesign::PolarPattern": "polar_pattern",
     "PartDesign::Boolean": "boolean",
+    # Nervure : une fonction additive dont le moteur pose la forme.
+    "PartDesign::FeatureAdditivePython": "rib",
     "PartDesign::Plane": "datum_plane",
     "PartDesign::Line": "datum_axis",
     "PartDesign::Point": "datum_point",

@@ -171,7 +171,7 @@ OPS = (
     Op("add_rib", Req(("thickness", float), optional={
         "sketch": str, "direction": str, "flip": bool}),
        undo=True, preview=True,
-       no_replay="forme figée (FrozenShape), pas get_params"),
+       no_replay="forme posée par le moteur, pas get_params"),
     Op("add_text", Req(("text", str), ("face", int)), undo=True, preview=True,
        no_replay="propriétés FreeSolid* hors get_params"),
                                        # optional: size, depth, x, y, emboss, font

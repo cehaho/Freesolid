@@ -437,6 +437,12 @@ class SurfaceCommonMixin:
         failures = self.__dict__.setdefault("_frozen_failures", {})
         for obj in doc.Objects:
             failures.pop(obj.Name, None)  # la dernière passe décide
+            if self._is_rib_feature(obj):
+                try:
+                    changed = self._refresh_rib(obj) or changed
+                except Exception as exc:  # noqa: BLE001
+                    self._frozen_fail(obj, exc)
+                continue
             if self._sketch3d_spec(obj) is not None:
                 changed = self._refresh_sketch3d(obj) or changed
                 continue
