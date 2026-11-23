@@ -135,7 +135,7 @@ jobs:
           echo "Clé de signature : ${#key} caractères, fichier prêt."
 
       - name: Build + release
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -155,5 +155,5 @@ jobs:
             Les apps déjà installées se mettent à jour d'elles-mêmes.
           releaseDraft: false
           prerelease: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           args: ${{ matrix.args }}
