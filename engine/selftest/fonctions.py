@@ -856,6 +856,21 @@ def p44_trou_place_par_cote(self, mark, report, etat):
     report["p44_cotation_intelligente"] = corner_ok and unmoved and kinds == [
         ("Radius", 5.0), ("Distance", 20.0), ("Distance", 30.0),
         ("DistanceX", 10.0)]
+    # Cercles concentriques : la cote de diamètre posée à gauche y reste
+    # (angle vu du centre), loin de celle de l'autre cercle.
+    import math
+    name = self.sketch_start()["sketch"]
+    self.sketch_add_circle(name, 0, 0, 20)
+    self.sketch_add_circle(name, 0, 0, 18)
+    loose = self.sketch_dim(name, 1)["dims"][-1]
+    ring = self.sketch_dim(name, 0, at=[-30, 0])["dims"][-1]
+    turned = self.sketch_place_dim(name, ring["id"], math.pi / 2)
+    turned = next(d for d in turned["dims"] if d["id"] == ring["id"])
+    report["p44_cote_cercle_posee"] = (
+        loose["offset"] is None
+        and ring["type"] == "Diameter" and ring["offset"] is not None
+        and abs(ring["offset"] - math.pi) < 1e-6
+        and abs(turned["offset"] - math.pi / 2) < 1e-6)
     report["p44_cotes_hv"] = (
         [d["type"] for d in dims] == ["DistanceX", "DistanceY"]
         and all(d["value"] > 0 for d in dims)
