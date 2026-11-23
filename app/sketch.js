@@ -2200,7 +2200,7 @@ export function createSketchMode(deps) {
 
   /** Écart, en décalage, entre le curseur qui saisit l'étiquette et la
    *  ligne de cote actuelle — gardé pendant le glisser. null : cote qui
-   *  ne se déplace pas (diamètre, rayon, angle). */
+   *  ne se déplace pas. */
   function grabDelta(dim, event) {
     const under = dragOffset(dim, event);
     if (under == null) return null;
@@ -2208,7 +2208,10 @@ export function createSketchMode(deps) {
       .find((c) => c.id === dim.id);
     const shape = dimGeometry(dim, constraint, mode.state.entities,
       dimDrawSize());
-    const line = shape?.segments?.[2];
+    // Rayon, diamètre : l'étiquette tourne autour du centre.
+    const radial = dim.type === "Radius" || dim.type === "Diameter";
+    const line = radial && shape?.label
+      ? [shape.label.x, shape.label.y] : shape?.segments?.[2];
     if (!line) return null;
     const current = dimOffsetAt(dim, constraint, mode.state.entities,
       { x: line[0], y: line[1] });

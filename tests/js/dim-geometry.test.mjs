@@ -186,11 +186,11 @@ describe("cote glissée : décalage sous le curseur", () => {
     assert.equal(dimOffsetAt({ type: "DistanceY", geo: -1 }, pair, pt,
       { x: -8, y: 5 }), -8);
   });
-  it("diamètre : ne se glisse pas ainsi", () => {
+  it("diamètre : tourne autour du centre, l'angle du curseur", () => {
     const circle = [{ id: 0, type: "circle", c: [0, 0], r: 5 }];
-    assert.equal(dimOffsetAt({ type: "Diameter", geo: 0 },
+    assert.ok(close(dimOffsetAt({ type: "Diameter", geo: 0 },
       { geos: [0, null, null], pos: [0, 0, 0] }, circle, { x: 1, y: 1 }),
-      null);
+      Math.PI / 4));
   });
 });
 
@@ -213,5 +213,25 @@ describe("cote d'angle : près des lignes, pas au sommet", () => {
     assert.ok(g.segments.length > 24);   // les attaches suivent l'arc
     assert.ok(close(dimOffsetAt({ type: "Angle", geo: 0 }, pair, lines,
       { x: 0, y: 50 }), 50));
+  });
+});
+
+describe("cotes de cercles concentriques", () => {
+  const rings = [{ id: 0, type: "circle", c: [0, 0], r: 20 },
+                 { id: 1, type: "circle", c: [0, 0], r: 18 }];
+  const angleOf = (g) => Math.atan2(g.label.y, g.label.x);
+  it("sans pose, leurs étiquettes partent dans deux directions", () => {
+    const small = dimGeometry({ type: "Radius", geo: 1 }, null, rings, 1);
+    const big = dimGeometry({ type: "Radius", geo: 0 }, null, rings, 1);
+    assert.ok(close(angleOf(small), Math.PI / 4));
+    assert.ok(close(angleOf(big), Math.PI / 4 + Math.PI / 6));
+  });
+  it("posée : l'étiquette part vers le point de pose, et y retourne", () => {
+    const offset = dimOffsetAt({ type: "Diameter", geo: 0 }, null, rings,
+      { x: -30, y: 0 });
+    assert.ok(close(offset, Math.PI));
+    const g = dimGeometry({ type: "Diameter", geo: 0, offset }, null,
+      rings, 1);
+    assert.ok(g.label.x < -20 && close(g.label.y, 0));
   });
 });

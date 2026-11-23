@@ -374,7 +374,12 @@ class SketchMixin:
                                              10.0)), 9),
                          round(float(getattr(constraint, "LabelPosition",
                                              0.0)), 9))
-                if label != self._DEFAULT_LABEL:
+                if constraint.Type in ("Radius", "Diameter"):
+                    # Le noyau donne une LabelPosition à ces cotes : seule
+                    # la distance (notre angle de pose) dit « posée ».
+                    if label[0] != self._DEFAULT_LABEL[0]:
+                        entry_offset = label[0]
+                elif label != self._DEFAULT_LABEL:
                     entry_offset = label[0]
                 second = getattr(constraint, "Second", -2000)
                 single = second is None or second <= -2000
@@ -1817,7 +1822,9 @@ class SketchMixin:
         """Retient où la cote a été posée : le décalage (signé, en mm) de
         sa ligne par rapport à son premier point — au-dessus pour une
         horizontale, à droite pour une verticale, sur la normale A→B pour
-        une alignée. Stocké dans ``LabelDistance``, sauvé avec la pièce."""
+        une alignée ; pour un rayon ou un diamètre, l'angle (radians) du
+        point de pose vu du centre. Stocké dans ``LabelDistance``, sauvé
+        avec la pièce."""
         if at is None:
             return
         try:
@@ -1829,6 +1836,13 @@ class SketchMixin:
                     import math
                     self._set_dim_offset(
                         sk, index, math.hypot(x - corner.x, y - corner.y))
+                return
+            if c.Type in ("Radius", "Diameter"):
+                import math
+                center = getattr(geo_of(sk, c.First), "Center", None)
+                if center is not None:
+                    self._set_dim_offset(
+                        sk, index, math.atan2(y - center.y, x - center.x))
                 return
             a, b = self._dim_ends(sk, c)
             if a is None:
@@ -1942,7 +1956,6 @@ class SketchMixin:
                               target.EndPoint))
                 index = sk.addConstraint(Sketcher.Constraint(
                     "Distance", gid, float(length)))
-                self._place_dim(sk, index, at)
             elif target.TypeId == "Part::GeomCircle" and radius:
                 # Cercle puis son centre : le rayon.
                 value_r = value if value is not None else target.Radius
@@ -1960,6 +1973,9 @@ class SketchMixin:
                     "Radius", gid, float(radius)))
             else:
                 raise KernelError("cote non gérée sur ce type de géométrie")
+            # Là où on a cliqué : la ligne de cote, ou l'étiquette d'un
+            # rayon ou d'un diamètre.
+            self._place_dim(sk, len(sk.Constraints) - 1, at)
         except KernelError:
             raise
         except Exception as exc:  # noqa: BLE001 - over-constrained, mostly

@@ -259,7 +259,12 @@ function trimExtensions(out, e1, e2, size) {
 
 /** Direction de lecture d'un rayon ou d'un diamètre : 45°, ou le milieu
  *  d'un arc. */
-function radialDirection(entity) {
+/** Direction de la cote de rayon ou de diamètre, depuis le centre : là
+ *  où elle a été posée (`offset`, angle en radians), sinon le milieu d'un
+ *  arc, sinon 45° — tournée de 30° par cercle plus petit de même centre,
+ *  pour que les étiquettes de cercles concentriques ne se couvrent pas. */
+function radialDirection(entity, offset, entities) {
+  if (offset != null) return { x: Math.cos(offset), y: Math.sin(offset) };
   if (entity.type === "arc" && entity.p1 && entity.p2 && entity.c) {
     const a1 = Math.atan2(entity.p1[1] - entity.c[1], entity.p1[0] - entity.c[0]);
     let a2 = Math.atan2(entity.p2[1] - entity.c[1], entity.p2[0] - entity.c[0]);
@@ -267,7 +272,13 @@ function radialDirection(entity) {
     const a = (a1 + a2) / 2;
     return { x: Math.cos(a), y: Math.sin(a) };
   }
-  return { x: Math.SQRT1_2, y: Math.SQRT1_2 };
+  const inner = (entities ?? []).filter((other) => other !== entity
+    && other.type === "circle" && other.c && entity.c
+    && Math.hypot(other.c[0] - entity.c[0], other.c[1] - entity.c[1]) < 1e-6
+    && (other.r < entity.r || (other.r === entity.r && other.id < entity.id)))
+    .length;
+  const a = Math.PI / 4 + inner * Math.PI / 6;
+  return { x: Math.cos(a), y: Math.sin(a) };
 }
 
 function lineDirFrom(line, origin) {
@@ -433,7 +444,7 @@ export function dimGeometry(dim, constraint, entities, size = 2) {
     if (a && b) out = axisDim(a, b, dim.type, size, dim.offset);
   } else if ((dim.type === "Radius" || dim.type === "Diameter")
              && e1?.c && e1.r != null) {
-    const dir = radialDirection(e1);
+    const dir = radialDirection(e1, dim.offset, entities);
     const c = { x: e1.c[0], y: e1.c[1] };
     const rim = { x: c.x + dir.x * e1.r, y: c.y + dir.y * e1.r };
     const label = { x: c.x + dir.x * (e1.r + size * 2),
@@ -470,8 +481,8 @@ export function dimGeometry(dim, constraint, entities, size = 2) {
  * Décalage qu'aurait la cote si sa ligne passait par `at` (coordonnées de
  * l'esquisse) — le même calcul que le moteur à la pose : depuis le premier
  * point, au-dessus pour une horizontale, à droite pour une verticale, sur
- * la normale A→B pour une alignée. null : cote qui ne se déplace pas ainsi
- * (diamètre, rayon, angle, point → ligne).
+ * la normale A→B pour une alignée ; pour un rayon ou un diamètre, l'angle
+ * (radians) de `at` vu du centre. null : cote qui ne se déplace pas ainsi.
  */
 export function dimOffsetAt(dim, constraint, entities, at) {
   const byId = (id) => (id === -1 ? ORIGIN
@@ -479,6 +490,10 @@ export function dimOffsetAt(dim, constraint, entities, at) {
   const [g1, g2] = constraint?.geos ?? [dim.geo, null];
   const [p1, p2] = constraint?.pos ?? [0, 0];
   const e1 = byId(g1);
+  if (dim.type === "Radius" || dim.type === "Diameter") {
+    if (!e1?.c) return null;
+    return Math.atan2(at.y - e1.c[1], at.x - e1.c[0]);
+  }
   if (dim.type === "Angle") {
     // Angle : le rayon de l'arc, depuis le point de rencontre.
     const e2 = byId(g2);

@@ -101,5 +101,5 @@ d'un anneau R20/R18 le long d'un chemin en L de 40 × 50 arrondi à R20.
 | 37 | Congé d'esquisse : les cotes des deux lignes disparaissent. | **Corrigé** : le coin reste en point de construction, les cotes s'y rattachent, le rayon est coté (selftest p17). |
 | 38 | Esquisse rééditée : la vue ne cadre que la pièce, le haut du chemin est hors écran. | **Corrigé** : la vue englobe le contenu de l'esquisse à l'ouverture. |
 | 39 | « Esquisse fermée — contour ouvert » : fermée et ouvert dans la même phrase. | **Corrigé** : « Esquisse terminée — profil non fermé… ». |
-| — | Rayons de deux cercles concentriques : étiquettes superposées. | À reprendre (placement au clic, comme les longueurs). |
+| — | Rayons de deux cercles concentriques : étiquettes superposées. | **Corrigé** : comme les longueurs, une cote de rayon ou de diamètre se pose là où on clique et se glisse autour du cercle (l'angle est gardé avec la pièce) ; sans pose, les cercles de même centre partent dans des directions décalées (selftest p44). |
 | — | L'anneau du haut (2 mm) est difficile à viser ; pas de vue de dessous dans la barre (Ctrl+6 marche). | À reprendre. |
