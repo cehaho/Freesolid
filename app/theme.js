@@ -33,6 +33,23 @@ const SCENE = {
   successSoft: ["--success-soft", 0x6fcf97],
 };
 
+/** Luminance relative (WCAG) d'un entier 0xRRGGBB, de 0 à 1. */
+export function luminance(value) {
+  const lin = (c) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin((value >> 16) & 255) + 0.7152 * lin((value >> 8) & 255)
+    + 0.0722 * lin(value & 255);
+}
+
+/** Les traits d'esquisse définis plus clairs que la pièce (thème
+ *  sombre) : ils prennent un liseré couleur du fond pour rester lisibles
+ *  sur une face. */
+export function sketchNeedsHalo(theme) {
+  return luminance(theme.defined) > luminance(theme.part);
+}
+
 /** Entier 0xRRGGBB → « #rrggbb ». */
 export function cssHex(value) {
   return `#${value.toString(16).padStart(6, "0")}`;
