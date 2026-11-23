@@ -587,18 +587,7 @@ export function installTree(ctx) {
         label: t("Modifier"),
         title: t("Modifier l'esquisse"),
         className: "paction",
-        onClick: () => {
-          ctx.sketchInfoOpen = false;
-          const target = {
-            type_key: "sketch",
-            name: feature.name,
-            label: feature.label,
-          };
-          ctx.selectedSketch = null;
-          clearSketchHighlight();
-          if (ctx.lastTree) renderTree(ctx.lastTree);
-          editFeature(target);
-        },
+        onClick: () => editSelectedSketch(feature),
       }],
       onCancel: () => {
         // Fermer / Échap uniquement (open() remplace en silencieux).
@@ -3371,6 +3360,20 @@ export function installTree(ctx) {
     params: editParams,
   };
 
+  /** Rouvre l'esquisse choisie dans l'arbre — « Modifier » de son
+   *  panneau, ou le bouton Esquisse quand elle est sélectionnée, comme
+   *  dans les modeleurs courants. */
+  function editSelectedSketch(feature = ctx.selectedSketch) {
+    if (!feature) return false;
+    if (ctx.sketchInfoOpen && panel.active) panel.close({ silent: true });
+    ctx.sketchInfoOpen = false;
+    ctx.selectedSketch = null;
+    clearSketchHighlight();
+    if (ctx.lastTree) renderTree(ctx.lastTree);
+    editFeature({ type_key: "sketch", name: feature.name, label: feature.label });
+    return true;
+  }
+
   async function editFeature(feature) {
     const editor = featureEditor(feature);
     if (!editor) {
@@ -3387,7 +3390,7 @@ export function installTree(ctx) {
     clearSurfaceSelection, selectSketch, onPlaneRow,
     beginInlineRename, treeRowFor, beginRenameSelected,
     renderTree, editSurface, editFeature, editSketchPlane,
-    editRepeatFeatures,
+    editRepeatFeatures, editSelectedSketch,
     moveBar, stepBar, barToPrevious, barCommands, isAfterBar, handleBarKey,
     setFlatTree, isFlatTree,
   };

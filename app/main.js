@@ -1356,7 +1356,7 @@ const {
   clearSurfaceSelection, selectSketch, onPlaneRow,
   beginInlineRename, treeRowFor, beginRenameSelected,
   renderTree, editSurface, editFeature, editSketchPlane,
-  editRepeatFeatures,
+  editRepeatFeatures, editSelectedSketch,
   moveBar, stepBar, barToPrevious, barCommands, isAfterBar, handleBarKey,
   setFlatTree, isFlatTree,
 } = installTree(ctx);
@@ -2412,7 +2412,11 @@ document.getElementById("btn-sketch").addEventListener("click", () =>
         return;
       }
     }
-    if (selectedFaceId !== null) {
+    if (selectedSketch !== null) {
+      // Une esquisse choisie dans l'arbre : Esquisse la rouvre, comme
+      // dans les modeleurs courants — pas une nouvelle sur un plan.
+      editSelectedSketch();
+    } else if (selectedFaceId !== null) {
       const face = selectedFaceId;
       releaseFaceSelection();
       sketchMode.enter(call("sketch_start", { face }));

@@ -103,3 +103,15 @@ d'un anneau R20/R18 le long d'un chemin en L de 40 × 50 arrondi à R20.
 | 39 | « Esquisse fermée — contour ouvert » : fermée et ouvert dans la même phrase. | **Corrigé** : « Esquisse terminée — profil non fermé… ». |
 | — | Rayons de deux cercles concentriques : étiquettes superposées. | **Corrigé** : comme les longueurs, une cote de rayon ou de diamètre se pose là où on clique et se glisse autour du cercle (l'angle est gardé avec la pièce) ; sans pose, les cercles de même centre partent dans des directions décalées (selftest p44). |
 | — | L'anneau du haut (2 mm) est difficile à viser ; pas de vue de dessous dans la barre (Ctrl+6 marche). | **Corrigé** : sur une face, une arête ne gagne que si le curseur est presque sur son trait (3 px ; 8 px sur le fond) — l'anneau mince se vise sur presque toute sa largeur. La barre de vue porte « Orientation de la vue », qui ouvre sous elle la boîte des vues standard, dessous compris (comme la touche Espace). |
+
+## 6. Support à nervure
+
+Semelle 80 × 50 × 6 sur le Plan de dessus, paroi 80 × 6 de 40 mm sur
+son bord arrière, nervure de 6 mm (une ligne sur le Plan de droite),
+deux perçages de 6 mm cotés à ± 25 / − 10 de l'origine, congés R5 sur
+les coins avant, puis la paroi passée à 50 mm (tout suit).
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 40 | Esquisse sélectionnée dans l'arbre (celle des positions d'un perçage), puis bouton Esquisse : une nouvelle esquisse demande un plan au lieu de rouvrir la sélectionnée. | **Corrigé** : comme dans les modeleurs courants, Esquisse rouvre l'esquisse choisie dans l'arbre (le même geste que « Modifier » de son panneau, qui se ferme). |
+| 41 | Réseau linéaire de la nervure : refusé (« pas une fonction additive ou soustractive »). | **À reprendre** : la nervure est une forme calculée rangée en booléen ; la répéter demande au moteur d'en extraire la matière ajoutée. |
