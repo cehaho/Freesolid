@@ -959,10 +959,12 @@ export function installPicking(ctx) {
     ctx.featureDimSprites = [];
   }
 
-  function clearFeatureDims() {
+  /** `keepSelection` : la fonction cliquée reste choisie — une commande
+   *  qui s'ouvre la prend (répétitions, symétrie). */
+  function clearFeatureDims({ keepSelection = false } = {}) {
     disposeFeatureDimSprites();
     featureDimContext = null;
-    if (ctx.selectedFeatureName) {
+    if (ctx.selectedFeatureName && !keepSelection) {
       ctx.selectedFeatureName = null;
       if (ctx.lastTree) ctx.renderTree(ctx.lastTree);
     }
