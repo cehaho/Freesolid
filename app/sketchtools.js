@@ -520,6 +520,31 @@ export function endpointDirection(entity, point) {
   return null;
 }
 
+/** Le départ d'un arc tangent depuis le bout d'une polyligne (`chain`,
+ *  le point où la ligne suivante partirait) : la dernière ligne ou le
+ *  dernier arc qui y finit, avec sa direction — `{ x, y, geo, point,
+ *  dir }`, le premier clic de l'outil Arc tangent. null sinon. */
+export function chainArcStart(entities, chain, tol = 1e-6) {
+  if (!chain) return null;
+  const ends = [];
+  for (const e of entities ?? []) {
+    if (e.external || e.construction) continue;
+    if (e.type !== "line" && e.type !== "arc") continue;
+    for (const point of [2, 1]) {
+      const p = point === 2 ? e.p2 : e.p1;
+      if (p && Math.hypot(p[0] - chain.x, p[1] - chain.y) < tol) {
+        ends.push({ e, point });
+        break;
+      }
+    }
+  }
+  if (!ends.length) return null;
+  // La plus récente : celle que la polyligne vient de tracer.
+  const { e, point } = ends.reduce((a, b) => (b.e.id > a.e.id ? b : a));
+  const dir = endpointDirection(e, point);
+  return dir ? { x: chain.x, y: chain.y, geo: e.id, point, dir } : null;
+}
+
 /** Couleurs proposées pour un calque ([valeur, libellé]) ; "" : la
  *  couleur d'état habituelle. */
 export const LAYER_COLORS = [

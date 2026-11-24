@@ -11,7 +11,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { t } from "./i18n.js";
 import { iconSrc } from "./icons.js";
 import { createLocalSolver } from "./solver.js";
-import { CLICK_TOOLS, OPEN_TOOLS, curvatureComb,
+import { CLICK_TOOLS, OPEN_TOOLS, chainArcStart, curvatureComb,
   endpointDirection, gridStep, hiddenByLayers,
   polygonVertexFromApothem } from "./sketchtools.js";
 import {
@@ -1133,8 +1133,42 @@ export function createSketchMode(deps) {
     }
     say(t(spec.prompts[0]));
     const snaps = spec.snaps?.(pts);
+    const backToLine = mode.arcFromLine;
     await safe(call(out.op,
       { sketch: name, ...out.params, ...(snaps ? { snaps } : {}) }));
+    if (backToLine) {
+      // Arc pris dans une polyligne (touche A) : la ligne reprend au bout
+      // de l'arc, comme dans les modeleurs courants.
+      const end = pts[pts.length - 1];
+      setTool("line");
+      mode.chain = { x: end.x, y: end.y };
+      say(t("Ligne : cliquez le point suivant — A pour un arc tangent"));
+    }
+  }
+
+  /** Touche A dans une polyligne : l'arc tangent part de son bout ; de
+   *  nouveau A, la ligne revient au même point. Rend vrai si la touche a
+   *  servi. */
+  function toggleChainArc() {
+    if (mode.tool === "line" && mode.chain) {
+      // Dans une polyligne, A ne quitte jamais la ligne : sans bout posé
+      // (le moteur répond encore), la touche attend.
+      const start = chainArcStart(mode.state?.entities, mode.chain);
+      if (!start) return true;
+      setTool("tarc");
+      mode.pendingClicks = [start];
+      mode.arcFromLine = true;
+      say(t("Arc tangent : cliquez le point d'arrivée — A pour revenir à la ligne"));
+      return true;
+    }
+    if (mode.tool === "tarc" && mode.arcFromLine && mode.pendingClicks?.length) {
+      const start = mode.pendingClicks[0];
+      setTool("line");
+      mode.chain = { x: start.x, y: start.y };
+      say(t("Ligne : cliquez le point suivant — A pour un arc tangent"));
+      return true;
+    }
+    return false;
   }
 
   async function onClick(event) {
@@ -2335,7 +2369,9 @@ export function createSketchMode(deps) {
     } else if (key === "l") setTool("line");
     else if (key === "r") setTool("rect");
     else if (key === "c") setTool("circle");
-    else if (key === "a") setTool("arc3");
+    else if (key === "a") {
+      if (!toggleChainArc()) setTool("arc3");
+    }
     else if (key === "e") setTool("ellipse");
     else if (key === "t") setTool("trim");
     else if (key === "g") setTool("construction");
@@ -2366,6 +2402,7 @@ export function createSketchMode(deps) {
     mode.pendingDimPlace = null;
     mode.pendingSpline = null;
     mode.pendingClicks = null;
+    mode.arcFromLine = false;
     mode.ordinateBase = null;
     mode.pendingG2 = null;
     mode.pendingEllipse = null;
