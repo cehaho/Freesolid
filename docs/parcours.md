@@ -129,3 +129,15 @@ paroi avant répétée 5 fois au pas de 8 mm, puis le bloc passé à 40 mm
 |---|--------|-------|
 | 42 | Panneau Coque ouvert, curseur dans l'Épaisseur : Ctrl+6 ne fait rien ; la face cliquée ensuite est celle du dessus, et la coque s'ouvre du mauvais côté. | **Corrigé** : comme dans les modeleurs courants, Ctrl+1…8 (vues standard, normal à) marchent même le curseur dans un champ — une saisie ne s'en sert jamais. |
 | 43 | Fonction cliquée dans l'arbre, puis Symétrie : « Fonctions à répéter » reste vide (seul le repli « la dernière » sauvait le résultat). | **Corrigé** : ouvrir une commande efface les cotes affichées mais garde la fonction choisie, que le panneau prend d'emblée (répétitions, symétrie). |
+
+## 8. Flasque tournée
+
+Profil en L sur le Plan de face — moyeu Ø20…40 de 25 mm, flasque
+Ø100 de 8 mm — tourné autour de l'axe vertical ; un perçage Ø6 sur la
+flasque répété 6 fois autour de l'axe, congé R3 au pied du moyeu, puis
+le moyeu coté à 35 mm dans l'esquisse rééditée (tout suit).
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 44 | Congé au pied du moyeu : l'arête ne se clique que sur ses côtés ; de face, c'est l'arête voisine (le haut de la flasque, à quelques pixels) qui prend la sélection, ou la face entière. | **Corrigé** : sur une face, l'arête retenue est la première de cette face sous le curseur, plus seulement la première trouvée. |
+| 45 | Face de la flasque cliquée, puis Perçage : le panneau redemande les centres des trous. | **Corrigé** : comme dans les modeleurs courants, le point cliqué sur la face présélectionnée devient la première position (aimanté comme un clic dans le panneau). |

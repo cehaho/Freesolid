@@ -411,8 +411,11 @@ export function installPicking(ctx) {
       if (ctx.partMesh && ctx.partEdges && allow.edges !== false) {
         const { radius } = ctx.partCenterRadius();
         raycaster.params.Line.threshold = linePickThreshold();
-        edgeHit = raycaster.intersectObject(ctx.partEdges)[0];
-        if (edgeHit && faceHit && !edgeOnFace(edgeHit)) edgeHit = undefined;
+        // Sur une face, la plus proche des arêtes presque sous le curseur —
+        // pas seulement la première trouvée : une arête voisine, plus près
+        // de l'œil mais à 4–8 px, cachait celle qu'on vise (pied d'un moyeu).
+        const edgeHits = raycaster.intersectObject(ctx.partEdges);
+        edgeHit = faceHit ? edgeHits.find(edgeOnFace) : edgeHits[0];
         if (edgeHit && (!faceHit
             || edgeHit.distance <= faceHit.distance + radius * 0.02)) {
           edgeGroupIndex = ctx.edgeGroups.findIndex(
