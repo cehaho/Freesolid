@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { findFeatureInTree } from "../../app/picking.js";
+import { findFeatureInTree, sketchesPickable } from "../../app/picking.js";
 
 describe("findFeatureInTree", () => {
   const tree = {
@@ -22,5 +22,27 @@ describe("findFeatureInTree", () => {
     assert.equal(findFeatureInTree(null, "Pad"), null);
     assert.equal(findFeatureInTree(tree, "Absent"), null);
     assert.equal(findFeatureInTree({}, "Pad"), null);
+  });
+});
+
+describe("sketchesPickable", () => {
+  const panel = (applicable, takes) => ({ applicable,
+    accepts: (kind) => takes.includes(kind) });
+
+  it("sans commande ouverte, les esquisses se visent", () => {
+    assert.equal(sketchesPickable(null), true);
+    assert.equal(sketchesPickable(panel(false, [])), true);
+  });
+
+  it("une commande qui ne prend pas d'esquisse les traverse", () => {
+    assert.equal(sketchesPickable(panel(true, ["point", "face"])), false);
+  });
+
+  it("une commande qui prend une esquisse les vise", () => {
+    assert.equal(sketchesPickable(panel(true, ["sketch"])), true);
+  });
+
+  it("le filtre de sélection les écarte toujours", () => {
+    assert.equal(sketchesPickable(null, { sketches: false }), false);
   });
 });

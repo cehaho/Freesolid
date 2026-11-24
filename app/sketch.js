@@ -4,6 +4,7 @@
 //
 // The server owns truth (geometry, solver); this module owns gesture.
 
+import { setLinePoints } from "./sketch/apercu.js";
 import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
@@ -11,7 +12,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { t } from "./i18n.js";
 import { iconSrc } from "./icons.js";
 import { createLocalSolver } from "./solver.js";
-import { CLICK_TOOLS, OPEN_TOOLS, curvatureComb,
+import { CLICK_TOOLS, OPEN_TOOLS, chainArcStart, curvatureComb,
   endpointDirection, gridStep, hiddenByLayers,
   polygonVertexFromApothem } from "./sketchtools.js";
 import {
@@ -33,7 +34,8 @@ import { ORIGIN_GEO, sceneTheme } from "./sketch/commun.js";
 import { sketchNeedsHalo } from "./theme.js";
 import {
   SNAP_KINDS, SNAP_PX, SNAP_TOL, activeSnaps, arcSnaps, circleSnaps,
-  engineSnaps, lineSnaps, modelEdgeOf, modelEdgeSnaps, normalizeSnapSettings,
+  engineSnaps, foreignSnapPoints, lineSnaps, modelEdgeOf, modelEdgeSnaps,
+  normalizeSnapSettings,
   onCircle, readSnapSettings, rectSnaps, sketchEndpoints, sketchSnapPoints,
   slotSnaps,
   snapSketchPoint, snapTarget, trimPiece, writeSnapSettings,
@@ -316,15 +318,20 @@ export function createSketchMode(deps) {
   let modelCache = { edges: null, state: null, snaps: NO_MODEL };
   function modelSnaps() {
     const edges = modelEdges();
-    if (!edges || !mode.state) return NO_MODEL;
+    if (!mode.state) return NO_MODEL;
     if (modelCache.edges !== edges || modelCache.state !== mode.state) {
       const inSketch = (x, y, z) => {
         const v = new THREE.Vector3(x, y, z).applyMatrix4(mode.inverse);
         return [v.x, v.y, v.z];
       };
-      modelCache = { edges, state: mode.state, snaps: modelEdgeSnaps(
-        edges, inSketch,
-        { externals: mode.state.entities.filter((e) => e.external) }) };
+      const externals = mode.state.entities.filter((e) => e.external);
+      const model = edges ? modelEdgeSnaps(edges, inSketch, { externals })
+        : NO_MODEL;
+      // Et les sommets des autres esquisses dans le plan.
+      const foreign = foreignSnapPoints(mode.state.foreign_points,
+                                        { externals });
+      modelCache = { edges, state: mode.state, snaps: {
+        entities: model.entities, points: [...model.points, ...foreign] } };
     }
     return modelCache.snaps;
   }
@@ -1133,8 +1140,42 @@ export function createSketchMode(deps) {
     }
     say(t(spec.prompts[0]));
     const snaps = spec.snaps?.(pts);
+    const backToLine = mode.arcFromLine;
     await safe(call(out.op,
       { sketch: name, ...out.params, ...(snaps ? { snaps } : {}) }));
+    if (backToLine) {
+      // Arc pris dans une polyligne (touche A) : la ligne reprend au bout
+      // de l'arc, comme dans les modeleurs courants.
+      const end = pts[pts.length - 1];
+      setTool("line");
+      mode.chain = { x: end.x, y: end.y };
+      say(t("Ligne : cliquez le point suivant — A pour un arc tangent"));
+    }
+  }
+
+  /** Touche A dans une polyligne : l'arc tangent part de son bout ; de
+   *  nouveau A, la ligne revient au même point. Rend vrai si la touche a
+   *  servi. */
+  function toggleChainArc() {
+    if (mode.tool === "line" && mode.chain) {
+      // Dans une polyligne, A ne quitte jamais la ligne : sans bout posé
+      // (le moteur répond encore), la touche attend.
+      const start = chainArcStart(mode.state?.entities, mode.chain);
+      if (!start) return true;
+      setTool("tarc");
+      mode.pendingClicks = [start];
+      mode.arcFromLine = true;
+      say(t("Arc tangent : cliquez le point d'arrivée — A pour revenir à la ligne"));
+      return true;
+    }
+    if (mode.tool === "tarc" && mode.arcFromLine && mode.pendingClicks?.length) {
+      const start = mode.pendingClicks[0];
+      setTool("line");
+      mode.chain = { x: start.x, y: start.y };
+      say(t("Ligne : cliquez le point suivant — A pour un arc tangent"));
+      return true;
+    }
+    return false;
   }
 
   async function onClick(event) {
@@ -1406,8 +1447,8 @@ export function createSketchMode(deps) {
       if (target !== null) {
         const measure = { dimarc: "arc_length", dimaxis: "axis_angle",
                           dimdia: "diameter" }[mode.tool];
-        safe(call("sketch_dim", { sketch: name, geo: target, measure,
-          at: [snapped.x, snapped.y] }));
+        // Comme la cotation : la cote posée demande aussitôt sa valeur.
+        await addDim({ sketch: name, geo: target, measure }, event);
       }
     } else if (mode.tool === "ordx" || mode.tool === "ordy") {
       // Cote ordonnée : le point de base, puis chaque point coté depuis
@@ -2020,7 +2061,7 @@ export function createSketchMode(deps) {
       }
       const [a, b] = lineEnds(mode.pendingDim);
       const path = pointPairDimPath(a, b, pointPairDimKind(a, b, local), local);
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     } else if ((CLICK_TOOLS[mode.tool] || OPEN_TOOLS[mode.tool])
@@ -2033,7 +2074,7 @@ export function createSketchMode(deps) {
         previewLine.visible = false;
         return;
       }
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         pts.map((q) => new THREE.Vector3(q.x, q.y, 0)));
       previewLine.visible = true;
     } else if (mode.tool === "dim" && mode.pendingDimPlace?.a && previewLine) {
@@ -2041,7 +2082,7 @@ export function createSketchMode(deps) {
       if (!local) return;
       const { a, b } = mode.pendingDimPlace;
       const path = pointPairDimPath(a, b, "Distance", local);
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     } else if (mode.tool === "dim" && mode.pendingDimPair && previewLine) {
@@ -2049,14 +2090,14 @@ export function createSketchMode(deps) {
       if (!local) return;
       const { a, b } = mode.pendingDimPair;
       const path = pointPairDimPath(a, b, pointPairDimKind(a, b, local), local);
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     } else if (mode.tool === "line" && mode.chain && previewLine) {
       const local = toLocal(event);
       if (!local) return;
       const snapped = snap(local, event);
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         new THREE.Vector3(mode.chain.x, mode.chain.y, 0),
         new THREE.Vector3(snapped.x, snapped.y, 0)]);
       previewLine.visible = true;
@@ -2064,7 +2105,7 @@ export function createSketchMode(deps) {
       const local = toLocal(event);
       if (!local) return;
       const a = mode.pendingRect, b = snap(local, event);
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         new THREE.Vector3(a.x, a.y, 0), new THREE.Vector3(b.x, a.y, 0),
         new THREE.Vector3(b.x, b.y, 0), new THREE.Vector3(a.x, b.y, 0),
         new THREE.Vector3(a.x, a.y, 0)]);
@@ -2074,7 +2115,7 @@ export function createSketchMode(deps) {
       if (!local) return;
       const c = mode.pendingRectC, k = snap(local, event);
       const a = { x: 2 * c.x - k.x, y: 2 * c.y - k.y };
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         new THREE.Vector3(a.x, a.y, 0), new THREE.Vector3(k.x, a.y, 0),
         new THREE.Vector3(k.x, k.y, 0), new THREE.Vector3(a.x, k.y, 0),
         new THREE.Vector3(a.x, a.y, 0)]);
@@ -2084,7 +2125,7 @@ export function createSketchMode(deps) {
       const local = toLocal(event);
       if (!local) return;
       const snapped = snap(local, event);
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         ...mode.pendingSpline.map((p) => new THREE.Vector3(p.x, p.y, 0)),
         new THREE.Vector3(snapped.x, snapped.y, 0)]);
       previewLine.visible = true;
@@ -2105,7 +2146,7 @@ export function createSketchMode(deps) {
         previewLine.visible = false;
         return;
       }
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         pts.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     }
@@ -2335,7 +2376,9 @@ export function createSketchMode(deps) {
     } else if (key === "l") setTool("line");
     else if (key === "r") setTool("rect");
     else if (key === "c") setTool("circle");
-    else if (key === "a") setTool("arc3");
+    else if (key === "a") {
+      if (!toggleChainArc()) setTool("arc3");
+    }
     else if (key === "e") setTool("ellipse");
     else if (key === "t") setTool("trim");
     else if (key === "g") setTool("construction");
@@ -2366,6 +2409,7 @@ export function createSketchMode(deps) {
     mode.pendingDimPlace = null;
     mode.pendingSpline = null;
     mode.pendingClicks = null;
+    mode.arcFromLine = false;
     mode.ordinateBase = null;
     mode.pendingG2 = null;
     mode.pendingEllipse = null;

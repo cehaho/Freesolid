@@ -158,6 +158,37 @@ export function modelEdgeOf(id) {
     ? Number(id.slice(EDGE_ID.length)) : null;
 }
 
+const VERTEX_ID = "vertex:";
+
+/** L'id d'accrochage du sommet `vertex` de l'esquisse `sketch`. */
+export function foreignVertexId(sketch, vertex) {
+  return `${VERTEX_ID}${vertex}:${sketch}`;
+}
+
+/** Le sommet d'une autre esquisse qu'un id désigne — `{ sketch, vertex }`
+ *  — sinon null. */
+export function foreignVertexOf(id) {
+  if (typeof id !== "string" || !id.startsWith(VERTEX_ID)) return null;
+  const rest = id.slice(VERTEX_ID.length);
+  const cut = rest.indexOf(":");
+  if (cut < 1) return null;
+  const vertex = Number(rest.slice(0, cut));
+  const sketch = rest.slice(cut + 1);
+  return Number.isInteger(vertex) && sketch ? { sketch, vertex } : null;
+}
+
+/** Les sommets des autres esquisses posés dans le plan (`foreign_points`
+ *  de l'état de l'esquisse) : des points d'accrochage, comme dans les
+ *  modeleurs courants. `externals` : les points déjà repris dans
+ *  l'esquisse — on accroche la référence. */
+export function foreignSnapPoints(foreign, { externals = [], tol = 1e-6 } = {}) {
+  return (foreign ?? [])
+    .filter((p) => !externals.some((e) => e.type === "point"
+      && near2(e.p1, [p.x, p.y], tol)))
+    .map((p) => ({ geo: foreignVertexId(p.sketch, p.vertex), point: 1,
+                   x: p.x, y: p.y }));
+}
+
 const near2 = (a, b, tol) => Math.hypot(a[0] - b[0], a[1] - b[1]) < tol;
 
 /** Deux courbes de l'esquisse sont-elles la même (une référence et
@@ -254,7 +285,8 @@ export function modelEdgeSnaps(edges, toLocal, { tol = 1e-4, externals = [] } = 
 export function engineSnaps(snaps) {
   const ref = (geo) => {
     const k = modelEdgeOf(geo);
-    return k == null ? geo : { edge: k };
+    if (k != null) return { edge: k };
+    return foreignVertexOf(geo) ?? geo;
   };
   const target = (t) => {
     if (!t || typeof t !== "object") return t;

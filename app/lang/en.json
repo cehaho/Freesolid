@@ -1070,6 +1070,8 @@
  "Cercle : les trois points sont alignés": "Circle: the three points are aligned",
  "Arc tangent : cliquez l'extrémité d'une ligne ou d'un arc": "Tangent arc: click the end of a line or arc",
  "Arc tangent : cliquez le point d'arrivée": "Tangent arc: click the end point",
+ "Arc tangent : cliquez le point d'arrivée — A pour revenir à la ligne": "Tangent arc: click the end point — A to go back to the line",
+ "Ligne : cliquez le point suivant — A pour un arc tangent": "Line: click the next point — A for a tangent arc",
  "Rectangle 3 points : cliquez le premier coin": "3-point rectangle: click the first corner",
  "Rectangle 3 points : cliquez le bout du premier côté": "3-point rectangle: click the end of the first side",
  "Rectangle 3 points : cliquez pour donner la largeur": "3-point rectangle: click to set the width",

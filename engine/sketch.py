@@ -507,6 +507,7 @@ class SketchMixin:
             "definition": sketch_definition(status, solver_code),
             "layers": layer_data["layers"],
             "placement": [float(v) for v in matrix],
+            "foreign_points": self._foreign_points(sk),
         }
 
     def _entity_of(self, gid, geo):
@@ -740,12 +741,16 @@ class SketchMixin:
         un refus annule l'opération, et elles avec."""
         from engine.kernel import KernelError
         from engine.sketchsnap import (
-            fits, geos_of, model_edges, parse_snaps, targets_of,
-            with_model_edges,
+            fits, foreign_vertices, geos_of, model_edges, parse_snaps,
+            targets_of, with_model_edges,
         )
         edges = model_edges(snaps)
-        if edges:
-            snaps = with_model_edges(snaps, self._model_edge_refs(sk, edges))
+        vertices = foreign_vertices(snaps)
+        if edges or vertices:
+            refs = self._model_edge_refs(sk, edges) if edges else {}
+            if vertices:
+                refs.update(self._foreign_vertex_refs(sk, vertices))
+            snaps = with_model_edges(snaps, refs)
         parsed = parse_snaps(op, snaps)
         for role, target in targets_of(parsed):
             if target.kind == "point":
