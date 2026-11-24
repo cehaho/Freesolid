@@ -180,3 +180,18 @@ modeleurs courants.
 | 52 | Congé, chanfrein : une face cliquée est remplacée par l'arête cliquée ensuite, et un second clic sur la face ne la retire pas. | **Corrigé** : comme dans les modeleurs courants, arêtes et faces se mélangent dans la zone ; un second clic retire l'une ou l'autre. Création, réédition et rejeu les prennent ensemble (selftest p170). |
 | 53 | Répétition linéaire : la direction 2 n'a pas de flèche dans la vue. | Laissé : la vue n'a qu'une poignée de glisser à la fois ; le pas se règle dans le panneau. |
 | — | Esquisse de la rainure nommée Esquisse3 (Esquisse2 est celle des positions du perçage). | Voulu : comme dans les modeleurs courants. |
+
+## 11. Palier à semelle
+
+Semelle 100 × 15 sur le Plan de face, milieu du bas sur l'origine,
+extrudée en plan milieu sur 50 ; arche (deux lignes, arc tangent R22,
+centre à 45 au-dessus de l'origine) extrudée en plan milieu sur 30 ;
+alésage Ø25 à travers tout, le clic s'aimante au centre de l'arc ; trou
+de fixation Ø9 sur la semelle, placé à X = −40 dans son esquisse de
+positions, puis symétrie par le Plan de droite ; congé R3 sur le raccord
+de l'arche. Puis la semelle passée à 60 de profondeur : trous, symétrie
+et congé suivent — comme dans les modeleurs courants.
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 54 | Perçage : la position cliquée ne se cote pas pendant la fonction ; il faut valider, puis éditer l'esquisse de positions pour la coter. | Ouvert. |
