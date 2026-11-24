@@ -145,7 +145,7 @@
   "sketch_add_polygon": {"requis": ["sketch", "cx", "cy", "x", "y", "sides"], "types": [["sketch", "str"], ["cx", "float"], ["cy", "float"], ["x", "float"], ["y", "float"], ["sides", "int"]], "optionnels": []},
   "sketch_add_rect3": {"requis": ["sketch", "x1", "y1", "x2", "y2", "x3", "y3"], "types": [["sketch", "str"], ["x1", "float"], ["y1", "float"], ["x2", "float"], ["y2", "float"], ["x3", "float"], ["y3", "float"]], "optionnels": [["parallelogram", "bool"]]},
   "sketch_add_rectangle": {"requis": ["sketch", "x1", "y1", "x2", "y2"], "types": [["sketch", "str"], ["x1", "float"], ["y1", "float"], ["x2", "float"], ["y2", "float"]], "optionnels": [["center", "bool"], ["snaps", "dict"]]},
-  "sketch_add_slot": {"requis": ["sketch", "x1", "y1", "x2", "y2", "width"], "types": [["sketch", "str"], ["x1", "float"], ["y1", "float"], ["x2", "float"], ["y2", "float"], ["width", "float"]], "optionnels": []},
+  "sketch_add_slot": {"requis": ["sketch", "x1", "y1", "x2", "y2", "width"], "types": [["sketch", "str"], ["x1", "float"], ["y1", "float"], ["x2", "float"], ["y2", "float"], ["width", "float"]], "optionnels": [["center", "bool"], ["snaps", "dict"]]},
   "sketch_add_spline": {"requis": ["sketch", "points"], "types": [["sketch", "str"], ["points", "list"]], "optionnels": []},
   "sketch_add_spline_poles": {"requis": ["sketch", "points"], "types": [["sketch", "str"], ["points", "list"]], "optionnels": []},
   "sketch_add_tangent_arc": {"requis": ["sketch", "geo", "point", "x", "y"], "types": [["sketch", "str"], ["geo", "int"], ["point", "int"], ["x", "float"], ["y", "float"]], "optionnels": []},

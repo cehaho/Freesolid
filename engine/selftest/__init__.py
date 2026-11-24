@@ -275,6 +275,7 @@ def _etapes():
         esquisse.p158_cote_entre_paralleles,
         esquisse.p159_decaler_ligne_et_chaine_ouverte,
         esquisse.p160_decalage_parametrique,
+        esquisse.p169_rainure_accrochee,
         fonctions.p161_decalage_de_la_face_d_arrivee,
         fonctions.p162_symetrie_par_une_face,
         fonctions.p163_revolution_deux_directions_et_arete,

@@ -5,7 +5,7 @@
 // ici, en fonctions pures.
 
 import { circlePoints, ellipsePoints, slotPoints } from "./geom2d.js";
-import { circleSnaps, lineSnaps, pointSnaps } from "./sketchsnap.js";
+import { circleSnaps, lineSnaps, pointSnaps, slotSnaps } from "./sketchsnap.js";
 
 const TAU = Math.PI * 2;
 
@@ -355,8 +355,10 @@ export const CLICK_TOOLS = {
       const width = slotWidth(a, b, w);
       if (!(width > 0)) return { error: "Rainure : largeur nulle" };
       return { op: "sketch_add_slot", params: {
-        x1: a.x, y1: a.y, x2: b.x, y2: b.y, width } };
+        x1: a.x, y1: a.y, x2: b.x, y2: b.y, width, center: true } };
     },
+    // Le bout opposé est le symétrique du cliqué : seul celui-ci accroche.
+    snaps: ([c, b]) => slotSnaps({ center: c, end: b }),
     preview: (pts, cur) => {
       const [c, b] = pts;
       if (!b) return [{ x: 2 * c.x - cur.x, y: 2 * c.y - cur.y }, xy(cur)];

@@ -55,6 +55,7 @@
  "{} ({})": "{} ({})",
  "accrochage inconnu : {}": "unknown snap: {}",
  "accrochage « center » : réservé au rectangle par le centre": "snap \"center\": center rectangle only",
+ "accrochage « center » : réservé à la rainure par le centre": "snap \"center\": center slot only",
  "accrochage « {} » : cible invalide": "snap \"{}\": invalid target",
  "accrochage « {} » : géométrie {} introuvable": "snap \"{}\": geometry {} not found",
  "accrochage « {} » : la géométrie {} ne s'y prête pas": "snap \"{}\": geometry {} does not allow it",

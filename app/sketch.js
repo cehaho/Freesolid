@@ -35,6 +35,7 @@ import {
   SNAP_KINDS, SNAP_PX, SNAP_TOL, activeSnaps, arcSnaps, circleSnaps,
   engineSnaps, lineSnaps, modelEdgeOf, modelEdgeSnaps, normalizeSnapSettings,
   onCircle, readSnapSettings, rectSnaps, sketchEndpoints, sketchSnapPoints,
+  slotSnaps,
   snapSketchPoint, snapTarget, trimPiece, writeSnapSettings,
 } from "./sketchsnap.js";
 import {
@@ -1259,10 +1260,10 @@ export function createSketchMode(deps) {
       }
     } else if (mode.tool === "slot") {
       if (!mode.pendingSlot) {
-        mode.pendingSlot = { a: { x: snapped.x, y: snapped.y } };
+        mode.pendingSlot = { a: clickOf(snapped) };
         say("Rainure : cliquez le centre du second bout");
       } else if (!mode.pendingSlot.b) {
-        mode.pendingSlot.b = { x: snapped.x, y: snapped.y };
+        mode.pendingSlot.b = clickOf(snapped);
         say("Rainure : cliquez pour donner la largeur");
       } else {
         const { a, b } = mode.pendingSlot;
@@ -1274,7 +1275,8 @@ export function createSketchMode(deps) {
             - (b.y - a.y) * (a.x - snapped.x)) / len);
         if (width <= 0) { say("Rainure : largeur nulle", true); return; }
         safe(call("sketch_add_slot", { sketch: name,
-          x1: a.x, y1: a.y, x2: b.x, y2: b.y, width }));
+          x1: a.x, y1: a.y, x2: b.x, y2: b.y, width,
+          snaps: slotSnaps({ start: a, end: b }) }));
       }
     } else if (mode.tool === "polygon") {
       if (!mode.pendingPoly) return; // le nombre de côtés a été annulé

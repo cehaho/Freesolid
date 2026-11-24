@@ -144,7 +144,10 @@ OPS = (
     Op("sketch_picture", Req(("sketch", str)), undo=True),  # optional: picture
     Op("sketch_add_slot", Req(
         ("sketch", str), ("x1", float), ("y1", float),
-        ("x2", float), ("y2", float), ("width", float)), undo=True),
+        ("x2", float), ("y2", float), ("width", float),
+        optional={"center": bool, "snaps": dict}), undo=True),
+                                       # centres des bouts ; center : le
+                                       # milieu tient les deux bouts
     Op("sketch_add_polygon", Req(
         ("sketch", str), ("cx", float), ("cy", float),
         ("x", float), ("y", float), ("sides", int)), undo=True),

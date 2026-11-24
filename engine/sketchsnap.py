@@ -54,6 +54,9 @@ ROLES = {
                        "end": "target", "on": "points"},
     "sketch_add_rectangle": {"corner1": "target", "corner2": "target",
                              "center": "point"},
+    # Rainure droite : les centres de ses bouts ; par le centre, son milieu.
+    "sketch_add_slot": {"start": "target", "end": "target",
+                        "center": "point"},
     # Un point glissé, lâché sur sa cible.
     "sketch_drop": {"at": "target"},
 }
