@@ -141,3 +141,23 @@ le moyeu coté à 35 mm dans l'esquisse rééditée (tout suit).
 |---|--------|-------|
 | 44 | Congé au pied du moyeu : l'arête ne se clique que sur ses côtés ; de face, c'est l'arête voisine (le haut de la flasque, à quelques pixels) qui prend la sélection, ou la face entière. | **Corrigé** : sur une face, l'arête retenue est la première de cette face sous le curseur, plus seulement la première trouvée. |
 | 45 | Face de la flasque cliquée, puis Perçage : le panneau redemande les centres des trous. | **Corrigé** : comme dans les modeleurs courants, le point cliqué sur la face présélectionnée devient la première position (aimanté comme un clic dans le panneau). |
+
+## 9. Bielle
+
+Deux cercles (R20 à l'origine, R12 à 80 mm) reliés par deux lignes
+tangentes, arcs intérieurs ajustés, esquisse totalement contrainte ;
+extrusion de 10 mm plan milieu, perçages Ø16 et Ø8 aux centres des
+bossages (face cliquée puis Perçage), allègement en rainure de 5 mm de
+profondeur, puis l'entraxe passé à 90 mm.
+
+Vérifié dans SolidWorks (par son API) : un point accroché au quadrant
+d'un cercle y garde « Coïncidente » et « Verticale » avec le centre — la
+tangence ajoutée ensuite ne le fait pas glisser. FreeSolid fait de même :
+pas d'accroc.
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 46 | Petit arc glissé dans l'esquisse : l'ancien tracé (ligne, bout d'arc) reste dessiné sous le nouveau, même après un rechargement. | **Corrigé** : la forme 3D de l'esquisse ouverte, recalculée à la fermeture seulement, ne se dessine plus pendant son édition. |
+| 47 | Face cliquée puis Esquisse : un gros point bleu au milieu de l'esquisse — la flèche pour tirer la face, vue de face. | **Corrigé** : la flèche part avec la sélection de la face. |
+| 48 | Esquisse neuve quittée par ✗ : elle reste, vide, dans l'arbre. | **Corrigé** : la pile d'annulation de FreeCAD est bornée (20 pas) ; pleine, le compte ne bougeait plus et rien n'était défait. Les pas défaits sont ceux de la session d'esquisse, puis sa création (selftest p79). |
+| 49 | Entraxe passé de 80 à 90 : le perçage du petit bossage reste à 80. | **Corrigé** : comme dans les modeleurs courants, un centre aimanté au centre d'un bossage y reste lié et le suit (selftest p168). |
