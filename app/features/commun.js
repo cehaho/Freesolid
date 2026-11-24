@@ -29,7 +29,8 @@ export function resolveProfileSketch(ctx) {
 
 export function hasSelection(sel) {
   return !!sel && (sel.kind === "edges"
-    ? sel.edges.length > 0 : sel.face != null);
+    ? sel.edges.length > 0 || (sel.faces?.length ?? 0) > 0
+    : sel.face != null);
 }
 
 /** Consigne : rien n'est encore choisi. Ce n'est pas une erreur. */

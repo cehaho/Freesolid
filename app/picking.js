@@ -902,7 +902,10 @@ export function installPicking(ctx) {
     }
 
     ctx.selectedFaceId = ctx.hoveredGroup >= 0 ? ctx.meshGroups[ctx.hoveredGroup].faceId : null;
-    ctx.selectedEdges = new Set(); // une face (ou le vide) remplace les arêtes
+    // Une face (ou le vide) remplace les arêtes — sauf dans la zone d'un
+    // congé ou d'un chanfrein, où arêtes et faces se mélangent.
+    const mixing = ctx.selectedFaceId !== null && panel.collectsEdges();
+    if (!mixing) ctx.selectedEdges = new Set();
     ctx.cancelPendingSurfaceClick();
     ctx.clearSketchSelection({ quiet: true });
     ctx.clearSurfaceSelection({ quiet: true });
@@ -943,6 +946,12 @@ export function installPicking(ctx) {
       }
       if (!tookPoint) {
         panel.notifyPick("face", { kind: "face", face: ctx.selectedFaceId });
+      }
+      // Les faces de la zone se surlignent par elle (une face cliquée
+      // deux fois en sort) : pas de face « sélectionnée » en plus.
+      if (mixing) {
+        ctx.selectedFaceId = null;
+        repaintGroups();
       }
       if (event.button === 0) ctx.showContextToolbar(event);
       ctx.onFacePicked?.(ctx.selectedFaceId);

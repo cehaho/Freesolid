@@ -2726,13 +2726,31 @@ class SolidsMixin:
             raise KernelError(self._DRAFT_NO_EFFECT)
         return self.get_tree()
 
-    def _dressup(self, type_id, prop, value, face=None, edges=None):
+    @staticmethod
+    def _dressup_pick_subs(edges=None, face=None, faces=None):
+        """Arêtes et faces cliquées (ids) -> ``EdgeN`` puis ``FaceN``. Comme
+        dans les modeleurs courants, les deux se mélangent : une face vaut
+        toutes ses arêtes. Refus clair si rien n'est choisi."""
+        from engine.kernel import KernelError
+        picked = list(faces or []) + ([] if face is None else [face])
+        subs = []
+        for prefix, ids in (("Edge", edges or []), ("Face", picked)):
+            for i in ids:
+                name = "{}{}".format(prefix, int(i) + 1)
+                if name not in subs:
+                    subs.append(name)
+        if not subs:
+            raise KernelError(
+                "sélectionnez des arêtes ou une face de la pièce")
+        return subs
+
+    def _dressup(self, type_id, prop, value, face=None, edges=None,
+                 faces=None):
         """Fillet/chamfer share everything but the property they drive.
 
-        The dress-up references the picked face or edges on the Tip
+        The dress-up references the picked edges and faces on the Tip
         feature — the shape the viewport tessellated, so the numbering
-        matches by construction. A face means every edge of that face;
-        an edge list is the precise edge selection.
+        matches by construction. A face means every edge of that face.
         """
         from engine.kernel import KernelError, label_for_type
         body = self._require_body()
@@ -2740,13 +2758,7 @@ class SolidsMixin:
         tip = getattr(body, "Tip", None)
         if tip is None:
             raise KernelError("pas de solide à habiller")
-        if edges:
-            subs = ["Edge{}".format(int(e) + 1) for e in edges]
-        elif face is not None:
-            subs = ["Face{}".format(int(face) + 1)]
-        else:
-            raise KernelError(
-                "sélectionnez des arêtes ou une face de la pièce")
+        subs = self._dressup_pick_subs(edges, face, faces)
         feature = body.newObject(type_id, type_id.split("::")[-1])
         feature.Base = (tip, subs)
         setattr(feature, prop, float(value))
@@ -2812,9 +2824,9 @@ class SolidsMixin:
             self._recompute()
         raise KernelError(message)
 
-    def add_fillet(self, radius, face=None, edges=None):
-        return self._dressup("PartDesign::Fillet",
-                             "Radius", radius, face=face, edges=edges)
+    def add_fillet(self, radius, face=None, edges=None, faces=None):
+        return self._dressup("PartDesign::Fillet", "Radius", radius,
+                             face=face, edges=edges, faces=faces)
 
     #: Jeton du panneau → énumération FreeCAD ``ChamferType``.
 
@@ -2861,8 +2873,9 @@ class SolidsMixin:
 
     @staticmethod
     def _dressup_targets(obj):
-        """Ce qu'un congé ou un chanfrein arrondit : ``{"edges": [ids]}``
-        ou ``{"face": id}``, ids comptés sur la forme de sa base (la pièce
+        """Ce qu'un congé ou un chanfrein arrondit : ``{"edges": [ids]}``,
+        ``{"face": id}``, ou ``{"edges": [...], "faces": [...]}`` quand il
+        en mélange ; ids comptés sur la forme de sa base (la pièce
         à son rang) ; None si ses éléments ne se lisent pas ainsi."""
         base = getattr(obj, "Base", None)
         subs = list(base[1]) if base else []
@@ -2879,13 +2892,16 @@ class SolidsMixin:
             return {"edges": edges}
         if len(faces) == 1 and not edges:
             return {"face": faces[0]}
+        if faces:
+            # Des arêtes et des faces, ou plusieurs faces.
+            return {"edges": edges, "faces": faces}
         return None
 
     #: Ce qui se re-choisit à la réédition, par genre : les clés de
     #: ``set_params`` qui remplacent les éléments de sa base.
     _BASE_PICKS = {
-        "PartDesign::Fillet": ("edges", "face"),
-        "PartDesign::Chamfer": ("edges", "face"),
+        "PartDesign::Fillet": ("edges", "face", "faces"),
+        "PartDesign::Chamfer": ("edges", "face", "faces"),
         "PartDesign::Thickness": ("faces",),
         "PartDesign::Draft": ("face", "faces"),
     }
@@ -2927,7 +2943,8 @@ class SolidsMixin:
                 [picks["face"]] if "face" in picks else [])
             return self._face_subs(obj, faces,
                                    "dépouille : cliquez au moins une face")
-        return self._dressup_subs(obj, picks.get("edges"), picks.get("face"))
+        return self._dressup_subs(obj, picks.get("edges"), picks.get("face"),
+                                  picks.get("faces"))
 
     def _face_subs(self, obj, faces, empty):
         """Faces re-choisies (ids sur la base) -> ``FaceN``. ``empty`` : le
@@ -2946,28 +2963,26 @@ class SolidsMixin:
                 subs.append(name)
         return subs
 
-    def _dressup_subs(self, obj, edges=None, face=None):
+    def _dressup_subs(self, obj, edges=None, face=None, faces=None):
         """Éléments re-choisis d'un congé ou d'un chanfrein -> noms
         ``EdgeN`` / ``FaceN`` de sa base, comme à la création : des
-        arêtes, ou une face. Refus clair sinon."""
+        arêtes et des faces, mélangées. Refus clair sinon."""
         from engine.kernel import KernelError
         shape = getattr(self._pick_base(obj), "Shape", None)
-        if edges:
-            if face is not None or not isinstance(edges, (list, tuple)):
+        picked = list(faces or []) + ([] if face is None else [face])
+        for ids in (edges, faces):
+            if ids is not None and not isinstance(ids, (list, tuple)):
                 raise KernelError(
                     "sélectionnez des arêtes ou une face de la pièce")
-            subs = []
-            for edge in edges:
-                if (type(edge) is not int or shape is None
-                        or not 0 <= edge < len(shape.Edges)):
-                    raise KernelError("arête inconnue : {}".format(edge))
-                name = "Edge{}".format(edge + 1)
-                if name not in subs:
-                    subs.append(name)
-            return subs
-        if face is not None:
-            return self._face_subs(obj, [face], "")
-        raise KernelError("sélectionnez des arêtes ou une face de la pièce")
+        for edge in edges or []:
+            if (type(edge) is not int or shape is None
+                    or not 0 <= edge < len(shape.Edges)):
+                raise KernelError("arête inconnue : {}".format(edge))
+        for one in picked:
+            if (type(one) is not int or shape is None
+                    or not 0 <= one < len(shape.Faces)):
+                raise KernelError("face inconnue : {}".format(one))
+        return self._dressup_pick_subs(edges, None, picked)
 
     def _chamfer_state(self, obj):
         """État relu pour l'arbre et la réédition."""
@@ -2980,7 +2995,8 @@ class SolidsMixin:
         }
 
     def add_chamfer(self, size, face=None, edges=None,
-                    size2=None, angle=None, chamfer_type="egale", flip=False):
+                    size2=None, angle=None, chamfer_type="egale", flip=False,
+                    faces=None):
         """Chanfrein : distance égale, deux distances, ou distance et angle.
 
         ``chamfer_type`` vaut ``egale`` (défaut, le geste historique),
@@ -3022,13 +3038,7 @@ class SolidsMixin:
         tip = getattr(body, "Tip", None)
         if tip is None:
             raise KernelError("pas de solide à habiller")
-        if edges:
-            subs = ["Edge{}".format(int(e) + 1) for e in edges]
-        elif face is not None:
-            subs = ["Face{}".format(int(face) + 1)]
-        else:
-            raise KernelError(
-                "sélectionnez des arêtes ou une face de la pièce")
+        subs = self._dressup_pick_subs(edges, face, faces)
         feature = body.newObject("PartDesign::Chamfer", "Chamfer")
         feature.Base = (tip, subs)
         feature.ChamferType = self._CHAMFER_TYPES[kind]

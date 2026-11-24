@@ -9,10 +9,9 @@ from engine.ops._base import Op, Req
 def _rejouer_conge(kernel, feat, sketch, cote):
     from engine.kernel import KernelError
     radius = cote("Radius")
-    if feat["edges"]:
-        kernel.add_fillet(radius=radius, edges=feat["edges"])
-    elif feat["faces"]:
-        kernel.add_fillet(radius=radius, face=feat["faces"][0])
+    if feat["edges"] or feat["faces"]:
+        kernel.add_fillet(radius=radius, edges=feat["edges"] or None,
+                          faces=feat["faces"] or None)
     else:
         raise KernelError(
             "congé sans arête ni face : {}".format(feat["name"]))
@@ -31,10 +30,9 @@ def _rejouer_chanfrein(kernel, feat, sketch, cote):
         extra["angle"] = cote("Angle")
         extra["chamfer_type"] = "angle"
         extra["flip"] = bool(feat.get("flip"))
-    if feat["edges"]:
-        kernel.add_chamfer(size=size, edges=feat["edges"], **extra)
-    elif feat["faces"]:
-        kernel.add_chamfer(size=size, face=feat["faces"][0], **extra)
+    if feat["edges"] or feat["faces"]:
+        kernel.add_chamfer(size=size, edges=feat["edges"] or None,
+                           faces=feat["faces"] or None, **extra)
     else:
         raise KernelError(
             "chanfrein sans arête ni face : {}".format(feat["name"]))
@@ -72,7 +70,7 @@ def _rejouer_depouille(kernel, feat, sketch, cote):
 OPS = (
     Op("add_fillet", Req(("radius", float)),
        undo=True, preview=True, creates="PartDesign::Fillet", indexed=True,
-       replay=_rejouer_conge),              # face OU edges (liste d'ids)
+       replay=_rejouer_conge),  # edges et faces (listes d'ids), ou face
     Op("add_chamfer", Req(("size", float), optional={
         "size2": float,          # deux distances
         "angle": float,          # distance et angle, degrés
@@ -80,7 +78,7 @@ OPS = (
         "flip": bool,            # échange les deux côtés
     }),
        undo=True, preview=True, creates="PartDesign::Chamfer", indexed=True,
-       replay=_rejouer_chanfrein),  # face OU edges
+       replay=_rejouer_chanfrein),  # edges et faces, ou face
     # face (une) ou faces (plusieurs) ; outward : coque vers l'extérieur.
     Op("add_thickness", Req(("thickness", float),
                             optional={"face": int, "faces": list,

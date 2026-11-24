@@ -39,6 +39,21 @@ describe("zone d'un habillage réédité", () => {
       { edges: [1] });
   });
 
+  it("arêtes et faces mélangées, comme dans les modeleurs courants", () => {
+    assert.deepEqual(dressupPick({ edges: [1], faces: [4, 6] }),
+      { kind: "edges", edges: [1], faces: [4, 6] });
+    const dressup = { edges: [1], faces: [4] };
+    assert.deepEqual(dressupPickValues(
+      { kind: "edges", edges: [1], faces: [4] }, dressup), {});
+    assert.deepEqual(dressupPickValues(
+      { kind: "edges", edges: [1], faces: [4, 6] }, dressup),
+    { edges: [1], faces: [4, 6] });
+    assert.deepEqual(dressupPickValues(
+      { kind: "edges", edges: [], faces: [4] }, dressup), { face: 4 });
+    assert.deepEqual(dressupPickValues(
+      { kind: "edges", edges: [1], faces: [] }, dressup), { edges: [1] });
+  });
+
   it("vide : rien à appliquer", () => {
     assert.equal(dressupPickValues({ kind: "edges", edges: [] },
                                    { edges: [0] }), null);

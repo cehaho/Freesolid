@@ -284,6 +284,7 @@ def _etapes():
         fonctions.p166_repetition_pilotee_par_esquisse,
         fonctions.p167_repetition_pilotee_par_table,
         fonctions.p168_percage_suit_le_centre,
+        fonctions.p170_habillage_aretes_et_faces,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,

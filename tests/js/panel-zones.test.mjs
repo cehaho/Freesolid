@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  bodyPicking, objectZone, zoneAdd, zonePick, zoneTakes,
+  bodyPicking, edgeSetPick, objectZone, selectionFilled, zoneAdd, zonePick,
+  zoneTakes,
 } from "../../app/panel.js";
 
 describe("zones de sélection", () => {
@@ -86,5 +87,22 @@ describe("zones de sélection", () => {
     assert.deepEqual(zoneAdd(solids, "body", [], boxed)
       .map((i) => [i.name, i.solid ?? null]),
       [["Body001", null], ["Body", null], ["Body002", null], ["Body002", 1]]);
+  });
+});
+
+describe("zone d'arêtes d'un congé ou d'un chanfrein", () => {
+  it("arêtes et faces s'y mélangent ; un second clic sur une face la retire", () => {
+    let v = edgeSetPick({ kind: "face", face: 4 }, "edges",
+                        { kind: "edges", edges: [19] });
+    assert.deepEqual(v, { kind: "edges", edges: [19], faces: [4] });
+    v = edgeSetPick(v, "face", { kind: "face", face: 7 });
+    assert.deepEqual(v, { kind: "edges", edges: [19], faces: [4, 7] });
+    v = edgeSetPick(v, "face", { kind: "face", face: 4 });
+    assert.deepEqual(v, { kind: "edges", edges: [19], faces: [7] });
+    v = edgeSetPick(v, "edges", { kind: "edges", edges: [] });
+    assert.deepEqual(v, { kind: "edges", edges: [], faces: [7] });
+    assert.equal(selectionFilled(v), true);
+    v = edgeSetPick(v, "face", { kind: "face", face: 7 });
+    assert.equal(selectionFilled(v), false);
   });
 });
