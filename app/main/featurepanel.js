@@ -28,6 +28,15 @@ export function installFeaturePanel(ctx) {
     if (accepts.includes("edges") && app.selectedEdges.size) {
       return { kind: "edges", edges: [...app.selectedEdges] };
     }
+    // Face cliquée avant Perçage : comme dans les modeleurs courants, le
+    // point cliqué devient la première position.
+    const hit = app.lastFaceHit;
+    if (accepts.includes("point") && app.selectedFaceId !== null
+        && hit?.face === app.selectedFaceId && hit.pick) {
+      const [x, y, z] = hit.pick;
+      return { kind: "point",
+               items: [{ kind: "point", face: app.selectedFaceId, x, y, z }] };
+    }
     if (accepts.includes("face") && app.selectedFaceId !== null) {
       return { kind: "face", face: app.selectedFaceId };
     }

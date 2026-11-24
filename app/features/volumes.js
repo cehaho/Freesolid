@@ -1187,7 +1187,8 @@ export const VOLUMES = [
     icon: "hole",
     title: "Perçage",
     groups: (ctx) => [
-      { label: "Positions", rows: [holePositionsRow()] },
+      { label: "Positions",
+        rows: [holePositionsRow(ctx?.selection?.(["point"]) ?? undefined)] },
       ...holeGroups(),
       ...cutGroups(ctx?.lastTree?.bodies),
     ],
