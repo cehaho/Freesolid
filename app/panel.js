@@ -146,6 +146,17 @@ export function panelNotice(notice, { selectionGuides = false } = {}) {
   return { text, tone };
 }
 
+/** Le message d'une saisie incomplète : tant qu'une zone de sélection
+ *  du panneau est vide, il guide (ce qu'il reste à cliquer) au lieu
+ *  d'afficher une erreur — un panneau qui s'ouvre n'est pas en faute. */
+export function pendingHint(raw, groups, values) {
+  if (typeof raw !== "string" || raw === "") return raw;
+  const waiting = (groups ?? []).some((group) => (group.rows ?? []).some(
+    (row) => row.type === "selection"
+      && !selectionFilled(values?.[row.key])));
+  return waiting ? { text: raw, tone: "guide" } : raw;
+}
+
 /** Deux choix d'une zone multiple désignent-ils la même chose ? Une
  *  face par son numéro, un bord par objet + arête, le reste par nom. */
 export function samePick(a, b) {

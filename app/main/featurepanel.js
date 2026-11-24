@@ -2,7 +2,7 @@
 // (aperçu, réédition, refus du moteur), poignée de profondeur — à la
 // création comme à la réédition —, liaison des boutons du ruban.
 
-import { panelNotice } from "../panel.js";
+import { panelNotice, pendingHint } from "../panel.js";
 import { num, plainNumber } from "../num.js";
 import {
   holePositions, resolveProfileSketch, NO_SKETCH_AVAILABLE,
@@ -172,9 +172,10 @@ export function installFeaturePanel(ctx) {
         schedulePreview(on ? entry.build(v, ctx) : null);
     }
     // Tant que la saisie est incomplète, le panneau dit ce qui manque.
+    // Tant qu'une zone attend un clic, c'est un guide, pas une erreur.
     spec.hint = (v) => (entry.build(v, ctx) ? null
-      : typeof entry.invalid === "function" ? entry.invalid(v, ctx)
-        : entry.invalid ?? null);
+      : pendingHint(typeof entry.invalid === "function"
+        ? entry.invalid(v, ctx) : entry.invalid ?? null, spec.groups, v));
     panel.open(spec);
   }
 
