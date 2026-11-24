@@ -4,6 +4,7 @@
 //
 // The server owns truth (geometry, solver); this module owns gesture.
 
+import { setLinePoints } from "./sketch/apercu.js";
 import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
@@ -1412,8 +1413,8 @@ export function createSketchMode(deps) {
       if (target !== null) {
         const measure = { dimarc: "arc_length", dimaxis: "axis_angle",
                           dimdia: "diameter" }[mode.tool];
-        safe(call("sketch_dim", { sketch: name, geo: target, measure,
-          at: [snapped.x, snapped.y] }));
+        // Comme la cotation : la cote posée demande aussitôt sa valeur.
+        await addDim({ sketch: name, geo: target, measure }, event);
       }
     } else if (mode.tool === "ordx" || mode.tool === "ordy") {
       // Cote ordonnée : le point de base, puis chaque point coté depuis
@@ -2026,7 +2027,7 @@ export function createSketchMode(deps) {
       }
       const [a, b] = lineEnds(mode.pendingDim);
       const path = pointPairDimPath(a, b, pointPairDimKind(a, b, local), local);
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     } else if ((CLICK_TOOLS[mode.tool] || OPEN_TOOLS[mode.tool])
@@ -2039,7 +2040,7 @@ export function createSketchMode(deps) {
         previewLine.visible = false;
         return;
       }
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         pts.map((q) => new THREE.Vector3(q.x, q.y, 0)));
       previewLine.visible = true;
     } else if (mode.tool === "dim" && mode.pendingDimPlace?.a && previewLine) {
@@ -2047,7 +2048,7 @@ export function createSketchMode(deps) {
       if (!local) return;
       const { a, b } = mode.pendingDimPlace;
       const path = pointPairDimPath(a, b, "Distance", local);
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     } else if (mode.tool === "dim" && mode.pendingDimPair && previewLine) {
@@ -2055,14 +2056,14 @@ export function createSketchMode(deps) {
       if (!local) return;
       const { a, b } = mode.pendingDimPair;
       const path = pointPairDimPath(a, b, pointPairDimKind(a, b, local), local);
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         path.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     } else if (mode.tool === "line" && mode.chain && previewLine) {
       const local = toLocal(event);
       if (!local) return;
       const snapped = snap(local, event);
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         new THREE.Vector3(mode.chain.x, mode.chain.y, 0),
         new THREE.Vector3(snapped.x, snapped.y, 0)]);
       previewLine.visible = true;
@@ -2070,7 +2071,7 @@ export function createSketchMode(deps) {
       const local = toLocal(event);
       if (!local) return;
       const a = mode.pendingRect, b = snap(local, event);
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         new THREE.Vector3(a.x, a.y, 0), new THREE.Vector3(b.x, a.y, 0),
         new THREE.Vector3(b.x, b.y, 0), new THREE.Vector3(a.x, b.y, 0),
         new THREE.Vector3(a.x, a.y, 0)]);
@@ -2080,7 +2081,7 @@ export function createSketchMode(deps) {
       if (!local) return;
       const c = mode.pendingRectC, k = snap(local, event);
       const a = { x: 2 * c.x - k.x, y: 2 * c.y - k.y };
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         new THREE.Vector3(a.x, a.y, 0), new THREE.Vector3(k.x, a.y, 0),
         new THREE.Vector3(k.x, k.y, 0), new THREE.Vector3(a.x, k.y, 0),
         new THREE.Vector3(a.x, a.y, 0)]);
@@ -2090,7 +2091,7 @@ export function createSketchMode(deps) {
       const local = toLocal(event);
       if (!local) return;
       const snapped = snap(local, event);
-      previewLine.geometry.setFromPoints([
+      setLinePoints(previewLine, [
         ...mode.pendingSpline.map((p) => new THREE.Vector3(p.x, p.y, 0)),
         new THREE.Vector3(snapped.x, snapped.y, 0)]);
       previewLine.visible = true;
@@ -2111,7 +2112,7 @@ export function createSketchMode(deps) {
         previewLine.visible = false;
         return;
       }
-      previewLine.geometry.setFromPoints(
+      setLinePoints(previewLine,
         pts.map((p) => new THREE.Vector3(p.x, p.y, 0)));
       previewLine.visible = true;
     }

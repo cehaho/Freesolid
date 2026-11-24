@@ -195,3 +195,27 @@ et congé suivent — comme dans les modeleurs courants.
 | # | Accroc | Suite |
 |---|--------|-------|
 | 54 | Perçage : la position cliquée ne se cote pas pendant la fonction ; il faut valider, puis éditer l'esquisse de positions pour la coter. | **Corrigé** (#292) : comme dans les modeleurs courants, chaque position montre ses deux coordonnées dans le plan de la face ; une valeur tapée devient une cote de l'esquisse de positions (selftest p171). |
+
+## 12. Poignée
+
+Trajectoire en U sur le Plan de face — deux lignes de 40, arc tangent
+R30, pieds symétriques par une ligne d'axe et à hauteur de l'origine ;
+profil Ø10 sur le Plan de dessus, au pied gauche ; balayage ; deux
+embases Ø16 de 4 mm sous les pieds (le centre s'aimante au bord du
+tube) ; perçage Ø5 borgne de 10 dans une embase, coordonnées tapées,
+puis symétrie par le Plan de droite. Puis les jambes passées à 50 :
+balayage, embases, trous et symétrie suivent — comme dans les
+modeleurs courants.
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 55 | Outil Ligne : la touche A ne passe pas en arc tangent depuis le dernier point ; elle quitte la polyligne et ouvre l'Arc 3 points. | **Corrigé** (#301) : comme dans les modeleurs courants, A passe en arc tangent depuis le bout de la polyligne ; l'arc posé, la ligne reprend ; A de nouveau revient à la ligne. |
+| 56 | Arc tangent : pas d'aperçu pendant le tracé ; la console répète « Buffer size too small for points data ». | **Corrigé** (#296) : three (0.163 et après) n'agrandit pas un tampon réécrit en place ; l'aperçu reçoit une géométrie neuve à chaque mouvement. |
+| 57 | Profil sur le Plan de dessus : le centre ne s'accroche pas à l'extrémité de la trajectoire (une autre esquisse) ; il faut une relation et une cote. | **Corrigé** (#300) : les sommets des esquisses visibles faites avant, posés dans le plan, accrochent ; le point y est lié par une référence (selftest p173). |
+| 58 | Balayage : le panneau s'ouvre avec un message d'erreur rouge avant tout choix. | **Corrigé** (#299) : tant qu'une zone de sélection est vide, le message guide au lieu d'être une erreur — pour toutes les commandes. |
+| 59 | Après le balayage, la trajectoire reste à la racine de l'arbre, visible, « Utilisée par : libre » ; seul le profil se range sous Balayage1. Visible, sa ligne prend les clics sur les embases. | **Corrigé** (#295) : comme dans les modeleurs courants, toutes les esquisses d'un balayage ou d'un lissage se rangent sous lui (selftest p172). |
+| 60 | Outil Diamètre : la cote se pose au clic sans demander sa valeur (l'outil Cotation la demande) ; le chiffre tapé ensuite est perdu. | **Corrigé** (#297) : Diamètre, Longueur d'arc et Angle à l'axe ouvrent la saisie de valeur, comme Cotation. |
+| 61 | Perçage en cours : un clic sur une ligne d'esquisse visible ferme le panneau et ouvre les propriétés de l'esquisse ; la saisie est perdue. | **Corrigé** (#294) : une commande qui ne prend pas d'esquisse les traverse ; le clic va à la face derrière, le panneau reste. |
+| 62 | Face cliquée puis Perçage : la position venue de la face n'a pas ses champs X / Y (#292) ; un clic dans le panneau les a. | **Corrigé** (#298) : la position porte la normale de la face ; ses champs X / Y s'affichent. |
+| 63 | Perçage : un clic sur la seconde embase (autre face, même plan) remplace la position au lieu de l'ajouter ; il faut une symétrie. | **Corrigé** (#302) : les faces au même plan reçoivent les trous d'un même perçage ; chaque centre aimanté reste lié à son embase (selftest p174). |
+| — | Les relations se posent sur une sélection faite avant (Ctrl+clic pour ajouter), et les axes de l'origine ne se cliquent pas : une ligne d'axe sert de symétrie. | Voulu : comme dans les modeleurs courants. |

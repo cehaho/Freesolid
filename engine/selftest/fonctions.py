@@ -8271,6 +8271,26 @@ def p171_percage_positions_cotees(self, mark, report, etat):
     report["p171_percage_positions_cotees"] = typed and swapped and refused
 
 
+def p172_balayage_absorbe_trajectoire(self, mark, report, etat):
+    mark("p172: le balayage range son profil ET sa trajectoire")
+    self.new_part("Balayage rangé")
+    spine = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_line(spine, -20, 0, -20, 30)
+    self.sketch_add_line(spine, -20, 30, 20, 30)
+    self.sketch_finish(spine)
+    profile = self.sketch_start()["sketch"]
+    self.sketch_add_circle(profile, -20, 0, 4)
+    self.sketch_finish(profile)
+    tree = self.add_sweep(profile=profile, spine=spine)
+    top = [f["name"] for f in tree["features"]]
+    sweep = next((f for f in tree["features"]
+                  if {c["name"] for c in f.get("children") or []}
+                  >= {profile, spine}), None)
+    report["p172_balayage_absorbe_trajectoire"] = (
+        sweep is not None and spine not in top and profile not in top
+        and not sweep.get("error"))
+
+
 def p173_accroche_autre_esquisse(self, mark, report, etat):
     mark("p173: un centre s'accroche au bout d'une autre esquisse")
     from engine.kernel import KernelError
