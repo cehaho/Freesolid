@@ -2,7 +2,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { CLICK_TOOLS, OPEN_TOOLS, circumcircle, conicPoints, conicRho,
+import { CLICK_TOOLS, OPEN_TOOLS, chainArcStart, circumcircle, conicPoints, conicRho,
   ellipseThrough, endpointDirection, parabolaPoints, polesSplinePoints,
   rect3Corners, tangentArc } from "../../app/sketchtools.js";
 
@@ -168,5 +168,27 @@ describe("calques d'esquisse", () => {
       { name: "Axes", color: "", visible: true, rename: "A" },
       { name: "C", color: "", visible: true }]);
     assert.equal(layersFromPanel({ name0: "B" }, layers), null);
+  });
+});
+
+describe("chainArcStart : arc tangent depuis le bout d'une polyligne", () => {
+  const lines = [
+    { id: 0, type: "line", p1: [0, 0], p2: [0, 40] },
+    { id: 1, type: "line", p1: [10, 10], p2: [20, 10] },
+  ];
+
+  it("part de la ligne qui finit au bout, dans son prolongement", () => {
+    assert.deepEqual(chainArcStart(lines, { x: 0, y: 40 }),
+      { x: 0, y: 40, geo: 0, point: 2, dir: { x: 0, y: 40 } });
+  });
+
+  it("rien si aucune ligne ne finit là, ou sans polyligne", () => {
+    assert.equal(chainArcStart(lines, { x: 5, y: 5 }), null);
+    assert.equal(chainArcStart(lines, null), null);
+  });
+
+  it("la plus récente quand deux bouts s'y rejoignent", () => {
+    const both = [...lines, { id: 2, type: "line", p1: [0, 40], p2: [0, 40.000000001] }];
+    assert.equal(chainArcStart(both, { x: 0, y: 40 }).geo, 2);
   });
 });
