@@ -939,7 +939,8 @@ export function installPicking(ctx) {
       // face présélectionnée devient la première position).
       if (hit) ctx.lastFaceHit.pick = [hit.x, hit.y, hit.z];
       const tookPoint = hit && panel.notifyPick("point", {
-        kind: "point", face: ctx.selectedFaceId, x: hit.x, y: hit.y, z: hit.z });
+        kind: "point", face: ctx.selectedFaceId, x: hit.x, y: hit.y, z: hit.z,
+        normal: ctx.lastFaceHit.normal });
       if (tookPoint && hit.snapped) {
         say(hit.snapped === "center"
           ? t("Position au centre du cercle.") : t("Position sur le sommet."));
