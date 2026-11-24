@@ -194,4 +194,4 @@ et congé suivent — comme dans les modeleurs courants.
 
 | # | Accroc | Suite |
 |---|--------|-------|
-| 54 | Perçage : la position cliquée ne se cote pas pendant la fonction ; il faut valider, puis éditer l'esquisse de positions pour la coter. | Ouvert. |
+| 54 | Perçage : la position cliquée ne se cote pas pendant la fonction ; il faut valider, puis éditer l'esquisse de positions pour la coter. | **Corrigé** (#292) : comme dans les modeleurs courants, chaque position montre ses deux coordonnées dans le plan de la face ; une valeur tapée devient une cote de l'esquisse de positions (selftest p171). |
