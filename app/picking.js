@@ -14,6 +14,15 @@ import {
 } from "./dims.js";
 import { paramLabel } from "./tree.js";
 
+/** Les esquisses se visent-elles dans la vue ? Pas quand le filtre les
+ *  écarte, ni quand une commande ouverte ne prend pas d'esquisse : le
+ *  clic va alors à la face derrière, et le panneau reste (comme dans les
+ *  modeleurs courants). */
+export function sketchesPickable(panel, allow = {}) {
+  if (allow.sketches === false) return false;
+  return !(panel?.applicable && !panel.accepts("sketch"));
+}
+
 export function findFeatureInTree(tree, name) {
   if (!name || !tree) return null;
   for (const feature of [...(tree.features ?? []), ...(tree.other_features ?? [])]) {
@@ -396,7 +405,8 @@ export function installPicking(ctx) {
 
     // L'esquisse libre gagne sur la face (et l'arête) derrière elle :
     // le geste vise le profil, pas le solide. Priorité en pixels, inchangée.
-    const sketchHit = allow.sketches === false ? null : pickHoveredSketch();
+    const sketchHit = sketchesPickable(panel, allow)
+      ? pickHoveredSketch() : null;
 
     let edgeGroupIndex = -1;
     let groupIndex = -1;
