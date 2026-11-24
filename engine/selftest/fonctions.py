@@ -8202,3 +8202,28 @@ def p168_percage_suit_le_centre(self, mark, report, etat):
     report["p168_percage_suit_le_centre"] = (
         linked and points == [[90.0, 0.0, 10.0], [80.0, 7.0, 10.0]]
         and hole.Shape.isValid())
+
+
+def p170_habillage_aretes_et_faces(self, mark, report, etat):
+    mark("p170: un congé mêle arêtes et faces")
+    self.new_part("Congé mêlé")
+    self.add_rect_sketch(20, 20)
+    self.add_pad(10)
+    body = self._require_body()
+    top = self._top_face_id()
+    # Une arête du dessous : elle ne touche pas la face du dessus.
+    bottom = next(i for i, e in enumerate(body.Shape.Edges)
+                  if abs(e.BoundBox.ZMax) < 1e-6)
+    tree = self.add_fillet(1, edges=[bottom], faces=[top])
+    fillet = body.Tip
+    item = next(f for f in tree["features"] if f["name"] == fillet.Name)
+    mixed = (item.get("dressup") == {"edges": [bottom], "faces": [top]}
+             and fillet.Shape.isValid()
+             and sorted(fillet.Base[1]) == sorted(
+                 ["Edge{}".format(bottom + 1), "Face{}".format(top + 1)]))
+    # Re-choisi : la face sort, l'arête reste.
+    tree = self.set_params(fillet.Name, {"edges": [bottom]})
+    item = next(f for f in tree["features"] if f["name"] == fillet.Name)
+    report["p170_habillage_aretes_et_faces"] = (
+        mixed and item.get("dressup") == {"edges": [bottom]}
+        and fillet.Shape.isValid())

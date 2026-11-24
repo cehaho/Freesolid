@@ -543,8 +543,12 @@ function setPickedBodies(items) {
     .map((i) => i.name);
   // Faces du corps actif retenues par une zone (les faces ouvertes d'une
   // coque…) : surlignées toutes, pas seulement la dernière cliquée.
-  const faces = (items ?? []).filter((i) => i.kind === "face"
-    && Number.isInteger(i.face)).map((i) => i.face);
+  const faces = [
+    ...(items ?? []).filter((i) => i.kind === "face"
+      && Number.isInteger(i.face)).map((i) => i.face),
+    // Faces d'une zone d'arêtes (congé, chanfrein) : mêlées aux arêtes.
+    ...(items ?? []).filter((i) => i.kind === "edges"
+      && Array.isArray(i.faces)).flatMap((i) => i.faces)];
   if (!picked.length && !surfaces.length && !faces.length
       && !ctx.pickedBodies?.size && !ctx.pickedSurfaces?.size
       && !ctx.pickedFaces?.size) return;

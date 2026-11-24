@@ -11,9 +11,11 @@ import {
   storedMeasure,
 } from "./commun.js";
 
-function dressupParams(sel) {
-  return sel.kind === "edges"
-    ? { edges: sel.edges } : { face: sel.face };
+export function dressupParams(sel) {
+  if (sel.kind !== "edges") return { face: sel.face };
+  const faces = sel.faces ?? [];
+  return { ...(sel.edges.length ? { edges: sel.edges } : {}),
+           ...(faces.length ? { faces } : {}) };
 }
 
 /** Coque : faces à ouvrir (une ou plusieurs), épaisseur, sens. */
@@ -87,8 +89,11 @@ export function chamferFieldValue(params, key, fallback) {
  *  (`dressup` de l'arbre : des arêtes ou une face), comme la zone de la
  *  création ; null si l'arbre ne le dit pas. */
 export function dressupPick(dressup) {
-  if (Array.isArray(dressup?.edges) && dressup.edges.length) {
-    return { kind: "edges", edges: [...dressup.edges] };
+  const edges = Array.isArray(dressup?.edges) ? dressup.edges : [];
+  const faces = Array.isArray(dressup?.faces) ? dressup.faces : [];
+  if (edges.length || faces.length) {
+    return { kind: "edges", edges: [...edges],
+             ...(faces.length ? { faces: [...faces] } : {}) };
   }
   if (Number.isInteger(dressup?.face)) {
     return { kind: "face", face: dressup.face };
@@ -96,20 +101,30 @@ export function dressupPick(dressup) {
   return null;
 }
 
+/** Arêtes et faces d'une zone, ou de ce qu'un habillage vise. */
+function dressupSets(value) {
+  if (value?.kind === "face" && Number.isInteger(value.face)) {
+    return { edges: [], faces: [value.face] };
+  }
+  const faces = value?.faces ?? (Number.isInteger(value?.face)
+    ? [value.face] : []);
+  return { edges: [...new Set(value?.edges ?? [])], faces: [...new Set(faces)] };
+}
+
 /** Valeurs `set_params` de la zone rééditée : `{}` si elle n'a pas
- *  changé, `{ edges }` ou `{ face }` sinon, null si elle est vide. */
+ *  changé, sinon ce qu'elle tient (`{ edges }`, `{ face }` ou
+ *  `{ edges, faces }`), null si elle est vide. */
 export function dressupPickValues(sel, dressup) {
-  if (sel?.kind === "edges" && sel.edges?.length) {
-    const chosen = [...new Set(sel.edges)];
-    const before = new Set(dressup?.edges ?? []);
-    const same = chosen.length === before.size
-      && chosen.every((edge) => before.has(edge));
-    return same ? {} : { edges: chosen };
-  }
-  if (sel?.kind === "face" && Number.isInteger(sel.face)) {
-    return sel.face === dressup?.face ? {} : { face: sel.face };
-  }
-  return null;
+  if (sel?.kind !== "edges" && sel?.kind !== "face") return null;
+  const now = dressupSets(sel);
+  if (!now.edges.length && !now.faces.length) return null;
+  const before = dressupSets(dressup);
+  const same = (a, b) => a.length === b.length
+    && a.every((x) => b.includes(x));
+  if (same(now.edges, before.edges) && same(now.faces, before.faces)) return {};
+  if (!now.faces.length) return { edges: now.edges };
+  if (!now.edges.length && now.faces.length === 1) return { face: now.faces[0] };
+  return { edges: now.edges, faces: now.faces };
 }
 
 /** Zone des faces ouvertes d'une coque qu'on réédite. */
@@ -416,7 +431,7 @@ export const HABILLAGE = [
     icon: "fillet", title: "Congé",
     selectionLabel: "Éléments à arrondir",
     accepts: ["edges", "face"],
-    hint: "Cliquez des arêtes (un second clic retire) ou une face",
+    hint: "Cliquez des arêtes ou des faces (un second clic retire)",
     group: "Paramètres du congé",
     rows: [{ type: "number", key: "radius", label: "Rayon", value: 3,
              unit: "mm", min: 0.01 }],
@@ -434,7 +449,7 @@ export const HABILLAGE = [
     icon: "chamfer", title: "Chanfrein",
     selectionLabel: "Éléments à chanfreiner",
     accepts: ["edges", "face"],
-    hint: "Cliquez des arêtes (un second clic retire) ou une face",
+    hint: "Cliquez des arêtes ou des faces (un second clic retire)",
     group: "Paramètres du chanfrein",
     rows: chamferRows(),
     build: (v) => {

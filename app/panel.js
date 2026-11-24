@@ -83,11 +83,30 @@ export function enterAction({ tag, edited, noApply, enterApplies }) {
   return noApply ? "none" : "apply";
 }
 
+/** La zone d'arêtes d'un congé ou d'un chanfrein (`edgeSet`) après un
+ *  clic : comme dans les modeleurs courants, arêtes et faces s'y
+ *  mélangent. `edges` : la sélection d'arêtes de la vue, reprise telle
+ *  quelle ; une face cliquée entre, ou sort si elle y était. */
+export function edgeSetPick(current, kind, value) {
+  let edges = current?.kind === "edges" ? [...(current.edges ?? [])] : [];
+  const faces = current?.kind === "edges" ? [...(current.faces ?? [])]
+    : (current?.kind === "face" && current.face != null ? [current.face] : []);
+  if (kind === "edges") edges = [...value.edges];
+  else if (kind === "face") {
+    const at = faces.indexOf(value.face);
+    if (at >= 0) faces.splice(at, 1);
+    else faces.push(value.face);
+  }
+  return { kind: "edges", edges, faces };
+}
+
 /** Une zone de sélection contient déjà quelque chose. */
 export function selectionFilled(value) {
   if (!value) return false;
   if (value.items) return value.items.length > 0;
-  if (value.kind === "edges") return value.edges.length > 0;
+  if (value.kind === "edges") {
+    return value.edges.length > 0 || (value.faces?.length ?? 0) > 0;
+  }
   if (value.kind === "face") return value.face != null;
   return true;
 }
@@ -370,6 +389,18 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
     else if (rows[0].reveal) {
       active.values[rows[0].reveal.key] = rows[0].reveal.value;
       rows.splice(1);
+    }
+    // Congé, chanfrein : arêtes et faces dans la même zone.
+    const edgeRow = (kind === "edges" || kind === "face")
+      && rows.find((r) => r.edgeSet);
+    if (edgeRow) {
+      active.values[edgeRow.key] = edgeSetPick(
+        active.values[edgeRow.key], kind, value);
+      active.focus = edgeRow.key;
+      render();
+      changed();
+      reportPicks();
+      return true;
     }
     // La zone active d'abord, si elle prend ce choix — une zone simple
     // cliquée (la face neutre d'une dépouille) passe avant la zone
@@ -736,9 +767,14 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
           : t("{n} profils : ", { n: value.items.length })
             + value.items.map((i) => i.label).join(" → ");
       } else if (value.kind === "edges") {
-        box.textContent = value.edges.length <= 3
-          ? value.edges.map((e) => t("Arête {n}", { n: e })).join(", ")
-          : t("{n} arêtes", { n: value.edges.length });
+        const faces = value.faces ?? [];
+        const count = value.edges.length + faces.length;
+        box.textContent = count <= 3
+          ? [...value.edges.map((e) => t("Arête {n}", { n: e })),
+             ...faces.map((f) => t("Face {n}", { n: f }))].join(", ")
+          : !faces.length ? t("{n} arêtes", { n: value.edges.length })
+            : t("{e} arête(s), {f} face(s)",
+              { e: value.edges.length, f: faces.length });
       } else if (value.kind === "sketch" || value.kind === "surface"
                  || value.kind === "body" || value.kind === "datum") {
         box.textContent = value.label;

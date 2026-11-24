@@ -177,6 +177,6 @@ modeleurs courants.
 |---|--------|-------|
 | 50 | Congé d'esquisse : un clic sur le sommet du coin est pris pour une première ligne ; il faut cliquer les deux lignes. | **Corrigé** : un clic sur le sommet où deux lignes se joignent arrondit (ou chanfreine) le coin ; les deux lignes restent possibles. |
 | 51 | Rainure par le centre posée sur l'origine, à l'horizontale : aucune relation, 5 degrés de liberté au lieu de 2, pas d'axe. | **Corrigé** : les deux outils de rainure gardent leurs accrochages (centres des bouts, milieu, axe horizontal ou vertical) et tracent une ligne d'axe entre les centres (selftest p169). |
-| 52 | Congé, chanfrein : une face cliquée est remplacée par l'arête cliquée ensuite, et un second clic sur la face ne la retire pas. | Ouvert : le moteur prend des arêtes *ou* une face ; mélanger les deux touche aussi la réédition et le rejeu. |
+| 52 | Congé, chanfrein : une face cliquée est remplacée par l'arête cliquée ensuite, et un second clic sur la face ne la retire pas. | **Corrigé** : comme dans les modeleurs courants, arêtes et faces se mélangent dans la zone ; un second clic retire l'une ou l'autre. Création, réédition et rejeu les prennent ensemble (selftest p170). |
 | 53 | Répétition linéaire : la direction 2 n'a pas de flèche dans la vue. | Laissé : la vue n'a qu'une poignée de glisser à la fois ; le pas se règle dans le panneau. |
 | — | Esquisse de la rainure nommée Esquisse3 (Esquisse2 est celle des positions du perçage). | Voulu : comme dans les modeleurs courants. |
