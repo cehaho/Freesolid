@@ -161,3 +161,22 @@ pas d'accroc.
 | 47 | Face cliquée puis Esquisse : un gros point bleu au milieu de l'esquisse — la flèche pour tirer la face, vue de face. | **Corrigé** : la flèche part avec la sélection de la face. |
 | 48 | Esquisse neuve quittée par ✗ : elle reste, vide, dans l'arbre. | **Corrigé** : la pile d'annulation de FreeCAD est bornée (20 pas) ; pleine, le compte ne bougeait plus et rien n'était défait. Les pas défaits sont ceux de la session d'esquisse, puis sa création (selftest p79). |
 | 49 | Entraxe passé de 80 à 90 : le perçage du petit bossage reste à 80. | **Corrigé** : comme dans les modeleurs courants, un centre aimanté au centre d'un bossage y reste lié et le suit (selftest p168). |
+
+## 10. Plaque de base
+
+Rectangle par le centre 120 × 80 sur le Plan de dessus, coins arrondis
+(congé d'esquisse R10), extrusion de 12 mm ; perçage lamé Ø9 / Ø15
+prof. 6 au centre d'un arrondi (le clic s'y aimante), répétition linéaire
+2 × 2 (100 × 60) ; rainure par le centre 50 × 16 sur l'origine, enlevée
+sur 6 mm ; chanfrein de 1 sur le contour du dessus (arêtes tangentes
+prises d'un clic). Puis la largeur passée à 140 : le lamage suit
+l'arrondi (#285), les copies gardent leur pas de 100 — comme dans les
+modeleurs courants.
+
+| # | Accroc | Suite |
+|---|--------|-------|
+| 50 | Congé d'esquisse : un clic sur le sommet du coin est pris pour une première ligne ; il faut cliquer les deux lignes. | **Corrigé** : un clic sur le sommet où deux lignes se joignent arrondit (ou chanfreine) le coin ; les deux lignes restent possibles. |
+| 51 | Rainure par le centre posée sur l'origine, à l'horizontale : aucune relation, 5 degrés de liberté au lieu de 2, pas d'axe. | **Corrigé** : les deux outils de rainure gardent leurs accrochages (centres des bouts, milieu, axe horizontal ou vertical) et tracent une ligne d'axe entre les centres (selftest p169). |
+| 52 | Congé, chanfrein : une face cliquée est remplacée par l'arête cliquée ensuite, et un second clic sur la face ne la retire pas. | Ouvert : le moteur prend des arêtes *ou* une face ; mélanger les deux touche aussi la réédition et le rejeu. |
+| 53 | Répétition linéaire : la direction 2 n'a pas de flèche dans la vue. | Laissé : la vue n'a qu'une poignée de glisser à la fois ; le pas se règle dans le panneau. |
+| — | Esquisse de la rainure nommée Esquisse3 (Esquisse2 est celle des positions du perçage). | Voulu : comme dans les modeleurs courants. |
