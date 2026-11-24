@@ -646,7 +646,13 @@ function applyDisplay() {
     hiddenEdgeLines.raycast = () => {};
     volumesGroup.add(hiddenEdgeLines);
   }
-  for (const lines of sketchLineMeshes) lines.visible = fx.sketches;
+  // L'esquisse ouverte ne se dessine que par son éditeur : sa forme 3D,
+  // recalculée à la fermeture seulement, laissait l'ancien tracé après
+  // un glisser.
+  const editing = inSketchMode ? sketchMode.editing : null;
+  for (const lines of sketchLineMeshes) {
+    lines.visible = fx.sketches && lines.userData.sketch?.name !== editing;
+  }
   if (sketchHighlightGroup) sketchHighlightGroup.visible = fx.sketches;
   originGroup.visible = !!displayState.origin;
 }
