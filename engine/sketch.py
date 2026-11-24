@@ -1307,10 +1307,16 @@ class SketchMixin:
                 V(p1.x, p1.y, 0), V(p2.x, p2.y, 0), V(p3.x, p3.y, 0))
         raise KernelError("géométrie non décalable pour l'instant")
 
-    def sketch_add_slot(self, sketch, x1, y1, x2, y2, width):
+    def sketch_add_slot(self, sketch, x1, y1, x2, y2, width, center=False,
+                        snaps=None):
         """Rainure droite : deux arcs + deux lignes, tangences et rayons
         égaux posés d'emblée — le contour reste une rainure sous le solveur.
-        """
+        Comme dans les modeleurs courants, une ligne d'axe (construction)
+        relie les centres des bouts.
+
+        ``snaps`` : ``start`` (x1, y1) et ``end`` (x2, y2), les centres des
+        bouts ; par le centre (``center``), ``center`` — le milieu de l'axe
+        y reste. Un axe exactement horizontal ou vertical le reste."""
         from engine.kernel import (
             KernelError,
             _explain,
@@ -1325,6 +1331,11 @@ class SketchMixin:
             raise KernelError("la largeur doit être positive")
         if math.hypot(p2x - p1x, p2y - p1y) < 1e-9:
             raise KernelError("les deux centres de la rainure sont confondus")
+        parsed = (None if snaps is None
+                  else self._snap_targets(sk, "sketch_add_slot", snaps))
+        if parsed and "center" in parsed and not center:
+            raise KernelError(
+                "accrochage « center » : réservé à la rainure par le centre")
         r = w / 2.0
         theta = math.atan2(p2y - p1y, p2x - p1x)
         ux, uy = math.cos(theta + math.pi / 2), math.sin(theta + math.pi / 2)
@@ -1353,8 +1364,27 @@ class SketchMixin:
             sk.addConstraint(C("Tangent", base + 2, 2, base + 3, 1))
             sk.addConstraint(C("Tangent", base + 3, 2, base + 0, 1))
             sk.addConstraint(C("Equal", base + 0, base + 2))
+            # L'axe : du centre du bout p1 (arc base+2) à celui de p2.
+            axis = sk.addGeometry(Part.LineSegment(
+                V(p1x, p1y, 0), V(p2x, p2y, 0)), True)
+            sk.addConstraint(C("Coincident", axis, 1, base + 2, 3))
+            sk.addConstraint(C("Coincident", axis, 2, base + 0, 3))
         except Exception as exc:  # noqa: BLE001
             raise KernelError(_explain(exc))
+        if parsed is not None:
+            mine = set(range(base, axis + 1))
+            links = self._snap_links(sk, parsed, (
+                ("start", axis, 1), ("end", axis, 2)), mine)
+            middle = parsed.get("center") if center else None
+            if center and middle is None:
+                middle = self._point_at(
+                    sk, V((p1x + p2x) / 2, (p1y + p2y) / 2, 0), mine)
+            if middle is not None:
+                links.append(C("Symmetric", axis, 1, axis, 2,
+                               middle.geo, middle.point))
+            straight = self._axis_constraint(sk, axis)
+            self._add_snap_constraints(
+                sk, links + ([straight] if straight else []))
         return self.sketch_state(sketch)
 
     def sketch_add_polygon(self, sketch, cx, cy, x, y, sides):

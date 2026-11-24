@@ -841,6 +841,13 @@ export function onCircle(click, c, r) {
   return Math.abs(Math.hypot(click.x - c.x, click.y - c.y) - r) < SNAP_TOL;
 }
 
+/** Rainure droite : les centres de ses bouts (x1, y1) et (x2, y2) et,
+ *  par le centre, son milieu (un point d'esquisse). */
+export function slotSnaps({ start = null, end = null, center = null }) {
+  return compact({ start: snapTarget(start), end: snapTarget(end),
+                   center: pointTarget(center) });
+}
+
 /** Rectangle : coins (x1, y1) et (x2, y2), et son centre s'il en a un
  *  (un point d'esquisse : les coins restent symétriques autour de lui). */
 export function rectSnaps({ corner1 = null, corner2 = null, center = null }) {

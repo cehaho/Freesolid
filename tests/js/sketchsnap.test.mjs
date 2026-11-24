@@ -8,6 +8,7 @@ import {
   engineSnaps, tangentPoints, entityCrossings, entityFeatures, lineSnaps,
   modelEdgeId, modelEdgeOf, modelEdgeSnaps, nearestOnEntity,
   normalizeSnapSettings, onCircle, pointSnaps, readSnapSettings, rectSnaps,
+  slotSnaps,
   sketchEndpoints, sketchSnapPoints, snapSketchPoint, snapTarget,
   writeSnapSettings,
 } from "../../app/sketchsnap.js";
@@ -466,6 +467,13 @@ describe("ce que le tracé envoie au moteur", () => {
     assert.deepEqual(lineSnaps(free, { ...end, suspended: true }), {});
   });
 
+  it("rainure : centres des bouts et milieu", () => {
+    assert.deepEqual(slotSnaps({ start: snapAt(0, 0), end: free }),
+      { start: { geo: ORIGIN_GEO, point: 1 } });
+    assert.deepEqual(slotSnaps({ center: snapAt(0, 0), end: center }), {
+      end: { geo: 1, point: 3 }, center: { geo: ORIGIN_GEO, point: 1 } });
+  });
+
   it("rectangle : coins et centre", () => {
     assert.deepEqual(rectSnaps({ corner2: center, center: snapAt(0, 0) }), {
       corner2: { geo: 1, point: 3 }, center: { geo: ORIGIN_GEO, point: 1 } });
@@ -483,6 +491,9 @@ describe("outils à clics", () => {
       { end: { geo: 1, point: 3 } });
     assert.deepEqual(CLICK_TOOLS.circle3.snaps([free, center, free]),
       { on: [{ geo: 1, point: 3 }] });
+    // Rainure par le centre : son milieu et le bout cliqué.
+    assert.deepEqual(CLICK_TOOLS.slotc.snaps([snapAt(0, 0), center, free]), {
+      end: { geo: 1, point: 3 }, center: { geo: ORIGIN_GEO, point: 1 } });
   });
 });
 

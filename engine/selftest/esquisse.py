@@ -277,7 +277,10 @@ def p3_arc_rainure_polygone(self, mark, report, etat):
     report["p3_arc_ok"] = state["entities"][-1]["type"] == "arc"
     before = len(state["entities"])
     state = self.sketch_add_slot(adv, 0, -30, 40, -30, 10)
-    report["p3_slot_ok"] = len(state["entities"]) == before + 4
+    # Deux arcs, deux lignes et la ligne d'axe (construction).
+    report["p3_slot_ok"] = (
+        len(state["entities"]) == before + 5
+        and state["entities"][-1]["construction"] is True)
     before = len(state["entities"])
     state = self.sketch_add_polygon(adv, 80, 0, 90, 0, 6)
     report["p3_polygon_ok"] = len(state["entities"]) >= before + 6
@@ -1680,3 +1683,23 @@ def p160_decalage_parametrique(self, mark, report, etat):
         ok = abs(state["entities"][-1]["r"] - 13) < 1e-6
     report["p160_cercle_concentrique_pilote"] = ok
     run("sketch_cancel", sketch=name)
+
+
+def p169_rainure_accrochee(self, mark, report, etat):
+    mark("p169: une rainure garde ses accrochages")
+    origin = {"geo": -1, "point": 1}
+    # Par le centre, milieu sur l'origine, à l'horizontale : longueur et
+    # largeur restent à coter.
+    name = self.sketch_start()["sketch"]
+    state = self.sketch_add_slot(name, -25, 0, 25, 0, 16, center=True,
+                                 snaps={"center": origin})
+    axis = [e for e in state["entities"] if e["construction"]]
+    centre = state["dof"] == 2 and len(axis) == 1
+    self.sketch_cancel(name)
+    # Par deux centres, le premier sur l'origine.
+    name = self.sketch_start()["sketch"]
+    state = self.sketch_add_slot(name, 0, 0, 40, 0, 10,
+                                 snaps={"start": origin})
+    deux = state["dof"] == 2
+    self.sketch_cancel(name)
+    report["p169_rainure_accrochee"] = centre and deux

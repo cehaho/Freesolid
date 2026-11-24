@@ -80,7 +80,8 @@ describe("outils de tracé : ops", () => {
     assert.equal(CLICK_TOOLS.circle3.build([P(0, 0), P(1, 1), P(2, 2)]).error,
       "Cercle : les trois points sont alignés");
     const slot = CLICK_TOOLS.slotc.build([P(0, 0), P(10, 0), P(10, 3)]);
-    assert.deepEqual(slot.params, { x1: -10, y1: 0, x2: 10, y2: 0, width: 6 });
+    assert.deepEqual(slot.params,
+      { x1: -10, y1: 0, x2: 10, y2: 0, width: 6, center: true });
     const arc = CLICK_TOOLS.arcslot.build([P(0, 0), P(20, 0), P(0, 20), P(22, 0)]);
     assert.equal(arc.op, "sketch_add_arc_slot");
     assert.ok(near(arc.params.width, 4) && near(arc.params.a2, Math.PI / 2));
