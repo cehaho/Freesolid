@@ -8170,3 +8170,35 @@ def p167_repetition_pilotee_par_table(self, mark, report, etat):
     report["p167_refus"] = (
         all(r.get("ok") is False for r in refused)
         and abs(float(body.Shape.Volume) - before) < 1e-6)
+
+
+def p168_percage_suit_le_centre(self, mark, report, etat):
+    mark("p168: un perçage posé au centre d'un bossage le suit")
+    import Sketcher
+    self.new_part("Perçage lié au centre")
+    sk = self.sketch_start(plane="XY")["sketch"]
+    self.sketch_add_circle(sk, 0, 0, 20)
+    self.sketch_add_circle(sk, 80, 0, 16)
+    self.sketch_finish(sk)
+    sketch = self._get_sketch(sk)
+    entraxe = sketch.addConstraint(
+        Sketcher.Constraint("DistanceX", 0, 3, 1, 3, 80))
+    self.add_pad(10)
+    body = self._require_body()
+    top = next(i for i, f in enumerate(body.Shape.Faces)
+               if abs(f.CenterOfMass.z - 10) < 1e-6
+               and f.CenterOfMass.x > 40)
+    # Un centre aimanté au bossage, un autre posé à côté : libre.
+    tree = self.add_hole(4, through=True, face=top,
+                         points=[[80, 0, 10], [80, 7, 10]])
+    hole = self._doc.getObject([f["name"] for f in tree["features"]
+                                if f["type"] == "PartDesign::Hole"][-1])
+    profile = hole.Profile[0]
+    linked = (len(profile.ExternalGeometry) == 1
+              and [c.Type for c in profile.Constraints] == ["Coincident"])
+    sketch.setDatum(entraxe, 90)
+    self._recompute()
+    points = self._hole_positions(hole)["points"]
+    report["p168_percage_suit_le_centre"] = (
+        linked and points == [[90.0, 0.0, 10.0], [80.0, 7.0, 10.0]]
+        and hole.Shape.isValid())

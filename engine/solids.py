@@ -3188,10 +3188,13 @@ class SolidsMixin:
         to_local = sketch.getGlobalPlacement().inverse()
         radius = self._prop_float(hole, "Diameter") / 2
         sketch.deleteAllGeometry()
+        while getattr(sketch, "ExternalGeometry", None):
+            sketch.delExternal(0)
         for point in coords:
             local = to_local.multVec(V(*point))
             sketch.addGeometry(Part.Circle(
                 V(local.x, local.y, 0), V(0, 0, 1), radius), False)
+        self._link_hole_centers(sketch)
 
     def _hole_positions_sketch(self, face, points, diameter):
         """Esquisse sur ``face`` avec un cercle par point (monde → plan)."""
@@ -3213,4 +3216,55 @@ class SolidsMixin:
             local = to_local.multVec(V(*(float(c) for c in point)))
             sketch.addGeometry(Part.Circle(
                 V(local.x, local.y, 0), V(0, 0, 1), float(diameter) / 2), False)
+        self._link_hole_centers(sketch)
         return sketch
+
+    def _link_hole_centers(self, sketch):
+        """Un centre posé pile au centre d'une arête circulaire de la face
+        (le clic s'y est aimanté) y reste lié : l'arête entre dans
+        l'esquisse comme géométrie externe, le centre lui est coïncident.
+        Comme dans les modeleurs courants, le trou suit alors le bossage
+        quand une cote le déplace. Sans arête au même centre, le point
+        reste libre ; un lien refusé n'empêche pas le perçage."""
+        import Sketcher
+        support = (getattr(sketch, "AttachmentSupport", None)
+                   or getattr(sketch, "Support", None) or [])
+        if len(support) != 1:
+            return
+        base, subs = support[0]
+        subs = list(subs) if isinstance(subs, (list, tuple)) else [subs]
+        name = str(subs[0]) if len(subs) == 1 else ""
+        if not (name.startswith("Face") and name[4:].isdigit()):
+            return
+        try:
+            shape = base.Shape
+            face = shape.Faces[int(name[4:]) - 1]
+        except (AttributeError, IndexError):
+            return
+        rounds = []
+        for edge in face.Edges:
+            if getattr(edge.Curve, "TypeId", "") != "Part::GeomCircle":
+                continue
+            index = next((k for k, e in enumerate(shape.Edges)
+                          if e.isSame(edge)), None)
+            if index is not None:
+                rounds.append((edge.Curve.Center, index))
+        place = sketch.getGlobalPlacement()
+        linked = {}
+        for gid, geometry in enumerate(sketch.Geometry):
+            if geometry.TypeId != "Part::GeomCircle":
+                continue
+            center = place.multVec(geometry.Center)
+            index = next((k for c, k in rounds
+                          # Le client reçoit les centres arrondis au µm.
+                          if c.distanceToPoint(center) < 1e-5), None)
+            if index is None:
+                continue
+            try:
+                if index not in linked:
+                    sketch.addExternal(base.Name, "Edge{}".format(index + 1))
+                    linked[index] = -2 - len(sketch.ExternalGeometry)
+                sketch.addConstraint(Sketcher.Constraint(
+                    "Coincident", gid, 3, linked[index], 3))
+            except Exception:  # noqa: BLE001 - le lien est un plus
+                continue
