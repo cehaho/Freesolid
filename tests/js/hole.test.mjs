@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   FEATURES, hasFreeSketch, holePositionValues, holePositions, holePositionsPick, holePositionsRow,
-  holeSamePosition,
+  holeSamePlane, holeSamePosition,
 } from "../../app/features.js";
 import { movePosition, planeAxes, zoneToggle } from "../../app/panel.js";
 
@@ -163,5 +163,31 @@ describe("perçage : positions tapées", () => {
 
   it("la zone des positions montre leurs coordonnées", () => {
     assert.equal(holePositionsRow().coords, true);
+  });
+});
+
+describe("perçage : positions sur des faces au même plan", () => {
+  const up = [0, 0, 1];
+  const a = { kind: "point", face: 7, x: -30, y: 0, z: 9, normal: up };
+  const b = { kind: "point", face: 9, x: 30, y: 0, z: 9, normal: up };
+  const low = { kind: "point", face: 2, x: 0, y: 10, z: 5, normal: up };
+
+  it("deux faces au même plan vont ensemble, pas une plus basse", () => {
+    assert.equal(holeSamePlane(a, b), true);
+    assert.equal(holeSamePlane(a, low), false);
+    assert.equal(holeSamePlane(a, { ...b, normal: [0, 0, -1] }), false);
+    assert.equal(holeSamePlane(a, { ...b, normal: undefined }), false);
+  });
+
+  it("le clic sur l'autre embase ajoute une position", () => {
+    const row = holePositionsRow(null);
+    assert.deepEqual(zoneToggle(row, [a], b, {}), [a, b]);
+    assert.deepEqual(zoneToggle(row, [a], low, {}), [low]);
+  });
+
+  it("le moteur reçoit la face de la première et tous les centres", () => {
+    assert.deepEqual(holePositions({ items: [a, b] }),
+      { face: 7, points: [[-30, 0, 9], [30, 0, 9]] });
+    assert.ok(holePositions({ items: [a, low] }).error);
   });
 });

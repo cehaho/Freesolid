@@ -38,6 +38,8 @@
 //         edgeSet? — zone de plusieurs arêtes (congé…) : un clic simple
 //         dans la vue ajoute l'arête, un second la retire ;
 //         solids? — une zone de corps qui vise aussi un solide d'un corps ;
+//         samePlane? — avec oneFace : deux choix qui vont ensemble (faces
+//         au même plan), par défaut la même face ;
 //         coords? — une zone de positions montre, sous le compte, les
 //         deux coordonnées de chaque point dans le plan de sa face, à
 //         retaper (le point devient `typed`) }
@@ -218,7 +220,8 @@ export function zoneToggle(row, items, pick, values) {
   const same = row.same ?? samePick;
   const at = items.findIndex((item) => same(item, pick, values));
   if (at >= 0) return items.filter((_, i) => i !== at);
-  if (row.oneFace && items.some((item) => item.face !== pick.face)) {
+  const together = row.samePlane ?? ((a, b) => a.face === b.face);
+  if (row.oneFace && items.some((item) => !together(item, pick))) {
     return [pick];
   }
   return [...items, pick];
