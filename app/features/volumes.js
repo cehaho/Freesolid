@@ -25,7 +25,7 @@ export function holePositions(sel) {
   const items = sel?.items ?? [];
   if (!items.length) return null;
   const face = items[0].face;
-  if (items.some((i) => i.face !== face)) {
+  if (items.some((i) => !holeSamePlane(items[0], i))) {
     return { error: "Perçage : les positions doivent être sur une même face" };
   }
   const out = { face, points: items.map((i) => [i.x, i.y, i.z]) };
@@ -42,6 +42,24 @@ export function hasFreeSketch(tree) {
 
 /** Deux positions d'un perçage se confondent quand le clic tombe dans
  *  le trou : même face, à moins d'un rayon du centre. */
+/** Deux positions d'un perçage sont-elles dans le même plan ? Même
+ *  face, ou deux faces au même plan (deux embases à la même hauteur) :
+ *  comme dans les modeleurs courants, les trous s'y posent ensemble. */
+export function holeSamePlane(a, b, tol = 1e-6) {
+  if (a.face === b.face) return true;
+  const n = vec(a.normal), m = vec(b.normal);
+  if (!n || !m) return false;
+  const along = n[0] * m[0] + n[1] * m[1] + n[2] * m[2];
+  if (Math.abs(along - 1) > tol) return false;
+  const gap = n[0] * (b.x - a.x) + n[1] * (b.y - a.y) + n[2] * (b.z - a.z);
+  return Math.abs(gap) <= Math.max(tol, 1e-4);
+}
+
+function vec(normal) {
+  if (!normal) return null;
+  return Array.isArray(normal) ? normal : [normal.x, normal.y, normal.z];
+}
+
 export function holeSamePosition(a, b, values) {
   if (a.face !== b.face) return false;
   const radius = Math.max((num(values?.diameter) || 0) / 2, 0.5);
@@ -53,7 +71,8 @@ export function holeSamePosition(a, b, values) {
  *  une autre face repart de cette face. */
 export function holePositionsRow(value) {
   return { type: "selection", key: "pos", accepts: ["point"],
-           multiple: true, oneFace: true, same: holeSamePosition,
+           multiple: true, oneFace: true, samePlane: holeSamePlane,
+           same: holeSamePosition,
            coords: true,
            hint: "Cliquez les centres des trous sur une face",
            ...(value ? { value } : {}) };

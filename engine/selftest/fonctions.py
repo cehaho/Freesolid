@@ -8330,3 +8330,30 @@ def p173_accroche_autre_esquisse(self, mark, report, etat):
     report["p173_accroche_autre_esquisse"] = (
         centered and held and refused
         and not any(f.get("error") for f in tree["features"]))
+
+
+def p174_percage_faces_coplanaires(self, mark, report, etat):
+    mark("p174: un perçage pose ses trous sur deux faces au même plan")
+    self.new_part("Perçage deux embases")
+    self.add_rect_sketch(100, 40)
+    self.add_pad(5)
+    top = self._top_face_id()
+    sketch = self.sketch_start(face=top)["sketch"]
+    self.sketch_add_circle(sketch, -30, 0, 8)
+    self.sketch_add_circle(sketch, 30, 0, 8)
+    self.sketch_finish(sketch)
+    self.add_pad(4)
+    body = self._require_body()
+    face = self._top_face_id()
+    self.add_hole(5, through=True, face=face,
+                  points=[[-30, 0, 9], [30, 0, 9]])
+    hole = body.Tip
+    positions = hole.Profile[0]
+    linked = sorted(c.Type for c in positions.Constraints)
+    # Deux trous, chacun lié au bord de son embase (au centre aimanté).
+    bores = [f for f in hole.Shape.Faces
+             if f.Surface.TypeId == "Part::GeomCylinder"
+             and abs(f.Surface.Radius - 2.5) < 1e-6]
+    report["p174_percage_faces_coplanaires"] = (
+        hole.Shape.isValid() and len(bores) == 2
+        and linked == ["Coincident", "Coincident"])

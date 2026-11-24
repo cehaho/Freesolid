@@ -46,7 +46,7 @@ export {
   holePositions,
   holePositionsPick,
   holePositionsRow,
-  holeSamePosition,
+  holeSamePlane, holeSamePosition,
   loftOptionRows,
   loftOptionValues,
   loftProfilesPick,

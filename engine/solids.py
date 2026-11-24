@@ -3308,6 +3308,7 @@ class SolidsMixin:
         reste libre ; un lien refusé n'empêche pas le perçage. ``skip`` :
         les cercles dont le centre est coté (tapé), qui ne se lient pas."""
         import Sketcher
+        from engine.sketchref import FIRST_EXTERNAL, external_count
         support = (getattr(sketch, "AttachmentSupport", None)
                    or getattr(sketch, "Support", None) or [])
         if len(support) != 1:
@@ -3322,14 +3323,23 @@ class SolidsMixin:
             face = shape.Faces[int(name[4:]) - 1]
         except (AttributeError, IndexError):
             return
+        # Les arêtes circulaires posées dans le plan de la face — les
+        # siennes et celles des faces au même plan (positions sur deux
+        # embases), comme dans les modeleurs courants.
+        try:
+            normal = face.normalAt(0, 0)
+            origin = face.Vertexes[0].Point
+        except (AttributeError, IndexError):
+            return
         rounds = []
-        for edge in face.Edges:
-            if getattr(edge.Curve, "TypeId", "") != "Part::GeomCircle":
+        for index, edge in enumerate(shape.Edges):
+            curve = edge.Curve
+            if getattr(curve, "TypeId", "") != "Part::GeomCircle":
                 continue
-            index = next((k for k, e in enumerate(shape.Edges)
-                          if e.isSame(edge)), None)
-            if index is not None:
-                rounds.append((edge.Curve.Center, index))
+            if (abs((curve.Center - origin).dot(normal)) > 1e-6
+                    or abs(abs(curve.Axis.dot(normal)) - 1) > 1e-6):
+                continue
+            rounds.append((curve.Center, index))
         place = sketch.getGlobalPlacement()
         linked = {}
         for gid, geometry in enumerate(sketch.Geometry):
@@ -3344,7 +3354,10 @@ class SolidsMixin:
             try:
                 if index not in linked:
                     sketch.addExternal(base.Name, "Edge{}".format(index + 1))
-                    linked[index] = -2 - len(sketch.ExternalGeometry)
+                    # Le rang de la référence ajoutée : ExternalGeometry
+                    # compte les objets liés, pas leurs arêtes.
+                    linked[index] = FIRST_EXTERNAL - (
+                        external_count(sketch) - 1)
                 sketch.addConstraint(Sketcher.Constraint(
                     "Coincident", gid, 3, linked[index], 3))
             except Exception:  # noqa: BLE001 - le lien est un plus
