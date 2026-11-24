@@ -1406,8 +1406,8 @@ export function createSketchMode(deps) {
       if (target !== null) {
         const measure = { dimarc: "arc_length", dimaxis: "axis_angle",
                           dimdia: "diameter" }[mode.tool];
-        safe(call("sketch_dim", { sketch: name, geo: target, measure,
-          at: [snapped.x, snapped.y] }));
+        // Comme la cotation : la cote posée demande aussitôt sa valeur.
+        await addDim({ sketch: name, geo: target, measure }, event);
       }
     } else if (mode.tool === "ordx" || mode.tool === "ordy") {
       // Cote ordonnée : le point de base, puis chaque point coté depuis
