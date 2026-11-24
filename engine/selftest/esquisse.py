@@ -1319,9 +1319,21 @@ def p79_annuler_esquisse(self, mark, report, etat):
               and doc.getObject(name) is not None)
     run("sketch_cancel", sketch=name)
     outside = not refused("undo")
+    # Pile d'annulation pleine (bornée, 20 pas en FreeCAD 1.1) : une
+    # esquisse neuve quittée sans garder disparaît quand même.
+    busy = run("sketch_start")["sketch"]
+    for i in range(24):
+        run("sketch_add_line", sketch=busy, x1=i, y1=0, x2=i, y2=10)
+    run("sketch_finish", sketch=busy)
+    fresh = run("sketch_start")["sketch"]
+    run("sketch_add_line", sketch=fresh, x1=0, y1=0, x2=10, y2=0)
+    run("sketch_cancel", sketch=fresh)
+    full = (doc.getObject(fresh) is None
+            and len(self._get_sketch(busy).Geometry) == 24)
     report["p79_annuler_esquisse"] = (floor and listed and capped and redone
                                       and dragged and snapped and whole
-                                      and unbooked and edited and outside)
+                                      and unbooked and edited and outside
+                                      and full)
 
 
 def p80_glisser_courbe_entiere(self, mark, report, etat):
