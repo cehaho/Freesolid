@@ -8269,3 +8269,64 @@ def p171_percage_positions_cotees(self, mark, report, etat):
     except KernelError:
         refused = body.Tip is hole
     report["p171_percage_positions_cotees"] = typed and swapped and refused
+
+
+def p172_balayage_absorbe_trajectoire(self, mark, report, etat):
+    mark("p172: le balayage range son profil ET sa trajectoire")
+    self.new_part("Balayage rangé")
+    spine = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_line(spine, -20, 0, -20, 30)
+    self.sketch_add_line(spine, -20, 30, 20, 30)
+    self.sketch_finish(spine)
+    profile = self.sketch_start()["sketch"]
+    self.sketch_add_circle(profile, -20, 0, 4)
+    self.sketch_finish(profile)
+    tree = self.add_sweep(profile=profile, spine=spine)
+    top = [f["name"] for f in tree["features"]]
+    sweep = next((f for f in tree["features"]
+                  if {c["name"] for c in f.get("children") or []}
+                  >= {profile, spine}), None)
+    report["p172_balayage_absorbe_trajectoire"] = (
+        sweep is not None and spine not in top and profile not in top
+        and not sweep.get("error"))
+
+
+def p173_accroche_autre_esquisse(self, mark, report, etat):
+    mark("p173: un centre s'accroche au bout d'une autre esquisse")
+    from engine.kernel import KernelError
+    self.new_part("Accroche autre esquisse")
+    spine = self.sketch_start(plane="XZ")["sketch"]
+    self.sketch_add_line(spine, -20, 0, -20, 30)
+    self.sketch_add_line(spine, -20, 30, 20, 30)
+    self.sketch_finish(spine)
+    state = self.sketch_start(plane="XY")
+    profile = state["sketch"]
+    offered = [p for p in state.get("foreign_points") or []
+               if p["sketch"] == spine and abs(p["x"] + 20) < 1e-6
+               and abs(p["y"]) < 1e-6]
+    if not offered:
+        report["p173_accroche_autre_esquisse"] = False
+        return
+    foot = {"sketch": spine, "vertex": offered[0]["vertex"]}
+    state = self.sketch_add_circle(profile, -20.3, 0.2, 4,
+                                   snaps={"center": {"geo": foot,
+                                                     "point": 1}})
+    circle = next(e for e in state["entities"]
+                  if e["type"] == "circle" and not e.get("external"))
+    centered = (abs(circle["c"][0] + 20) < 1e-6
+                and abs(circle["c"][1]) < 1e-6)
+    # Seul le rayon reste libre : le centre tient au bout de la trajectoire.
+    held = state["dof"] == 1
+    # Un sommet inconnu est refusé.
+    try:
+        self.sketch_add_circle(profile, 5, 5, 2, snaps={
+            "center": {"geo": {"sketch": spine, "vertex": 99},
+                       "point": 1}})
+        refused = False
+    except KernelError:
+        refused = True
+    self.sketch_finish(profile)
+    tree = self.add_sweep(profile=profile, spine=spine)
+    report["p173_accroche_autre_esquisse"] = (
+        centered and held and refused
+        and not any(f.get("error") for f in tree["features"]))

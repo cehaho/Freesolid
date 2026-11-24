@@ -290,6 +290,72 @@ class SketchRefMixin:
                 "geo": gid, "points": self._external_points(sk, gid, points)}
         return refs
 
+    def _foreign_points(self, sk):
+        """Les sommets des autres esquisses du corps, faites avant ``sk``
+        et encore visibles (pas rangées sous une fonction), qui tombent
+        dans son plan : des points d'accrochage, comme dans les modeleurs
+        courants. ``[{sketch, label, vertex, x, y}]``, coordonnées de
+        ``sk``."""
+        try:
+            body = sk.getParentGeoFeatureGroup()
+            group = list(getattr(body, "Group", None) or [])
+            consumed = self._consumed_sketches()
+        except Exception:  # noqa: BLE001 - hors corps : rien à proposer
+            return []
+        before = group[:group.index(sk)] if sk in group else group
+        inverse = sk.Placement.inverse()
+        out = []
+        for other in before:
+            if (other.TypeId != "Sketcher::SketchObject"
+                    or other.Name in consumed
+                    or sk in (other.OutListRecursive or [])):
+                continue
+            shape = getattr(other, "Shape", None)
+            for k, vertex in enumerate(getattr(shape, "Vertexes", None) or []):
+                p = inverse.multVec(vertex.Point)
+                if abs(p.z) < 1e-6:
+                    out.append({"sketch": other.Name, "label": other.Label,
+                                "vertex": k, "x": round(p.x, 9),
+                                "y": round(p.y, 9)})
+        return out
+
+    def _foreign_vertex_refs(self, sk, vertices):
+        """Chaque sommet ``(esquisse, k)`` d'une autre esquisse qu'un
+        accrochage nomme : le point de référence qui le reproduit dans
+        ``sk`` — déjà là, ou ajouté (lié, hors du profil). None : il ne
+        se lie pas, l'accrochage tombe."""
+        from engine.kernel import KernelError
+        offered = {(p["sketch"], p["vertex"]): p
+                   for p in self._foreign_points(sk)}
+        App = self._app()
+        refs = {}
+        for key in sorted(vertices):
+            if key not in offered:
+                raise KernelError(
+                    "accrochage : sommet {} de {} introuvable".format(
+                        key[1], key[0]))
+            spot = App.Vector(offered[key]["x"], offered[key]["y"], 0)
+            gid = None
+            for j in range(external_count(sk)):
+                candidate = FIRST_EXTERNAL - j
+                if (geo_of(sk, candidate).TypeId == "Part::GeomPoint"
+                        and sk.getPoint(candidate, 1).distanceToPoint(spot)
+                        < 1e-6):
+                    gid = candidate
+                    break
+            if gid is None:
+                before = external_count(sk)
+                try:
+                    sk.addExternal(key[0], "Vertex%d" % (key[1] + 1),
+                                   False, False)
+                except Exception:  # noqa: BLE001 - refusée : sans relation
+                    pass
+                if external_count(sk) > before:
+                    gid = FIRST_EXTERNAL - before
+            refs[key] = None if gid is None else {"geo": gid,
+                                                  "points": {1: 1}}
+        return refs
+
     def sketch_silhouette(self, sketch):
         """Silhouette : les arêtes vues du solide, regardé de face depuis le
         plan de l'esquisse (contours apparents compris), projetées et

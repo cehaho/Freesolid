@@ -3,6 +3,7 @@
 // image, conversion, terminer / quitter). Chaque bouton ouvre son panneau
 // ou appelle le moteur ; le geste de dessin reste dans sketch.js.
 
+import { setLinePoints } from "./apercu.js";
 import * as THREE from "three";
 import { t } from "../i18n.js";
 import { LAYER_COLORS, layersFromPanel } from "../sketchtools.js";
@@ -404,7 +405,7 @@ export function installCommandes(sk) {
       const { points } = await call("sketch_offset_preview", {
         sketch: mode.state.sketch, geos, distance, reversed: !!v.reversed });
       if (gen !== offsetPreviewGen || !panel.active) return;
-      sk.previewLine.geometry.setFromPoints(
+      setLinePoints(sk.previewLine,
         points.map(([x, y]) => new THREE.Vector3(x, y, 0)));
       sk.previewLine.visible = true;
     } catch {

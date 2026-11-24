@@ -155,6 +155,16 @@ class TreeMixin:
                 # La nervure, la répétition pilotée par esquisse : leur
                 # esquisse se range sous elles.
                 consumed.setdefault(rib["sketch"], obj.Name)
+            swept = self._swept_spec(obj)
+            if swept is not None:
+                # Lissage, balayage : toutes leurs esquisses (sections,
+                # trajectoire) se rangent sous eux, comme dans les
+                # modeleurs courants — pas seulement le premier profil.
+                links = swept.get("profiles") or [swept.get("profile"),
+                                                  swept.get("spine")]
+                for link in links:
+                    if link and not link.get("curve"):
+                        consumed.setdefault(link["name"], obj.Name)
         for obj in self._doc.Objects:
             if not self._is_surface_obj(obj):
                 continue
