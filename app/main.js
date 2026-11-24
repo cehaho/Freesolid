@@ -1482,6 +1482,9 @@ confirmCancel?.addEventListener("click", () => {
  *  à la sortie. */
 function releaseFaceSelection() {
   selectedFaceId = null;
+  // La flèche pour tirer la face part avec elle : sinon, l'esquisse
+  // ouverte sur cette face la gardait en plein milieu (un point vu de face).
+  if (ctx.handles?.active && ctx.handles.owner !== "panel") ctx.handles.hide();
   hoveredGroup = -1;
   hoveredEdgeGroup = -1;
   repaintGroups();
