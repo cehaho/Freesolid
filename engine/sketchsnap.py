@@ -102,6 +102,44 @@ def _edge_ref(value):
     return None
 
 
+def _foreign_ref(value):
+    """Le sommet ``(esquisse, k)`` d'une autre esquisse que ``value``
+    (``{"sketch": nom, "vertex": k}``) désigne, sinon None."""
+    if (isinstance(value, dict) and set(value) == {"sketch", "vertex"}
+            and isinstance(value["sketch"], str) and value["sketch"]
+            and _int(value["vertex"]) and value["vertex"] >= 0):
+        return (value["sketch"], value["vertex"])
+    return None
+
+
+def _ref_key(value):
+    """La clé d'une référence hors de l'esquisse : ``k`` pour une arête
+    de la pièce, ``(esquisse, k)`` pour un sommet d'une autre esquisse."""
+    edge = _edge_ref(value)
+    return edge if edge is not None else _foreign_ref(value)
+
+
+def _outside_refs(snaps):
+    """Chaque référence hors de l'esquisse que ``snaps`` nomme ; une
+    référence mal formée est refusée."""
+    from engine.kernel import KernelError
+    if not isinstance(snaps, dict):
+        return
+    for role, target in _role_targets(snaps):
+        if not isinstance(target, dict):
+            continue
+        refs = [target.get("geo")] + list(
+            target["geos"] if isinstance(target.get("geos"), list) else [])
+        for ref in refs:
+            if not isinstance(ref, dict):
+                continue
+            key = _ref_key(ref)
+            if key is None:
+                raise KernelError(
+                    "accrochage « {} » : cible invalide".format(role))
+            yield key
+
+
 def _role_targets(snaps):
     """``(rôle, cible)`` de chaque cible de ``snaps``, listes dépliées."""
     for role, value in snaps.items():
@@ -112,24 +150,14 @@ def _role_targets(snaps):
 def model_edges(snaps):
     """Les arêtes de la pièce que ``snaps`` nomme (``{"edge": k}``) :
     un ensemble d'indices. Une référence d'arête mal formée est refusée."""
-    from engine.kernel import KernelError
-    found = set()
-    if not isinstance(snaps, dict):
-        return found
-    for role, target in _role_targets(snaps):
-        if not isinstance(target, dict):
-            continue
-        refs = [target.get("geo")] + list(
-            target["geos"] if isinstance(target.get("geos"), list) else [])
-        for ref in refs:
-            if not isinstance(ref, dict):
-                continue
-            edge = _edge_ref(ref)
-            if edge is None:
-                raise KernelError(
-                    "accrochage « {} » : cible invalide".format(role))
-            found.add(edge)
-    return found
+    return {key for key in _outside_refs(snaps)
+            if not isinstance(key, tuple)}
+
+
+def foreign_vertices(snaps):
+    """Les sommets d'autres esquisses que ``snaps`` nomme (``{"sketch":
+    nom, "vertex": k}``) : un ensemble de ``(nom, k)``."""
+    return {key for key in _outside_refs(snaps) if isinstance(key, tuple)}
 
 
 def with_model_edges(snaps, refs):
@@ -139,10 +167,10 @@ def with_model_edges(snaps, refs):
     une arête que l'esquisse ne peut pas lier — sa cible tombe : le point
     reste où il est, sans relation."""
     def geo(ref):
-        edge = _edge_ref(ref)
-        if edge is None:
+        key = _ref_key(ref)
+        if key is None:
             return ref
-        return refs[edge]["geo"] if refs.get(edge) else None
+        return refs[key]["geo"] if refs.get(key) else None
 
     def target(value):
         if not isinstance(value, dict):
@@ -156,7 +184,7 @@ def with_model_edges(snaps, refs):
             out["geo"] = geo(value["geo"])
             if out["geo"] is None:
                 return None
-            edge = _edge_ref(value["geo"])
+            edge = _ref_key(value["geo"])
             if edge is not None and "point" in value:
                 out["point"] = refs[edge]["points"].get(value["point"])
                 if out["point"] is None:

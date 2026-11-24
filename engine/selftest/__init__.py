@@ -287,6 +287,7 @@ def _etapes():
         fonctions.p170_habillage_aretes_et_faces,
         fonctions.p171_percage_positions_cotees,
         fonctions.p172_balayage_absorbe_trajectoire,
+        fonctions.p173_accroche_autre_esquisse,
         assemblage.p152_piece_reenregistree_relue,
         _etapes_des_plugins,
         document.bilan,

@@ -34,7 +34,8 @@ import { ORIGIN_GEO, sceneTheme } from "./sketch/commun.js";
 import { sketchNeedsHalo } from "./theme.js";
 import {
   SNAP_KINDS, SNAP_PX, SNAP_TOL, activeSnaps, arcSnaps, circleSnaps,
-  engineSnaps, lineSnaps, modelEdgeOf, modelEdgeSnaps, normalizeSnapSettings,
+  engineSnaps, foreignSnapPoints, lineSnaps, modelEdgeOf, modelEdgeSnaps,
+  normalizeSnapSettings,
   onCircle, readSnapSettings, rectSnaps, sketchEndpoints, sketchSnapPoints,
   slotSnaps,
   snapSketchPoint, snapTarget, trimPiece, writeSnapSettings,
@@ -317,15 +318,20 @@ export function createSketchMode(deps) {
   let modelCache = { edges: null, state: null, snaps: NO_MODEL };
   function modelSnaps() {
     const edges = modelEdges();
-    if (!edges || !mode.state) return NO_MODEL;
+    if (!mode.state) return NO_MODEL;
     if (modelCache.edges !== edges || modelCache.state !== mode.state) {
       const inSketch = (x, y, z) => {
         const v = new THREE.Vector3(x, y, z).applyMatrix4(mode.inverse);
         return [v.x, v.y, v.z];
       };
-      modelCache = { edges, state: mode.state, snaps: modelEdgeSnaps(
-        edges, inSketch,
-        { externals: mode.state.entities.filter((e) => e.external) }) };
+      const externals = mode.state.entities.filter((e) => e.external);
+      const model = edges ? modelEdgeSnaps(edges, inSketch, { externals })
+        : NO_MODEL;
+      // Et les sommets des autres esquisses dans le plan.
+      const foreign = foreignSnapPoints(mode.state.foreign_points,
+                                        { externals });
+      modelCache = { edges, state: mode.state, snaps: {
+        entities: model.entities, points: [...model.points, ...foreign] } };
     }
     return modelCache.snaps;
   }
