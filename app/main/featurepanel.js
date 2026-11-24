@@ -35,7 +35,8 @@ export function installFeaturePanel(ctx) {
         && hit?.face === app.selectedFaceId && hit.pick) {
       const [x, y, z] = hit.pick;
       return { kind: "point",
-               items: [{ kind: "point", face: app.selectedFaceId, x, y, z }] };
+               items: [{ kind: "point", face: app.selectedFaceId, x, y, z,
+                         normal: hit.normal }] };
     }
     if (accepts.includes("face") && app.selectedFaceId !== null) {
       return { kind: "face", face: app.selectedFaceId };
