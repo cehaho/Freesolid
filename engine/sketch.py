@@ -312,20 +312,42 @@ class SketchMixin:
         Défait les transactions ouvertes depuis l'entrée en esquisse —
         une esquisse neuve disparaît — puis restaure la géométrie et les
         contraintes d'une esquisse rééditée (les glisser n'ont pas de
-        transaction)."""
+        transaction).
+
+        Les pas défaits sont ceux qui portent le numéro de la session
+        (``transaction_name``), pas un compte : la pile de FreeCAD est
+        bornée (20 pas en 1.1), pleine, ``UndoCount`` ne bouge plus et
+        l'esquisse neuve restait dans l'arbre."""
+        from engine.docprops import session_steps, undo_steps
         doc = self._require_doc()
         session = self._sketch_session
         self._sketch_session = None
         self._drag_from = None
         if not session or session["sketch"] != str(sketch):
             return self.get_tree()
-        while doc.UndoCount > session["mark"] and doc.UndoNames:
+        for _ in range(session_steps(doc.UndoNames, session["id"])):
             doc.undo()
         sk = doc.getObject(session["sketch"])
-        if sk is not None and session["snapshot"] is not None:
+        if sk is not None and session["snapshot"] is None:
+            # Esquisse neuve : sa création (hors session) se défait aussi ;
+            # sortie de la pile, l'esquisse est retirée.
+            if undo_steps(doc.UndoNames[:1]) == ["sketch_start"]:
+                doc.undo()
+            if doc.getObject(session["sketch"]) is not None:
+                self._remove_new_sketch(doc, sk)
+        elif sk is not None:
             self._set_sketch(sk, *session["snapshot"])
         doc.recompute()
         return self.get_tree()
+
+    @staticmethod
+    def _remove_new_sketch(doc, sk):
+        """Retire une esquisse neuve dont la création n'est plus dans la
+        pile d'annulation."""
+        for parent in sk.InList:
+            if parent.TypeId == "PartDesign::Body":
+                parent.removeObject(sk)
+        doc.removeObject(sk.Name)
 
     @staticmethod
     def _set_sketch(sk, geometry, constraints):
