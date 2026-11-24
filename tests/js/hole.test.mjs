@@ -81,6 +81,20 @@ describe("perçage : la zone des positions", () => {
       [at(1, 20, 0, 5)]);
   });
 
+  it("le point de la face présélectionnée est la première position", () => {
+    const hole = FEATURES.find((e) => e.button === "btn-hole");
+    const picked = { kind: "point", items: [at(5, 1, 2, 10)] };
+    const asked = [];
+    const groups = hole.groups({ lastTree: { bodies: [] },
+      selection: (accepts) => { asked.push(accepts); return picked; } });
+    assert.deepEqual(asked[0], ["point"]);
+    assert.equal(groups[0].rows[0].value, picked);
+    // Rien de présélectionné : la zone attend les clics.
+    const empty = FEATURES.find((e) => e.button === "btn-hole")
+      .groups({ lastTree: { bodies: [] }, selection: () => null });
+    assert.equal("value" in empty[0].rows[0], false);
+  });
+
   it("deux positions de faces différentes ne se confondent pas", () => {
     assert.equal(holeSamePosition(at(5, 0, 0, 10), at(1, 0, 0, 10),
                                   { diameter: 4 }), false);

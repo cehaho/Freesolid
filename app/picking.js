@@ -929,6 +929,9 @@ export function installPicking(ctx) {
       const hit = ctx.lastFaceHit
         && snapFacePoint(ctx.lastFaceHit, ctx.lastFaceHit.normal,
           ctx.edgeSnaps, worldToScreen);
+      // Gardé pour une commande ouverte ensuite (Perçage : le point de la
+      // face présélectionnée devient la première position).
+      if (hit) ctx.lastFaceHit.pick = [hit.x, hit.y, hit.z];
       const tookPoint = hit && panel.notifyPick("point", {
         kind: "point", face: ctx.selectedFaceId, x: hit.x, y: hit.y, z: hit.z });
       if (tookPoint && hit.snapped) {
