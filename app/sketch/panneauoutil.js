@@ -28,7 +28,7 @@ export function installPanneauOutil(sk) {
               value: mode.chamfer.distance2 ?? "", unit: "mm", min: 0.01 },
           ],
         }],
-        note: t("Cliquez deux lignes près du coin à chanfreiner."),
+        note: t("Cliquez le sommet du coin à chanfreiner, ou ses deux lignes."),
         onChange: (v) => {
           const d = num(v.distance);
           if (d > 0) mode.chamfer.distance = d;
@@ -55,7 +55,7 @@ export function installPanneauOutil(sk) {
             label: t("Par le cercle inscrit (clic au milieu d'un côté)"),
             value: !!mode.polygonInscribed }])],
       }],
-      note: fillet ? t("Cliquez deux lignes près du coin à arrondir.")
+      note: fillet ? t("Cliquez le sommet du coin à arrondir, ou ses deux lignes.")
         : t("Cliquez le centre, puis un sommet (ou le milieu d'un côté)."),
       onChange: (v) => {
         if (fillet) {

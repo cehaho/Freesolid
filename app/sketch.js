@@ -15,7 +15,7 @@ import { CLICK_TOOLS, OPEN_TOOLS, curvatureComb,
   endpointDirection, gridStep, hiddenByLayers,
   polygonVertexFromApothem } from "./sketchtools.js";
 import {
-  arcAngles, chainClickAction, clickSelection, distanceToEntity,
+  arcAngles, chainClickAction, clickSelection, cornerAt, distanceToEntity,
   relationGlyphs, samePick,
   sketchPreviewPoints,
 } from "./geom2d.js";
@@ -1293,6 +1293,16 @@ export function createSketchMode(deps) {
           cx: c.x, cy: c.y, x: vertex.x, y: vertex.y, sides }));
       }
     } else if (mode.tool === "skfillet") {
+      const corner = !mode.pendingFillet && clickedCorner(snapped);
+      if (corner) {
+        const radius = mode.filletRadius;
+        if (!(radius > 0)) {
+          say(t("Congé d'esquisse : rayon invalide"), true);
+          return;
+        }
+        await safe(call("sketch_fillet", { sketch: name, ...corner, radius }));
+        return;
+      }
       const target = nearestEntity(event);
       if (target === null) return;
       if (!mode.pendingFillet) {
@@ -1307,12 +1317,23 @@ export function createSketchMode(deps) {
           say(t("Congé d'esquisse : rayon invalide"), true);
           return;
         }
-        say(t("Congé d'esquisse : cliquez deux lignes près du coin"));
+        say(t("Congé d'esquisse : cliquez le sommet du coin, ou ses deux lignes"));
         await safe(call("sketch_fillet", { sketch: name,
           geo1: first.geo, geo2: target,
           x1: first.x, y1: first.y, x2: local.x, y2: local.y, radius }));
       }
     } else if (mode.tool === "skchamfer") {
+      const corner = !mode.pendingFillet && clickedCorner(snapped);
+      if (corner) {
+        const { distance, distance2 } = mode.chamfer;
+        if (!(distance > 0)) {
+          say(t("Chanfrein d'esquisse : distance invalide"), true);
+          return;
+        }
+        await safe(call("sketch_chamfer", { sketch: name, ...corner, distance,
+          ...(distance2 > 0 ? { distance2 } : {}) }));
+        return;
+      }
       const target = nearestEntity(event);
       if (target === null) return;
       if (!mode.pendingFillet) {
@@ -1326,7 +1347,7 @@ export function createSketchMode(deps) {
           say(t("Chanfrein d'esquisse : distance invalide"), true);
           return;
         }
-        say(t("Chanfrein d'esquisse : cliquez deux lignes près du coin"));
+        say(t("Chanfrein d'esquisse : cliquez le sommet du coin, ou ses deux lignes"));
         await safe(call("sketch_chamfer", { sketch: name,
           geo1: first.geo, geo2: target, x1: first.x, y1: first.y,
           x2: local.x, y2: local.y, distance,
@@ -1611,6 +1632,16 @@ export function createSketchMode(deps) {
     }
     const b = a && foot(a, line);
     return a && b ? { a, b } : {};
+  }
+
+  /** Le coin cliqué (un sommet où deux lignes se joignent), en
+   *  paramètres de sketch_fillet / sketch_chamfer, sinon null. */
+  function clickedCorner(snapped) {
+    const at = snapped.onPoint && pickPoint(snapped.onPoint);
+    const corner = at && cornerAt(mode.state.entities, at);
+    return corner && { geo1: corner.geo1, geo2: corner.geo2,
+                       x1: corner.p1.x, y1: corner.p1.y,
+                       x2: corner.p2.x, y2: corner.p2.y };
   }
 
   function pickPoint(pick) {
