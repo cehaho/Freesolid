@@ -502,6 +502,28 @@ export function entityPropertyLines(entity) {
   return [];
 }
 
+/** Le coin d'esquisse en ``at`` ({ x, y }) : deux lignes, et deux
+ *  seulement, y ont un bout. Comme dans les modeleurs courants, le congé
+ *  et le chanfrein d'esquisse prennent le coin d'un clic sur ce sommet.
+ *  Rend ``{ geo1, geo2, p1, p2 }`` — ``p1``, ``p2`` : un point de chaque
+ *  ligne près du coin, comme un clic sur elle —, sinon null. */
+export function cornerAt(entities, at, tol = 1e-6) {
+  const ends = [];
+  for (const entity of entities ?? []) {
+    if (entity.type !== "line") continue;
+    for (const [end, other] of [[entity.p1, entity.p2], [entity.p2, entity.p1]]) {
+      if (Math.hypot(end[0] - at.x, end[1] - at.y) <= tol) {
+        ends.push({ geo: entity.id, end, other });
+      }
+    }
+  }
+  if (ends.length !== 2 || ends[0].geo === ends[1].geo) return null;
+  const near = ({ end, other }) => ({ x: end[0] + (other[0] - end[0]) / 4,
+                                      y: end[1] + (other[1] - end[1]) / 4 });
+  return { geo1: ends[0].geo, geo2: ends[1].geo,
+           p1: near(ends[0]), p2: near(ends[1]) };
+}
+
 /** Deux choix d'esquisse (``{geo, point?}``) désignent-ils la même
  *  chose : la même entité entière, ou le même point ? */
 export function samePick(a, b) {
