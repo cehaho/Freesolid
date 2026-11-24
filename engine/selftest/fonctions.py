@@ -4827,7 +4827,9 @@ def p115_percage_rechoisit_ses_positions(self, mark, report, etat):
     flank = call("set_params", feature=hole.Name, values={
         "positions": {"face": side, "points": [[20, 0, 5]]}})
     moved = (flank.get("ok") is True
-             and (entry(flank["result"], hole.Name).get("positions") or {})
+             and {k: v for k, v in (entry(flank["result"], hole.Name)
+                                     .get("positions") or {}).items()
+                  if k != "normal"}
              == {"face": side, "points": [[20, 0, 5]]} and clean())
     call("undo")
     back = entry(self.get_tree(), hole.Name).get("positions") or {}
@@ -8227,3 +8229,43 @@ def p170_habillage_aretes_et_faces(self, mark, report, etat):
     report["p170_habillage_aretes_et_faces"] = (
         mixed and item.get("dressup") == {"edges": [bottom]}
         and fillet.Shape.isValid())
+
+
+def p171_percage_positions_cotees(self, mark, report, etat):
+    mark("p171: les positions tapées d'un perçage sont cotées")
+    from engine.kernel import KernelError
+    self.new_part("Perçage coté")
+    self.add_rect_sketch(100, 50)
+    self.add_pad(15)
+    body = self._require_body()
+    top = self._top_face_id()
+    # Le premier centre est tapé (X = -40, sur l'axe), le second cliqué.
+    tree = self.add_hole(9, through=True, face=top,
+                         points=[[-40, 0, 15], [30, 10, 15]],
+                         dims=[True, False])
+    hole = body.Tip
+    sketch = hole.Profile[0]
+    kinds = sorted(c.Type for c in sketch.Constraints)
+    item = next(f for f in tree["features"] if f["name"] == hole.Name)
+    listed = item.get("positions") or {}
+    typed = (kinds == ["DistanceX", "PointOnObject"]
+             and sketch.solve() == 0
+             and listed.get("dims") == [True, False]
+             and listed.get("normal") == [0.0, 0.0, 1.0]
+             and hole.Shape.isValid())
+    # Re-choisies : le second devient tapé, le premier ne l'est plus.
+    tree = self.set_params(hole.Name, {"positions": {
+        "face": top, "points": [[-40, 0, 15], [30, 10, 15]],
+        "dims": [False, True]}})
+    item = next(f for f in tree["features"] if f["name"] == hole.Name)
+    kinds = sorted(c.Type for c in hole.Profile[0].Constraints)
+    swapped = ((item.get("positions") or {}).get("dims") == [False, True]
+               and kinds == ["DistanceX", "DistanceY"]
+               and hole.Shape.isValid())
+    try:
+        self.add_hole(9, through=True, face=top, points=[[0, 20, 15]],
+                      dims=[1])
+        refused = False
+    except KernelError:
+        refused = body.Tip is hole
+    report["p171_percage_positions_cotees"] = typed and swapped and refused

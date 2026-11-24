@@ -5,7 +5,7 @@ import {
   FEATURES, hasFreeSketch, holePositionValues, holePositions, holePositionsPick, holePositionsRow,
   holeSamePosition,
 } from "../../app/features.js";
-import { zoneToggle } from "../../app/panel.js";
+import { movePosition, planeAxes, zoneToggle } from "../../app/panel.js";
 
 describe("perçage : positions cliquées", () => {
   it("aucune position : la dernière esquisse sert", () => {
@@ -125,5 +125,43 @@ describe("perçage : rien à percer tant qu'on n'a pas cliqué", () => {
     const off = { lastTree: { bodies: [], features: [
       { name: "Sketch", type_key: "sketch", suppressed: true }] } };
     assert.equal(hole.build(values, off), null);
+  });
+});
+
+describe("perçage : positions tapées", () => {
+  it("les axes du plan d'une face perpendiculaire à un axe", () => {
+    assert.deepEqual(planeAxes([0, 0, 1]), [0, 1]);
+    assert.deepEqual(planeAxes([0, -1, 0]), [0, 2]);
+    assert.deepEqual(planeAxes({ x: 1, y: 0, z: 0 }), [1, 2]);
+    assert.equal(planeAxes([0, 0.6, 0.8]), null);
+    assert.equal(planeAxes(null), null);
+  });
+
+  it("une coordonnée retapée devient une cote", () => {
+    const items = [{ kind: "point", face: 5, x: -32.5, y: -18, z: 15 },
+                   { kind: "point", face: 5, x: 30, y: 10, z: 15 }];
+    const moved = movePosition(items, 0, 0, -40);
+    assert.deepEqual(moved[0],
+      { kind: "point", face: 5, x: -40, y: -18, z: 15, typed: true });
+    assert.equal(moved[1], items[1]);
+    assert.deepEqual(holePositions({ items: moved }), { face: 5,
+      points: [[-40, -18, 15], [30, 10, 15]], dims: [true, false] });
+  });
+
+  it("rééditées, elles gardent leurs cotes", () => {
+    const positions = { face: 5, points: [[-40, 0, 15], [30, 10, 15]],
+                        normal: [0, 0, 1], dims: [true, false] };
+    const zone = holePositionsPick(positions);
+    assert.equal(zone.items[0].typed, true);
+    assert.equal(zone.items[1].typed, undefined);
+    assert.deepEqual(zone.items[0].normal, [0, 0, 1]);
+    assert.deepEqual(holePositionValues(zone, positions), {});
+    const retyped = { items: movePosition(zone.items, 1, 1, 10) };
+    assert.deepEqual(holePositionValues(retyped, positions).positions.dims,
+      [true, true]);
+  });
+
+  it("la zone des positions montre leurs coordonnées", () => {
+    assert.equal(holePositionsRow().coords, true);
   });
 });

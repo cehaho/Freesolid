@@ -159,13 +159,16 @@ OPS = (
        undo=True, preview=True, creates="PartDesign::AdditiveHelix",
        replay=_rejouer_helice),        # optional: sketch
     Op("add_hole", Req(("diameter", float), optional={"face": int, "points": list,
-                                                     "bodies": list}),
+                                                     "bodies": list,
+                                                     "dims": list}),
        undo=True, preview=True, creates="PartDesign::Hole",
        replay=_rejouer_percage),
                                        # optional: depth | through, cut
                                        # (none|lamage|fraisage), cut_diameter,
                                        # cut_depth, cut_angle ; face + points :
-                                       # les centres cliqués sur la face
+                                       # les centres cliqués sur la face ;
+                                       # dims : un booléen par centre, vrai
+                                       # = coté depuis l'origine
     # Nervure : esquisse ouverte (sinon la dernière libre), épaisseur ;
     # direction parallel | normal, flip : l'autre côté.
     Op("add_rib", Req(("thickness", float), optional={

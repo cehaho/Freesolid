@@ -3059,7 +3059,7 @@ class SolidsMixin:
 
     def add_hole(self, diameter, depth=None, through=False, cut="none",
                  cut_diameter=None, cut_depth=None, cut_angle=None,
-                 face=None, points=None, bodies=None):
+                 face=None, points=None, bodies=None, dims=None):
         """Perçage.
 
         Avec ``face`` et ``points`` (les centres cliqués sur la face, en
@@ -3069,7 +3069,10 @@ class SolidsMixin:
         cercles positionnent les trous. Dans les deux cas le diamètre
         saisi remplace celui des cercles. Borgne ou à travers tout,
         lamage ou fraisage optionnel. ``bodies`` : comme l'enlèvement
-        extrudé.
+        extrudé. ``dims`` : un booléen par point ; un point vrai a été
+        tapé au clavier, ses deux coordonnées deviennent des cotes depuis
+        l'origine de l'esquisse (comme une position cotée dans les
+        modeleurs courants).
         """
         from engine.kernel import (
             KernelError,
@@ -3087,7 +3090,8 @@ class SolidsMixin:
         if points:
             if face is None:
                 raise KernelError("perçage : la face des positions manque")
-            profile = self._hole_positions_sketch(face, points, diameter)
+            profile = self._hole_positions_sketch(face, points, diameter,
+                                                  dims)
         else:
             profile = self._latest_sketch()
         hole = body.newObject("PartDesign::Hole", "Hole")
@@ -3149,7 +3153,8 @@ class SolidsMixin:
                for user in sketch.InList):
             return None
         place = sketch.getGlobalPlacement()
-        points = []
+        points, dims = [], []
+        dimensioned = self._dimensioned_centers(sketch)
         for index, geometry in enumerate(sketch.Geometry):
             if sketch.getConstruction(index):
                 continue
@@ -3158,9 +3163,32 @@ class SolidsMixin:
             center = place.multVec(geometry.Center)
             points.append([round(center.x, 9), round(center.y, 9),
                            round(center.z, 9)])
+            dims.append(index in dimensioned)
         if not points:
             return None
-        return {"face": int(name[4:]) - 1, "points": points}
+        normal = place.Rotation.multVec(self._app().Vector(0, 0, 1))
+        found = {"face": int(name[4:]) - 1, "points": points,
+                 "normal": [round(normal.x, 9), round(normal.y, 9),
+                            round(normal.z, 9)]}
+        if any(dims):
+            found["dims"] = dims
+        return found
+
+    @staticmethod
+    def _dimensioned_centers(sketch):
+        """Les cercles dont le centre est coté dans les deux sens depuis
+        l'origine de l'esquisse (cote, ou point sur l'axe quand elle vaut
+        zéro) : les positions tapées d'un perçage."""
+        across, along = set(), set()
+        for c in sketch.Constraints:
+            if (c.Type in ("DistanceX", "DistanceY")
+                    and (c.First, c.FirstPos) == (-1, 1)
+                    and c.SecondPos == 3):
+                (across if c.Type == "DistanceX" else along).add(c.Second)
+            elif (c.Type == "PointOnObject" and c.FirstPos == 3
+                    and c.Second in (-1, -2)):
+                (across if c.Second == -2 else along).add(c.First)
+        return across & along
 
     def _set_hole_positions(self, hole, positions):
         """Positions re-choisies d'un perçage : son esquisse se repose sur
@@ -3175,6 +3203,7 @@ class SolidsMixin:
         if not isinstance(positions, dict):
             raise KernelError("perçage : la face des positions manque")
         face, points = positions.get("face"), positions.get("points")
+        dims = self._hole_dims(positions.get("dims"), points)
         base = hole.BaseFeature
         if type(face) is not int:
             raise KernelError("perçage : la face des positions manque")
@@ -3204,9 +3233,44 @@ class SolidsMixin:
             local = to_local.multVec(V(*point))
             sketch.addGeometry(Part.Circle(
                 V(local.x, local.y, 0), V(0, 0, 1), radius), False)
-        self._link_hole_centers(sketch)
+        self._dimension_hole_centers(sketch, dims)
+        self._link_hole_centers(sketch, skip=self._typed(dims))
 
-    def _hole_positions_sketch(self, face, points, diameter):
+    @staticmethod
+    def _hole_dims(dims, points):
+        """``dims`` d'un perçage : une liste de booléens, au plus un par
+        point (les absents valent faux)."""
+        from engine.kernel import KernelError
+        if dims is None:
+            return []
+        if (not isinstance(dims, (list, tuple))
+                or any(type(d) is not bool for d in dims)
+                or len(dims) > len(points or [])):
+            raise KernelError("perçage : « dims » est une liste de vrai ou "
+                              "faux, une par position")
+        return list(dims)
+
+    @staticmethod
+    def _typed(dims):
+        return {gid for gid, flag in enumerate(dims) if flag}
+
+    def _dimension_hole_centers(self, sketch, dims):
+        """Les centres tapés au clavier (``dims``) sont cotés depuis
+        l'origine de l'esquisse, dans les deux sens — un point sur l'axe
+        quand la cote vaudrait zéro."""
+        import Sketcher
+        for gid in sorted(self._typed(dims)):
+            center = sketch.Geometry[gid].Center
+            for value, kind, axis in ((center.x, "DistanceX", -2),
+                                      (center.y, "DistanceY", -1)):
+                if abs(value) < 1e-9:
+                    sketch.addConstraint(Sketcher.Constraint(
+                        "PointOnObject", gid, 3, axis))
+                else:
+                    sketch.addConstraint(Sketcher.Constraint(
+                        kind, -1, 1, gid, 3, value))
+
+    def _hole_positions_sketch(self, face, points, diameter, dims=None):
         """Esquisse sur ``face`` avec un cercle par point (monde → plan)."""
         from engine.kernel import KernelError
         import Part
@@ -3219,6 +3283,11 @@ class SolidsMixin:
         sketch.recompute()
         V = self._app().Vector
         to_local = sketch.getGlobalPlacement().inverse()
+        try:
+            dims = self._hole_dims(dims, points)
+        except KernelError:
+            doc.removeObject(sketch.Name)
+            raise
         for point in points:
             if not isinstance(point, (list, tuple)) or len(point) != 3:
                 doc.removeObject(sketch.Name)
@@ -3226,16 +3295,18 @@ class SolidsMixin:
             local = to_local.multVec(V(*(float(c) for c in point)))
             sketch.addGeometry(Part.Circle(
                 V(local.x, local.y, 0), V(0, 0, 1), float(diameter) / 2), False)
-        self._link_hole_centers(sketch)
+        self._dimension_hole_centers(sketch, dims)
+        self._link_hole_centers(sketch, skip=self._typed(dims))
         return sketch
 
-    def _link_hole_centers(self, sketch):
+    def _link_hole_centers(self, sketch, skip=()):
         """Un centre posé pile au centre d'une arête circulaire de la face
         (le clic s'y est aimanté) y reste lié : l'arête entre dans
         l'esquisse comme géométrie externe, le centre lui est coïncident.
         Comme dans les modeleurs courants, le trou suit alors le bossage
         quand une cote le déplace. Sans arête au même centre, le point
-        reste libre ; un lien refusé n'empêche pas le perçage."""
+        reste libre ; un lien refusé n'empêche pas le perçage. ``skip`` :
+        les cercles dont le centre est coté (tapé), qui ne se lient pas."""
         import Sketcher
         support = (getattr(sketch, "AttachmentSupport", None)
                    or getattr(sketch, "Support", None) or [])
@@ -3262,7 +3333,7 @@ class SolidsMixin:
         place = sketch.getGlobalPlacement()
         linked = {}
         for gid, geometry in enumerate(sketch.Geometry):
-            if geometry.TypeId != "Part::GeomCircle":
+            if geometry.TypeId != "Part::GeomCircle" or gid in skip:
                 continue
             center = place.multVec(geometry.Center)
             index = next((k for c, k in rounds

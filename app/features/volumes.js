@@ -18,7 +18,9 @@ import {
 
 /** Perçage : les centres cliqués (sélection « point ») → { face, points }
  *  pour le moteur, null s'il n'y en a pas (la dernière esquisse sert),
- *  { error } s'ils ne sont pas sur une même face. */
+ *  { error } s'ils ne sont pas sur une même face. `dims` (un booléen par
+ *  centre) quand des coordonnées ont été tapées : elles deviennent des
+ *  cotes de l'esquisse de positions. */
 export function holePositions(sel) {
   const items = sel?.items ?? [];
   if (!items.length) return null;
@@ -26,7 +28,9 @@ export function holePositions(sel) {
   if (items.some((i) => i.face !== face)) {
     return { error: "Perçage : les positions doivent être sur une même face" };
   }
-  return { face, points: items.map((i) => [i.x, i.y, i.z]) };
+  const out = { face, points: items.map((i) => [i.x, i.y, i.z]) };
+  if (items.some((i) => i.typed)) out.dims = items.map((i) => !!i.typed);
+  return out;
 }
 
 /** L'arbre a-t-il une esquisse libre (pas encore prise par une
@@ -50,6 +54,7 @@ export function holeSamePosition(a, b, values) {
 export function holePositionsRow(value) {
   return { type: "selection", key: "pos", accepts: ["point"],
            multiple: true, oneFace: true, same: holeSamePosition,
+           coords: true,
            hint: "Cliquez les centres des trous sur une face",
            ...(value ? { value } : {}) };
 }
@@ -58,7 +63,9 @@ export function holePositionsRow(value) {
  *  l'arbre : sa face et ses centres), comme les clics de la création. */
 export function holePositionsPick(positions) {
   return { kind: "point", items: (positions?.points ?? []).map(
-    ([x, y, z]) => ({ kind: "point", face: positions.face, x, y, z })) };
+    ([x, y, z], i) => ({ kind: "point", face: positions.face, x, y, z,
+                         ...(positions.normal ? { normal: positions.normal } : {}),
+                         ...(positions.dims?.[i] ? { typed: true } : {}) })) };
 }
 
 /** Valeurs `set_params` des positions : `{}` si elles n'ont pas changé,
@@ -67,9 +74,11 @@ export function holePositionValues(sel, before) {
   const chosen = holePositions(sel);
   if (!chosen || chosen.error) return null;
   const close = (a, b) => a.every((c, i) => Math.abs(c - b[i]) < 1e-6);
+  const typed = (p, i) => !!p?.dims?.[i];
   const same = chosen.face === before?.face
     && chosen.points.length === (before?.points ?? []).length
-    && chosen.points.every((p) => before.points.some((q) => close(p, q)));
+    && chosen.points.every((p, i) => before.points.some(
+      (q, j) => close(p, q) && typed(chosen, i) === typed(before, j)));
   return same ? {} : { positions: chosen };
 }
 

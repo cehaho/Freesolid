@@ -37,7 +37,10 @@
 //         paraît (« Arête » choisie dès qu'on clique une arête) ;
 //         edgeSet? — zone de plusieurs arêtes (congé…) : un clic simple
 //         dans la vue ajoute l'arête, un second la retire ;
-//         solids? — une zone de corps qui vise aussi un solide d'un corps }
+//         solids? — une zone de corps qui vise aussi un solide d'un corps ;
+//         coords? — une zone de positions montre, sous le compte, les
+//         deux coordonnées de chaque point dans le plan de sa face, à
+//         retaper (le point devient `typed`) }
 //         Une zone multiple de corps (ou de surfaces) liste un objet par
 //         ligne, chacun retirable (✕). La zone active — la dernière
 //         cliquée, ou tout juste apparue — prend les clics de la vue.
@@ -159,6 +162,23 @@ export function samePick(a, b) {
       && (a.solid ?? null) === (b.solid ?? null);
   }
   return a.name === b.name;
+}
+
+/** Les deux axes (0 X, 1 Y, 2 Z) du plan d'une face de normale
+ *  `normal`, quand elle est perpendiculaire à un axe ; null sinon (ses
+ *  positions se cotent dans l'esquisse). */
+export function planeAxes(normal) {
+  if (!normal) return null;
+  const n = Array.isArray(normal) ? normal : [normal.x, normal.y, normal.z];
+  const k = n.findIndex((c) => Math.abs(Math.abs(c) - 1) < 1e-6);
+  return k < 0 ? null : [0, 1, 2].filter((a) => a !== k);
+}
+
+/** Les positions après une coordonnée retapée : le point `index` prend
+ *  `value` sur l'axe `axis` et devient `typed` (une cote). */
+export function movePosition(items, index, axis, value) {
+  return items.map((item, i) => (i !== index ? item
+    : { ...item, [["x", "y", "z"][axis]]: value, typed: true }));
 }
 
 /** Une zone d'objets entiers : des corps, des surfaces. */
@@ -729,6 +749,10 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
       }
       if (value.items && value.items.every((i) => i.kind === "point")) {
         box.textContent = t("{n} position(s)", { n: value.items.length });
+        if (row.coords) {
+          box.classList.add("filled");
+          return renderPositions(row, value, box);
+        }
       } else if (value.items && value.items.every((i) => i.kind === "surfface")) {
         box.textContent = value.items.length <= 3
           ? value.items.map((i) => `${i.label} · ${t("Face {n}", { n: i.face })}`)
@@ -845,6 +869,50 @@ export function createPropertyPanel({ say, onClose, onToggle, onPicks }) {
       rowEl.append(label);
     }
     return rowEl;
+  }
+
+  // Positions d'un perçage : sous la zone, une ligne par point avec ses
+  // deux coordonnées dans le plan de la face. Une valeur retapée devient
+  // une cote (comme un point coté dans les modeleurs courants).
+  function renderPositions(row, value, box) {
+    const wrap = el("div", "ppositions");
+    wrap.append(box);
+    const list = el("div", "plist ppoints");
+    value.items.forEach((item, index) => {
+      const axes = planeAxes(item.normal);
+      if (!axes) return;
+      const line = el("div", "plist-item ppoint");
+      line.append(el("span", "ppoint-name", `P${index + 1}`));
+      for (const axis of axes) {
+        const name = ["X", "Y", "Z"][axis];
+        const coord = item[name.toLowerCase()];
+        line.append(el("span", "punit", name));
+        const input = document.createElement("input");
+        input.type = "text";
+        input.inputMode = "decimal";
+        input.className = "ppoint-coord";
+        input.title = name;
+        input.dataset.axis = name;
+        input.value = String(Math.round(coord * 1000) / 1000);
+        input.addEventListener("change", () => {
+          const parsed = Number(input.value.replace(",", "."));
+          if (!Number.isFinite(parsed)) {
+            input.value = String(Math.round(coord * 1000) / 1000);
+            return;
+          }
+          const current = active.values[row.key];
+          active.values[row.key] = { ...current,
+            items: movePosition(current.items, index, axis, parsed) };
+          changed();
+          reportPicks();
+        });
+        line.append(input);
+      }
+      line.append(el("span", "punit", "mm"));
+      list.append(line);
+    });
+    if (list.childElementCount) wrap.append(list);
+    return wrap;
   }
 
   // Liste de points x, y, z : chaque coordonnée se corrige au clavier,
